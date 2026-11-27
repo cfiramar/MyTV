@@ -239,7 +239,9 @@ var TV = (function () {
     ['globoplaywebos', 'Globoplay'], ['spotify-beehive', 'Spotify', 'icons/spotify.svg'],
     ['tv.twitch.tv.starshot.lg', 'Twitch', '', '#9146FF'], ['cdp-30', 'Plex', '', '#E5A00D'],
     ['org.jellyfin.webos', 'Jellyfin', 'icons/jellyfin.svg'], ['com.crunchyroll.webapp', 'Crunchyroll', '', '#F47521'],
-    ['com.webos.app.browser', 'Web Browser', '', '#3A7BD5'], ['space.nuvio.webos', 'Nuvio TV', '', '#0E0F12']
+    ['com.webos.app.browser', 'Web Browser', '', '#3A7BD5'], ['space.nuvio.webos', 'Nuvio TV', '', '#0E0F12'],
+    ['com.stremio.webos', 'Stremio', '', '#7B5BF5'], ['com.limelight.webos', 'Moonlight', '', '#2563EB'],
+    ['org.moonlight_stream.moonlight-tv', 'Moonlight', '', '#2563EB']
   ];
 
   function knownApps(done) {
@@ -812,7 +814,96 @@ var TV = (function () {
       try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; }
     },
 
-    /** Key codes: the arrows, OK and the TV's Back (LG 461, Samsung 10009). */
-    keys: {left: 37, up: 38, right: 39, down: 40, ok: 13, back: samsung ? 10009 : 461}
+    /** Stable device identifier persisted in localStorage for Supabase tv_devices & Cloud Remote channel. */
+    deviceId: function () {
+      var key = 'mytv.deviceSlug', saved = '';
+      try { saved = localStorage.getItem(key) || ''; } catch (e) {}
+      if (saved) return saved;
+      var prefix = webos ? 'webos' : samsung ? 'tizen' : 'web';
+      var rand = Math.floor(100000 + Math.random() * 900000).toString(36);
+      saved = prefix + '-tv-' + rand;
+      try { localStorage.setItem(key, saved); } catch (e) {}
+      return saved;
+    },
+
+    /** True when the platform can send local LAN UDP 38899 packets via the bundled webOS JS service. */
+    supportsLocalWiz: webos,
+
+    /** Discovers WiZ V2 bulbs on local Wi-Fi via webOS JS service (UDP 38899); done({supported, bulbs}). */
+    wizDiscover: function (opts, done) {
+      if (!webos) {
+        if (done) setTimeout(function () { done({supported: false, bulbs: []}); }, 0);
+        return;
+      }
+      luna('luna://' + self + '.service/wizDiscover', opts || {}, function (res) {
+        if (done) done({supported: true, bulbs: (res && res.bulbs) || []});
+      });
+    },
+
+    /** Sends WiZ V2 setPilot parameters via webOS JS service (UDP 38899); done({supported, ok}). */
+    wizSetPilot: function (params, done) {
+      if (!webos) {
+        if (done) setTimeout(function () { done({supported: false, ok: false}); }, 0);
+        return;
+      }
+      luna('luna://' + self + '.service/wizSetPilot', params || {}, function (res) {
+        if (done) done({supported: true, ok: !!(res && res.ok), respondedCount: res ? res.respondedCount || 0 : 0});
+      });
+    },
+
+    /** Finds an installed Moonlight-TV client app on LG webOS or Samsung Tizen, or null. */
+    findMoonlightApp: function (appList) {
+      var list = appList || [], i, a, id, title;
+      for (i = 0; i < list.length; i++) {
+        a = list[i];
+        id = String(a.id || '').toLowerCase();
+        title = String(a.title || '').toLowerCase();
+        if (id.indexOf('moonlight') >= 0 || id.indexOf('limelight') >= 0 || title.indexOf('moonlight') >= 0) {
+          return a;
+        }
+      }
+      return null;
+    },
+
+    /** Finds an installed Stremio app on LG webOS or Samsung Tizen, or null. */
+    findStremioApp: function (appList) {
+      var list = appList || [], i, a, id, title;
+      for (i = 0; i < list.length; i++) {
+        a = list[i];
+        id = String(a.id || '').toLowerCase();
+        title = String(a.title || '').toLowerCase();
+        if (id.indexOf('stremio') >= 0 || title.indexOf('stremio') >= 0) {
+          return a;
+        }
+      }
+      return null;
+    },
+
+    /** Finds secondary streaming/game-hub apps (Steam Link, Samsung Gaming Hub, Xbox, GeForce NOW). */
+    findGamingApps: function (appList) {
+      var list = appList || [], out = [], i, a, id, title;
+      for (i = 0; i < list.length; i++) {
+        a = list[i];
+        id = String(a.id || '').toLowerCase();
+        title = String(a.title || '').toLowerCase();
+        if (id.indexOf('moonlight') >= 0 || id.indexOf('limelight') >= 0 || title.indexOf('moonlight') >= 0 ||
+            id.indexOf('steamlink') >= 0 || title.indexOf('steam link') >= 0 ||
+            id.indexOf('gaminghub') >= 0 || id.indexOf('xboxgamepass') >= 0 ||
+            id.indexOf('geforcenow') >= 0 || title.indexOf('geforce now') >= 0) {
+          out.push(a);
+        }
+      }
+      return out;
+    },
+
+    /** Key codes: arrows, OK, TV Back (LG 461, Samsung 10009), and media/menu/color keys. */
+    keys: {
+      left: 37, up: 38, right: 39, down: 40, ok: 13,
+      back: samsung ? 10009 : 461,
+      menu: samsung ? 10133 : 457,
+      info: 457,
+      red: 403, green: 404, yellow: 405, blue: 406,
+      play: 415, pause: 19
+    }
   };
 })();

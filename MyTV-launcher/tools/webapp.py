@@ -17,7 +17,16 @@ GENERIC = {
     'tmdbKey': '', 'tmdbRegion': '', 'latitude': '', 'longitude': '', 'city': '', 'language': 'auto',
     'currency': '', 'temperature': 'auto', 'theme': 'auto', 'hideAnimation': False, 'hideApps': [],
     'hideServices': [], 'shelfApps': [], 'drawerFirst': False, 'homeButton': False,
-    'openPicksIn': 'apps', 'clockFormat': 'auto',
+    'openPicksIn': 'apps', 'openInStremio': False, 'clockFormat': 'auto',
+    'omdbKey': '', 'mdblistKey': '', 'geminiKey': '',
+    'traktClientId': '', 'traktUsername': '',
+    'stremioEmail': '', 'stremioAuthKey': '',
+    'supabaseUrl': '', 'supabaseAnonKey': '', 'householdKey': '',
+    'enableGaming': 'auto', 'enableSmartHome': 'auto',
+    'sensiboApiKey': '', 'sensiboDeviceId': '',
+    'tuyaAccessId': '', 'tuyaAccessSecret': '', 'tuyaDeviceId': '', 'tuyaRegion': 'eu',
+    'wizLightIps': '',
+    'gamingPcIp': '', 'gamingPcMac': '', 'gamingPcHdmi': '', 'hdmiPortRoles': '',
 }
 
 
@@ -54,6 +63,10 @@ def read_config(path):
             sys.exit('config.properties: %s must be a number (got "%s")' % (key, v))
         return v
 
+    def feature_mode(key):
+        val = values.get(key, 'auto').strip().lower()
+        return val if val in ('true', 'false', 'auto') else 'auto'
+
     return {
         'tmdbKey': values.get('tmdb_key', ''),
         'tmdbRegion': values.get('tmdb_region', 'US') or 'US',
@@ -71,7 +84,31 @@ def read_config(path):
         'drawerFirst': values.get('drawer_first', 'false').lower() == 'true',
         'homeButton': values.get('samsung_home_button', 'false').lower() == 'true',
         'openPicksIn': 'nuvio' if values.get('open_picks_in', '').strip().lower() == 'nuvio' else 'apps',
+        'openInStremio': values.get('open_in_stremio', 'false').lower() == 'true',
         'clockFormat': values.get('clock_format', '').strip() if values.get('clock_format', '').strip() in ('24', '12') else 'auto',
+        'omdbKey': values.get('omdb_key', ''),
+        'mdblistKey': values.get('mdblist_key', ''),
+        'geminiKey': values.get('gemini_api_key', ''),
+        'traktClientId': values.get('trakt_client_id', ''),
+        'traktUsername': values.get('trakt_username', ''),
+        'stremioEmail': values.get('stremio_email', ''),
+        'stremioAuthKey': values.get('stremio_auth_key', ''),
+        'supabaseUrl': values.get('supabase_url', ''),
+        'supabaseAnonKey': values.get('supabase_anon_key', ''),
+        'householdKey': values.get('household_key', ''),
+        'enableGaming': feature_mode('enable_gaming'),
+        'enableSmartHome': feature_mode('enable_smarthome'),
+        'sensiboApiKey': values.get('sensibo_api_key', ''),
+        'sensiboDeviceId': values.get('sensibo_device_id', ''),
+        'tuyaAccessId': values.get('tuya_access_id', ''),
+        'tuyaAccessSecret': values.get('tuya_access_secret', ''),
+        'tuyaDeviceId': values.get('tuya_device_id', ''),
+        'tuyaRegion': values.get('tuya_region', 'eu') or 'eu',
+        'wizLightIps': values.get('wiz_light_ips', ''),
+        'gamingPcIp': values.get('gaming_pc_ip', ''),
+        'gamingPcMac': values.get('gaming_pc_mac', ''),
+        'gamingPcHdmi': values.get('gaming_pc_hdmi', ''),
+        'hdmiPortRoles': values.get('hdmi_port_roles', ''),
     }
 
 
