@@ -19,9 +19,12 @@ import {
   computeKeyboardOffsetPx,
   formatFocusedInputCue,
   formatGameSubtitle,
+  formatPairingSheetCopy,
   getThemeColorMeta,
+  pickBestDeviceNickname,
   resolveFallbackDockTab,
   resolveLiveMirrorDecision,
+  resolveLivePollIntervalMs,
   resolveMirroredModalVisibility,
   resolveSmartHomeIconKind,
   resolveTabVisibility,
@@ -36,6 +39,7 @@ interface SoarTvNativeBridgeInterface {
   openNativeQrScanner?(): void;
   closeNativeQrScanner?(): void;
   openExternalUrl?(url: string): void;
+  getDeviceName?(): string;
   isBiometricAvailable(): boolean;
   hasSavedPcUnlockPin(): boolean;
   enrollPcUnlockPin(pin: string): void;
@@ -125,15 +129,15 @@ function getOrCreateClientId(): string {
 
 function detectDeviceName(): string {
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
-  if (/iPhone/i.test(ua)) return 'iPhone Remote';
-  if (/iPad/i.test(ua)) return 'iPad Remote';
-  const androidMatch = ua.match(/Android\s+[0-9.]+;\s*([^;)]+)/i);
-  if (androidMatch && androidMatch[1]) {
-    const model = androidMatch[1].replace(/\bBuild\/.*$/i, '').trim();
-    if (model) return model.slice(0, 36);
+  let nativeName = '';
+  if (nativeBridge && typeof nativeBridge.getDeviceName === 'function') {
+    try {
+      nativeName = nativeBridge.getDeviceName() || '';
+    } catch {
+      nativeName = '';
+    }
   }
-  if (IS_NATIVE_APK) return 'Android Companion App';
-  return 'Mobile Companion';
+  return pickBestDeviceNickname(nativeName, ua, IS_NATIVE_APK);
 }
 
 let currentStatus: TvStatus | null = null;
@@ -159,6 +163,8 @@ let activeTvModal: TvActiveModal | null = null;
 let dismissedTvModalId = '';
 let lastRenderedTvModalSig = '';
 let lastAutoWakeAtMs = 0;
+let livePollIntervalActiveMs = 0;
+let livePollInFlight = false;
 
 // Diff signatures to avoid wiping DOM innerHTML on unchanged 6-second polls (PERF-15)
 let lastShelfSig = '';
@@ -615,6 +621,20 @@ async function scanQrImageFile(ev: Event): Promise<void> {
   }
 }
 
+function applyPairingSheetCopy(bootstrapAdmin: boolean, guestExpired: boolean, tvName?: string): void {
+  const copy = formatPairingSheetCopy(bootstrapAdmin, guestExpired, tvName);
+  updateOverlayStatusText(copy.title, copy.subtitle);
+  const badge = document.getElementById('pairingOwnerBadge');
+  if (badge) {
+    badge.style.display = copy.badge ? 'inline-flex' : 'none';
+    if (copy.badge) badge.textContent = copy.badge;
+  }
+  const more = document.getElementById('pairingMoreOptions') as HTMLDetailsElement | null;
+  if (more) {
+    more.open = copy.expandManualByDefault;
+  }
+}
+
 function handleUnauthorizedTransition(guestExpired: boolean): void {
   isPaired = false;
   isGuestExpiredState = guestExpired;
@@ -622,18 +642,9 @@ function handleUnauthorizedTransition(guestExpired: boolean): void {
   writeStorage(STORAGE_TOKEN, '');
   writeStorage(STORAGE_ROLE, '');
   applyRoleVisibility('');
+  updateFastInputPollingState();
   setPairingOverlayVisible(true);
-  if (guestExpired) {
-    updateOverlayStatusText(
-      'Guest Access Expired (30 Days)',
-      'Tap Pair to scan the TV QR code or approve on your TV screen with 1 click.'
-    );
-  } else {
-    updateOverlayStatusText(
-      'Pair Companion Remote',
-      'Tap Pair to scan the QR code on your TV screen, or approve on TV with 1 click.'
-    );
-  }
+  applyPairingSheetCopy(Boolean(currentAuthConfig?.bootstrapAdmin), guestExpired, currentAuthConfig?.tvName);
   void requestTvPairPrompt();
 }
 
@@ -655,6 +666,7 @@ async function completePairingSuccess(token: string, role: RemoteRole): Promise<
         : 'Paired as Guest (30 Days)'
   );
   await refreshStatus();
+  updateFastInputPollingState();
   void wakeTvOnRemoteActivity();
   void loadGamingZone(false);
   if (role === 'ADMIN') {
@@ -688,12 +700,7 @@ async function requestTvPairPrompt(forceFresh: boolean = false): Promise<void> {
       await completePairingSuccess(cfg.handoffToken, cfg.handoffRole || 'GUEST');
       return;
     }
-    if (cfg.bootstrapAdmin && !isGuestExpiredState) {
-      updateOverlayStatusText(
-        'First-Time Owner Setup',
-        'Scan the QR code on TV or choose Make Admin on your TV screen.'
-      );
-    }
+    applyPairingSheetCopy(Boolean(cfg.bootstrapAdmin), isGuestExpiredState, cfg.tvName);
   } catch {
     // Cached TV address may have changed after router/TV restart: auto-discover on Wi-Fi
     if (waitBadge) waitBadge.textContent = 'Locating SoarTV on Wi-Fi...';
@@ -710,8 +717,14 @@ async function requestTvPairPrompt(forceFresh: boolean = false): Promise<void> {
   try {
     const res = await remoteService.requestPairing(detectDeviceName(), getOrCreateClientId());
     activePairRequestId = res.requestId;
+    const isBootstrap = Boolean(res.bootstrapAdmin || currentAuthConfig?.bootstrapAdmin);
+    applyPairingSheetCopy(isBootstrap, isGuestExpiredState, currentAuthConfig?.tvName);
     if (waitBadge) {
-      waitBadge.textContent = 'QR code shown on TV — scan it with Pair above or click Approve on TV';
+      waitBadge.textContent = formatPairingSheetCopy(
+        isBootstrap,
+        isGuestExpiredState,
+        currentAuthConfig?.tvName
+      ).waitingStatus;
     }
     startPairingPollLoop();
   } catch (err) {
@@ -829,6 +842,7 @@ async function bootstrapConnectionAndAuth(): Promise<void> {
       isGuestExpiredState = false;
       applyRoleVisibility(cfg.role);
       setPairingOverlayVisible(false);
+      updateFastInputPollingState();
       void wakeTvOnRemoteActivity();
       await refreshStatus();
       void loadGamingZone(false);
@@ -963,18 +977,56 @@ function handleSheetBackdropClick(ev: MouseEvent, sheetName: string): void {
   }
 }
 
+async function pollLiveState(): Promise<void> {
+  if (!isPaired || !remoteService.getBaseUrl() || livePollInFlight) return;
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+  livePollInFlight = true;
+  try {
+    const live = await remoteService.getLiveState();
+    document.getElementById('statusDot')?.classList.remove('offline');
+    if (typeof live.activeScreen === 'number' && currentStatus) {
+      currentStatus.activeScreen = live.activeScreen;
+    }
+    renderFocusedInputState(live.focusedInput);
+    renderActiveTvModal(live.activeModal);
+  } catch (err) {
+    if (err instanceof RemoteUnauthorizedError) {
+      return;
+    }
+    // Older TV server without /api/live falls back gracefully to regular /api/status polling
+  } finally {
+    livePollInFlight = false;
+  }
+}
+
+function scheduleLiveBurstPolls(): void {
+  setTimeout(() => void pollLiveState(), 220);
+  setTimeout(() => void pollLiveState(), 650);
+  setTimeout(() => void pollLiveState(), 1350);
+  setTimeout(() => void pollLiveState(), 2250);
+}
+
 function updateFastInputPollingState(): void {
   const sheetOpen = Boolean(document.getElementById('sheet-search')?.classList.contains('visible'));
   const modalOpen = Boolean(activeTvModal?.active);
-  const needsFastPoll = Boolean(isPaired && (sheetOpen || activeFocusedInput?.active || modalOpen));
-  if (needsFastPoll && !fastInputPollTimer) {
-    fastInputPollTimer = setInterval(() => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-      void refreshStatus();
-    }, 2000);
-  } else if (!needsFastPoll && fastInputPollTimer) {
+  const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+  const targetMs = resolveLivePollIntervalMs(
+    isPaired,
+    isHidden,
+    Boolean(sheetOpen || activeFocusedInput?.active || modalOpen)
+  );
+  if (targetMs === livePollIntervalActiveMs && (targetMs === 0 ? !fastInputPollTimer : Boolean(fastInputPollTimer))) {
+    return;
+  }
+  if (fastInputPollTimer) {
     clearInterval(fastInputPollTimer);
     fastInputPollTimer = null;
+  }
+  livePollIntervalActiveMs = targetMs;
+  if (targetMs > 0) {
+    fastInputPollTimer = setInterval(() => {
+      void pollLiveState();
+    }, targetMs);
   }
 }
 
@@ -1104,8 +1156,8 @@ async function triggerTvModalAction(actionId: string): Promise<void> {
     if (actionId === 'dismiss' || actionId.startsWith('pair_') || actionId.startsWith('lg_choice:') || actionId.startsWith('menu_pick:') || actionId === 'sleep_save' || actionId === 'stremio_manual') {
       document.getElementById('sheet-tv-modal')?.classList.remove('visible');
     }
-    setTimeout(() => void refreshStatus(), 260);
-    setTimeout(() => void refreshStatus(), 950);
+    scheduleLiveBurstPolls();
+    setTimeout(() => void refreshStatus(), 400);
   }
 }
 
@@ -1374,10 +1426,8 @@ async function sendKey(key: RemoteKeyName): Promise<void> {
   const ok = await remoteService.sendKey(key);
   if (!ok && !isPaired) return;
   if (key === 'users' || key === 'sideshelf' || key === 'theme' || key === 'ok' || key === 'hold_ok' || key === 'trakt' || key === 'back') {
-    setTimeout(() => void refreshStatus(), 280);
-    if (key === 'ok' || key === 'hold_ok' || key === 'trakt') {
-      setTimeout(() => void refreshStatus(), 1100);
-    }
+    scheduleLiveBurstPolls();
+    setTimeout(() => void refreshStatus(), 320);
   }
 }
 
@@ -2160,7 +2210,10 @@ function renderPairedDevicesList(devices: PairedDeviceInfo[]): void {
               </div>
               <div class="tv-row-sub">${escapeHtml(d.deviceId)}${youTag}${emailSub}</div>
             </div>
-            <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+            <div style="display:flex; align-items:center; gap:6px; flex-shrink:0; flex-wrap:wrap; justify-content:flex-end;">
+              <button class="btn btn-chip" onclick="renamePairedDevicePrompt('${escapeAttr(d.deviceId)}', '${escapeAttr(d.deviceName)}')">
+                Rename
+              </button>
               <select aria-label="Device Role" class="role-select" onchange="changePairedDeviceRole('${escapeAttr(d.deviceId)}', this.value)">
                 <option value="GUEST" ${d.role === 'GUEST' ? 'selected' : ''}>Guest (30d)</option>
                 <option value="HOUSEHOLD" ${d.role === 'HOUSEHOLD' ? 'selected' : ''}>Household</option>
@@ -2175,6 +2228,24 @@ function renderPairedDevicesList(devices: PairedDeviceInfo[]): void {
       `;
     })
     .join('');
+}
+
+async function renamePairedDevicePrompt(deviceId: string, currentName: string): Promise<void> {
+  const next = typeof window !== 'undefined' ? window.prompt('Enter phone nickname:', currentName || '') : null;
+  if (next === null) return;
+  const clean = next.trim();
+  if (!clean) {
+    showToast('Nickname cannot be empty');
+    return;
+  }
+  try {
+    const updated = await remoteService.renamePairedDevice(deviceId, clean);
+    lastAdminDevicesSig = '';
+    renderPairedDevicesList(updated);
+    showToast(`Renamed to ${clean}`);
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : 'Failed to rename device');
+  }
 }
 
 async function revokePairedDevice(deviceId: string): Promise<void> {
@@ -2611,6 +2682,7 @@ function registerNativeCallbacksAndGlobals(): void {
     switchUser,
     createUserProfile,
     refreshPairedDevices,
+    renamePairedDevicePrompt,
     revokePairedDevice,
     changePairedDeviceRole,
     createAdminInvite,
@@ -2838,9 +2910,11 @@ function initVisibilityAwarePolling(): void {
   }, 6000);
 
   document.addEventListener('visibilitychange', () => {
+    updateFastInputPollingState();
     if (document.visibilityState === 'visible') {
       if (isPaired) {
         wakeTvOnRemoteActivity();
+        void pollLiveState();
         void refreshStatus();
       } else if (activePairRequestId && !pairPollTimer) {
         startPairingPollLoop();

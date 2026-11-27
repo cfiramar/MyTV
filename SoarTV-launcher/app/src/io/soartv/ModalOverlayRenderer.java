@@ -1146,16 +1146,20 @@ public final class ModalOverlayRenderer {
         c.drawRoundRect(pairingPanelRect, 38 * k, 38 * k, border);
 
         // Header: cast symbol + Title + Subtitle with phone device name
-        Symbols.draw(ctx, c, "cast", mx + 56 * k, my + 56 * k, 30 * k, ink);
+        boolean isOwnerSetup = req.bootstrapAdmin || req.presetRole == RemoteAuthManager.Role.ADMIN;
+        Symbols.draw(ctx, c, isOwnerSetup ? "shield" : "cast", mx + 56 * k, my + 56 * k, 30 * k, ink);
         fitPaint.set(lCardTitle);
         fitPaint.setTextSize(32 * k);
         fitPaint.setColor(ink);
-        String title = Ui.tr("New Remote Detected");
+        String title = isOwnerSetup ? Ui.tr("Pair Owner Remote (Admin)") : Ui.tr("New Remote Detected");
         c.drawText(title, mx + 86 * k, my + 66 * k, fitPaint);
 
         String devName = (req.deviceName != null && !req.deviceName.isEmpty()) ? req.deviceName : "Companion Remote";
-        String subLine = devName + " \u00B7 "
-                + Ui.tr("Scan QR code or enter 6-digit code on phone, or approve below");
+        String subLine = isOwnerSetup
+                ? (devName + " \u00B7 "
+                        + Ui.tr("First phone becomes TV Owner (Admin) — press OK on Make Admin or scan QR"))
+                : (devName + " \u00B7 "
+                        + Ui.tr("Scan QR code or enter 6-digit code on phone, or approve below"));
         fitPaint.set(lSubTab);
         fitPaint.setTextSize(20 * k);
         fitPaint.setColor(subInk);
@@ -1207,9 +1211,11 @@ public final class ModalOverlayRenderer {
         String clippedUrl = TextUtils.ellipsize(urlCaption, fitPaint, rightAvailW, TextUtils.TruncateAt.END).toString();
         c.drawText(clippedUrl, rightColX, qrTop + 178 * k, fitPaint);
 
-        String roleHint = req.presetRole != null
-                ? (Ui.tr("Invited Role: ") + req.presetRole.name())
-                : Ui.tr("Or approve directly with your TV remote below:");
+        String roleHint = isOwnerSetup
+                ? Ui.tr("Recommended: Press OK on Make Admin below (or scan QR)")
+                : (req.presetRole != null
+                        ? (Ui.tr("Invited Role: ") + req.presetRole.name())
+                        : Ui.tr("Or approve directly with your TV remote below:"));
         String clippedRoleHint = TextUtils.ellipsize(roleHint, fitPaint, rightAvailW, TextUtils.TruncateAt.END).toString();
         c.drawText(clippedRoleHint, rightColX, qrTop + 214 * k, fitPaint);
 

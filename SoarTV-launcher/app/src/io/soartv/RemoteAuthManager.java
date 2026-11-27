@@ -129,6 +129,10 @@ public final class RemoteAuthManager {
             return new PairedDevice(deviceId, deviceName, tokenSha256, nextRole, googleEmail, createdAtMs, nextExpires, lastSeenMs);
         }
 
+        PairedDevice withDeviceName(String nextName) {
+            return new PairedDevice(deviceId, nextName, tokenSha256, role, googleEmail, createdAtMs, expiresAtMs, lastSeenMs);
+        }
+
         Map<String, Object> toStorageMap() {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("deviceId", deviceId);
@@ -174,6 +178,7 @@ public final class RemoteAuthManager {
         public final String qrSecret;
         public final String pairUrl;
         public final Role presetRole;
+        public final boolean bootstrapAdmin;
         public final long createdAtMs;
         public final long expiresAtMs;
         private PendingStatus status = PendingStatus.PENDING;
@@ -189,6 +194,7 @@ public final class RemoteAuthManager {
                 String qrSecret,
                 String pairUrl,
                 Role presetRole,
+                boolean bootstrapAdmin,
                 long createdAtMs,
                 long expiresAtMs) {
             this.requestId = requestId;
@@ -199,6 +205,7 @@ public final class RemoteAuthManager {
             this.qrSecret = qrSecret;
             this.pairUrl = pairUrl;
             this.presetRole = presetRole;
+            this.bootstrapAdmin = bootstrapAdmin;
             this.createdAtMs = createdAtMs;
             this.expiresAtMs = expiresAtMs;
         }
@@ -439,6 +446,7 @@ public final class RemoteAuthManager {
         }
 
         return "/api/status".equals(path)
+                || "/api/live".equals(path)
                 || "/api/wake".equals(path)
                 || "/api/key".equals(path)
                 || "/api/scroll".equals(path)
@@ -520,6 +528,7 @@ public final class RemoteAuthManager {
                 ? baseLanUrl.trim().replaceAll("/+$", "")
                 : "http://127.0.0.1:8484";
         String pairUrl = cleanBase + "/?pair=" + qrSecret;
+        boolean isBootstrap = !hasAnyAdminDevice() && (presetRole == null || presetRole == Role.ADMIN);
         return new PendingPairRequest(
                 reqId,
                 deviceName,
@@ -529,6 +538,7 @@ public final class RemoteAuthManager {
                 qrSecret,
                 pairUrl,
                 presetRole,
+                isBootstrap,
                 nowMs,
                 nowMs + PENDING_PAIR_TTL_MS
         );
@@ -917,6 +927,19 @@ public final class RemoteAuthManager {
         PairedDevice existing = devicesById.get(cleanId);
         if (existing == null) return false;
         devicesById.put(cleanId, existing.withRole(newRole, clock.getAsLong()));
+        saveToSecrets();
+        return true;
+    }
+
+    /** Updates the custom nickname of an existing paired phone remote (persisted in encrypted Secrets). */
+    public synchronized boolean renameDevice(String deviceId, String newDeviceName) {
+        if (deviceId == null || newDeviceName == null) return false;
+        String cleanId = deviceId.trim();
+        String trimmedName = newDeviceName.trim();
+        if (cleanId.isEmpty() || trimmedName.isEmpty()) return false;
+        PairedDevice existing = devicesById.get(cleanId);
+        if (existing == null) return false;
+        devicesById.put(cleanId, existing.withDeviceName(trimmedName));
         saveToSecrets();
         return true;
     }

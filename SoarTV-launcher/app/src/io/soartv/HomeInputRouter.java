@@ -176,6 +176,18 @@ public final class HomeInputRouter {
     }
 
     /**
+     * Resolves the initial D-pad focus slot on the on-TV Pairing Platter:
+     * slot {@code 2} ({@code Make Admin}) for first-time Owner setup or explicit Admin invites so pressing
+     * OK never accidentally pairs the owner's phone as a 30-day Guest, slot {@code 1} for Household invites,
+     * and slot {@code 0} ({@code Allow Guest}) for subsequent general pairing requests.
+     */
+    public static int initialPairingModalFocus(RemoteAuthManager.Role presetRole, boolean bootstrapAdmin) {
+        if (presetRole == RemoteAuthManager.Role.HOUSEHOLD) return 1;
+        if (presetRole == RemoteAuthManager.Role.ADMIN || bootstrapAdmin) return 2;
+        return 0;
+    }
+
+    /**
      * Bounded LRU per-row scroll and column memory ({@code INC-05}) so moving Up/Down between rows
      * restores each row's horizontal scroll offset and focused card instead of snapping back to column 0.
      */

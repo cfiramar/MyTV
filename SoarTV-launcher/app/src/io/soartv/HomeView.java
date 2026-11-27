@@ -2276,10 +2276,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         if (traktAuthDialog != null && traktAuthDialog.isShowing()) {
             String code = Trakt.code();
             if (code != null && !code.trim().isEmpty()) {
-                String rawUrl = Trakt.url();
-                String activateUrl = (rawUrl != null && !rawUrl.trim().isEmpty())
-                        ? (rawUrl.startsWith("http") ? rawUrl.trim() : ("https://" + rawUrl.trim()))
-                        : "https://trakt.tv/activate";
+                String activateUrl = Trakt.normalizeActivationUrl(Trakt.url());
                 return new TvRemoteBridge.ActiveModal(
                         true,
                         "trakt_qr:" + code.trim(),
@@ -2451,6 +2448,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         String id = actionId.trim();
         if ("dismiss".equals(id)) {
             if (traktAuthDialog != null && traktAuthDialog.isShowing()) {
+                Trakt.cancelSignIn();
                 try { traktAuthDialog.dismiss(); } catch (RuntimeException ignored) {}
                 traktAuthDialog = null;
                 return;
@@ -5824,13 +5822,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             int qrSizePx = Math.max(220, Math.round(280f * Math.max(0.75f, k)));
             pairingQrBitmap = RemoteAuthManager.encodePairingQrBitmap(req.pairUrl, qrSizePx);
             pairingQrRequestId = req.requestId;
-            if (req.presetRole == RemoteAuthManager.Role.HOUSEHOLD) {
-                pairingModalFocus = 1;
-            } else if (req.presetRole == RemoteAuthManager.Role.ADMIN) {
-                pairingModalFocus = 2;
-            } else {
-                pairingModalFocus = 0;
-            }
+            pairingModalFocus = HomeInputRouter.initialPairingModalFocus(req.presetRole, req.bootstrapAdmin);
             pairingModalOpenedAt = SystemClock.uptimeMillis();
             pairingModalOkDown = false;
             pairingModalBackDown = false;
@@ -10544,6 +10536,13 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             }
             String err = Trakt.message();
             if (err != null && !err.isEmpty()) {
+                if (traktAuthDialog != null) {
+                    try {
+                        traktAuthDialog.dismiss();
+                    } catch (RuntimeException ignored) {
+                    }
+                    traktAuthDialog = null;
+                }
                 showToast(err);
                 return;
             }
@@ -10558,14 +10557,24 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
                         }
                         traktAuthDialog = null;
                     }
-                    String activateUrl = (url != null && !url.isEmpty()) ? url : "https://trakt.tv/activate";
+                    String activateUrl = Trakt.normalizeActivationUrl(url);
                     android.widget.LinearLayout container = modalRenderer.buildTraktOAuthDialogView(activity, activateUrl, code, k);
 
                     traktAuthDialog = new android.app.AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                             .setTitle(Ui.tr("Connect Private Trakt Account"))
                             .setView(container)
-                            .setNegativeButton(Ui.tr("Cancel"), null)
-                            .show();
+                            .setNegativeButton(Ui.tr("Cancel"), (d, w) -> {
+                                Trakt.cancelSignIn();
+                                traktAuthDialog = null;
+                            })
+                            .create();
+                    traktAuthDialog.setOnDismissListener(d -> {
+                        if (!Trakt.signedIn(c)) {
+                            Trakt.cancelSignIn();
+                        }
+                        traktAuthDialog = null;
+                    });
+                    traktAuthDialog.show();
                 } catch (RuntimeException e) {
                     showToast(Ui.tr("Go to trakt.tv/activate and enter code: ") + code);
                 }
@@ -12029,31 +12038,55 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         }
         final RemoteAuthManager.PairedDevice dev = target;
         String[] choices = new String[] {
+                Ui.tr("Rename Phone / Set Nickname"),
                 Ui.tr("Set as Guest (30 Days)"),
                 Ui.tr("Set as Household"),
                 Ui.tr("Set as Admin"),
                 Ui.tr("Kick / Revoke Remote")
         };
-        int initialIdx = dev.role == RemoteAuthManager.Role.ADMIN ? 2
-                : (dev.role == RemoteAuthManager.Role.HOUSEHOLD ? 1 : 0);
+        int initialIdx = 0;
         openLiquidGlassChoiceModal(
                 dev.deviceName,
-                Ui.tr("Select access level or revoke this phone remote"),
+                Ui.tr("Rename this phone, select its access level, or revoke it"),
                 choices,
                 null,
                 initialIdx,
                 Ui.tr("Cancel"),
                 idx -> {
                     if (idx == 0) {
+                        openLiquidGlassInputModal(
+                                Ui.tr("Rename Companion Phone"),
+                                Ui.tr("Give this linked phone a friendly nickname (e.g. Alex's Phone)"),
+                                Ui.tr("Phone nickname"),
+                                dev.deviceName,
+                                false,
+                                Ui.tr("Save Name"),
+                                newName -> {
+                                    String clean = newName != null ? newName.trim() : "";
+                                    if (clean.isEmpty()) {
+                                        showToast(Ui.tr("Nickname cannot be empty"));
+                                        return;
+                                    }
+                                    if (auth.renameDevice(dev.deviceId, clean)) {
+                                        showToast(Ui.tr("Renamed phone to: ") + clean);
+                                        rebuildSettingsTree();
+                                        heroDirty = true;
+                                        heroLayer.invalidate();
+                                        wake();
+                                    }
+                                },
+                                null);
+                        return;
+                    } else if (idx == 1) {
                         auth.setDeviceRole(dev.deviceId, RemoteAuthManager.Role.GUEST);
                         showToast(Ui.tr("Updated to Guest (30 days): ") + dev.deviceName);
-                    } else if (idx == 1) {
+                    } else if (idx == 2) {
                         auth.setDeviceRole(dev.deviceId, RemoteAuthManager.Role.HOUSEHOLD);
                         showToast(Ui.tr("Updated to Household: ") + dev.deviceName);
-                    } else if (idx == 2) {
+                    } else if (idx == 3) {
                         auth.setDeviceRole(dev.deviceId, RemoteAuthManager.Role.ADMIN);
                         showToast(Ui.tr("Updated to Admin: ") + dev.deviceName);
-                    } else if (idx == 3) {
+                    } else if (idx == 4) {
                         auth.revokeDevice(dev.deviceId);
                         showToast(Ui.tr("Revoked remote: ") + dev.deviceName);
                     }
@@ -12213,6 +12246,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             }, 32);
         } else if ("setup_wizard_start".equals(id)) {
             runGuidedInitialSetupStep(c);
+        } else if ("setup_pair_remote".equals(id)) {
+            openInitialSetupRemotePairing(c);
         } else if ("setup_mark_done".equals(id)) {
             Prefs.setInitialSetupDone(true);
             rebuildSettingsTree();
@@ -12675,7 +12710,65 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         wake();
     }
 
+    private void openInitialSetupRemotePairing(Context c) {
+        RemoteAuthManager auth = RemoteAuthManager.get(c);
+        String lanUrl = RemoteControlServer.get(c).getLanUrl();
+        if (!auth.hasAnyAdminDevice()) {
+            auth.createInvite(RemoteAuthManager.Role.ADMIN, lanUrl);
+            refreshPairingPromptState();
+            rebuildSettingsTree();
+            return;
+        }
+        String[] choices = new String[] {
+                Ui.tr("Pair Another Admin Phone (QR)"),
+                Ui.tr("Invite Household Phone (QR)"),
+                Ui.tr("Invite Guest Phone — 30 Days (QR)"),
+                Ui.tr("Manage & Rename Paired Phones")
+        };
+        openLiquidGlassChoiceModal(
+                Ui.tr("Companion Phone Remote"),
+                Ui.tr("Pair an additional phone or rename already-linked phones"),
+                choices,
+                null,
+                0,
+                Ui.tr("Cancel"),
+                idx -> {
+                    if (idx == 0) {
+                        auth.createInvite(RemoteAuthManager.Role.ADMIN, lanUrl);
+                        refreshPairingPromptState();
+                    } else if (idx == 1) {
+                        auth.createInvite(RemoteAuthManager.Role.HOUSEHOLD, lanUrl);
+                        refreshPairingPromptState();
+                    } else if (idx == 2) {
+                        auth.createInvite(RemoteAuthManager.Role.GUEST, lanUrl);
+                        refreshPairingPromptState();
+                    } else if (idx == 3) {
+                        settingsPathIds.clear();
+                        settingsPathIds.add("remotes_accessories");
+                        settingsPathIds.add("paired_remotes");
+                        rebuildSettingsTree();
+                        heroDirty = true;
+                        heroLayer.invalidate();
+                        wake();
+                    }
+                },
+                null);
+    }
+
     private void runGuidedInitialSetupStep(Context c) {
+        RemoteAuthManager auth = RemoteAuthManager.get(c);
+        long nowMs = System.currentTimeMillis();
+        boolean hasPairedRemote = false;
+        for (RemoteAuthManager.PairedDevice d : auth.listDevices()) {
+            if (d != null && !d.isExpired(nowMs)) {
+                hasPairedRemote = true;
+                break;
+            }
+        }
+        if (!hasPairedRemote) {
+            openInitialSetupRemotePairing(c);
+            return;
+        }
         if (!Trakt.hasOAuth(c)) {
             openTraktAuthDialog();
             return;

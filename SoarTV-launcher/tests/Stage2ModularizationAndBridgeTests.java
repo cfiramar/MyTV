@@ -783,6 +783,84 @@ public final class Stage2ModularizationAndBridgeTests {
                 "HOUSEHOLD must NEVER approve pairing prompts via /api/modal");
         assertTrue(RemoteAuthManager.isAuthorized(RemoteAuthManager.Role.ADMIN, "/api/modal", "POST", "pair_admin", false),
                 "ADMIN may approve pairing prompts via /api/modal");
+
+        // v2.8: Instant /api/live polling, Trakt URL/pending helpers, first-time Admin pairing UX, renameDevice, and Initial Setup pairing
+        assertTrue(RemoteAuthManager.isAuthorized(RemoteAuthManager.Role.GUEST, "/api/live", "GET", "", false),
+                "GUEST may poll lightweight /api/live for instant mirrored modals");
+        assertTrue(RemoteAuthManager.isAuthorized(RemoteAuthManager.Role.HOUSEHOLD, "/api/live", "GET", "", false),
+                "HOUSEHOLD may poll lightweight /api/live");
+
+        assertEquals("https://auth.trakt.tv/activate", Trakt.normalizeActivationUrl("auth.trakt.tv/activate"),
+                "Trakt.normalizeActivationUrl prepends https:// to scheme-less host URLs");
+        assertEquals("https://trakt.tv/activate", Trakt.normalizeActivationUrl(""),
+                "Trakt.normalizeActivationUrl falls back to https://trakt.tv/activate");
+        assertEquals("https://auth.trakt.tv/activate", Trakt.normalizeActivationUrl("https://auth.trakt.tv/activate"),
+                "Trakt.normalizeActivationUrl preserves full https:// URLs");
+        assertTrue(Trakt.isPendingTokenPoll(400, ""),
+                "Trakt HTTP 400 with empty body is pending activation");
+        assertTrue(!Trakt.isPendingTokenPoll(400, "{\"error\":\"invalid_grant\"}"),
+                "Trakt HTTP 400 with explicit invalid_grant error is NOT pending");
+        assertTrue(!Trakt.isPendingTokenPoll(404, ""),
+                "Trakt HTTP 404 is NOT pending");
+
+        assertEquals(2, HomeInputRouter.initialPairingModalFocus(null, true),
+                "First-time Owner setup focuses Make Admin (slot 2) by default");
+        assertEquals(0, HomeInputRouter.initialPairingModalFocus(null, false),
+                "Subsequent generic remote request focuses Allow Guest (slot 0) by default");
+        assertEquals(1, HomeInputRouter.initialPairingModalFocus(RemoteAuthManager.Role.HOUSEHOLD, false),
+                "Household invite focuses Allow Household (slot 1)");
+        assertEquals(2, HomeInputRouter.initialPairingModalFocus(RemoteAuthManager.Role.ADMIN, false),
+                "Admin invite focuses Make Admin (slot 2)");
+
+        // Test RemoteAuthManager.renameDevice + bootstrapAdmin flag on PendingPairRequest
+        File tmpDir2 = Files.createTempDirectory("soartv_v28_auth_test").toFile();
+        try {
+            Secrets.setJvmTestSecretsDir(tmpDir2);
+            AtomicLong clk2 = new AtomicLong(1_770_000_000_000L);
+            RemoteAuthManager auth2 = new RemoteAuthManager(null, clk2::get);
+            auth2.createPairRequest("Alex's S25 Ultra", "c_owner", "192.168.1.11", "http://192.168.1.50:8484");
+            RemoteAuthManager.PendingPairRequest firstReq = auth2.getActivePendingRequest();
+            assertTrue(firstReq != null && firstReq.bootstrapAdmin,
+                    "First pairing request when no Admin exists marks bootstrapAdmin=true");
+            RemoteAuthManager.PairedDevice owner = auth2.approvePendingOnTv(RemoteAuthManager.Role.ADMIN);
+            assertTrue(owner != null && "Alex's S25 Ultra".equals(owner.deviceName),
+                    "Owner paired with Bluetooth/phone nickname preserved");
+
+            assertTrue(auth2.renameDevice(owner.deviceId, "Living Room Phone"),
+                    "renameDevice updates paired phone nickname");
+            assertTrue(!auth2.renameDevice(owner.deviceId, "   "),
+                    "renameDevice rejects blank nickname");
+            RemoteAuthManager.PairedDevice renamed = auth2.listDevices().get(0);
+            assertEquals("Living Room Phone", renamed.deviceName, "Renamed nickname persisted");
+            assertEquals(RemoteAuthManager.Role.ADMIN, renamed.role, "Rename preserves ADMIN role");
+
+            auth2.createPairRequest("Guest Pixel", "c_guest", "192.168.1.12", "http://192.168.1.50:8484");
+            RemoteAuthManager.PendingPairRequest secondReq = auth2.getActivePendingRequest();
+            assertTrue(secondReq != null && !secondReq.bootstrapAdmin,
+                    "Subsequent pairing request after Admin exists marks bootstrapAdmin=false");
+        } finally {
+            Secrets.setJvmTestSecretsDir(null);
+            deleteRecursively(tmpDir2);
+        }
+
+        // Verify Phone Remote Pairing is Step 1 inside Initial Setup & Cloud
+        SettingsTree.StateSnapshot freshInit = new SettingsTree.StateSnapshot();
+        freshInit.initialSetupDone = false;
+        freshInit.pairedRemotes = Collections.emptyList();
+        SettingsTree.Node freshRoot = SettingsTree.buildRoot(freshInit);
+        SettingsTree.Node initNode = freshRoot.findById("initial_setup");
+        SettingsTree.Node pairStep = initNode != null ? initNode.findById("setup_pair_remote") : null;
+        assertTrue(pairStep != null, "Initial Setup includes 'setup_pair_remote' step");
+        assertEquals(SettingsTree.StatusTone.WARNING, pairStep.statusTone,
+                "Unpaired Initial Setup remote step uses WARNING status tone");
+
+        freshInit.pairedRemotes = Collections.singletonList(
+                new RemoteAuthManager.PairedDevice("rem_1", "Alex's S25", "a".repeat(64),
+                        RemoteAuthManager.Role.ADMIN, "", 1000L, 0L, 1000L));
+        SettingsTree.Node pairedInitNode = SettingsTree.buildRoot(freshInit).findById("initial_setup");
+        SettingsTree.Node pairedStep = pairedInitNode.findById("setup_pair_remote");
+        assertTrue(pairedStep != null && pairedStep.checked && pairedStep.value.contains("Alex's S25"),
+                "Paired Initial Setup remote step shows phone nickname & POSITIVE status");
     }
 
     private static void collectAllNodes(SettingsTree.Node node, List<SettingsTree.Node> out) {

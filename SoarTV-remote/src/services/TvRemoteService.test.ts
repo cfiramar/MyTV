@@ -8,9 +8,12 @@ import {
   formatControllerBadgeLabel,
   formatFocusedInputCue,
   formatGameSubtitle,
+  formatPairingSheetCopy,
   getThemeColorMeta,
+  pickBestDeviceNickname,
   resolveFallbackDockTab,
   resolveLiveMirrorDecision,
+  resolveLivePollIntervalMs,
   resolveMirroredModalVisibility,
   resolveSmartHomeIconKind,
   resolveTabVisibility,
@@ -1095,6 +1098,86 @@ describe('TvRemoteService', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ actionId: 'lg_choice:0' }),
+    });
+  });
+
+  it('prefers native phone Bluetooth/device nickname, computes fast /api/live cadence, and simplifies first-time Admin copy', async () => {
+    // 1. Phone nickname resolution
+    expect(pickBestDeviceNickname("Alex's S25 Ultra", 'Mozilla/5.0 (Linux; Android 16; SM-S938B)', true)).toBe(
+      "Alex's S25 Ultra"
+    );
+    expect(pickBestDeviceNickname('Android', 'Mozilla/5.0 (Linux; Android 16; Pixel 9 Pro Build/AP2A)', true)).toBe(
+      'Pixel 9 Pro'
+    );
+    expect(pickBestDeviceNickname('', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', false)).toBe(
+      'iPhone Remote'
+    );
+
+    // 2. Foreground-only fast /api/live poll cadence (near-instant mirrored modals, zero background drain)
+    expect(resolveLivePollIntervalMs(true, false, false)).toBe(650);
+    expect(resolveLivePollIntervalMs(true, false, true)).toBe(500);
+    expect(resolveLivePollIntervalMs(true, true, true)).toBe(0);
+    expect(resolveLivePollIntervalMs(false, false, false)).toBe(0);
+
+    // 3. First-time Owner / Admin pairing sheet guidance copy
+    const ownerCopy = formatPairingSheetCopy(true, false, 'SmartTV-4K');
+    expect(ownerCopy.badge).toContain('Owner');
+    expect(ownerCopy.title).toContain('Owner');
+    expect(ownerCopy.subtitle).toContain('Admin');
+    expect(ownerCopy.expandManualByDefault).toBe(false);
+
+    const guestExpiredCopy = formatPairingSheetCopy(false, true, 'SmartTV-4K');
+    expect(guestExpiredCopy.title).toContain('Expired');
+    expect(guestExpiredCopy.expandManualByDefault).toBe(true);
+
+    // 4. GET /api/live and POST /api/admin/devices (action: rename)
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          activeScreen: 5,
+          activeModal: { active: true, id: 'stremio_qr:ABCD', kind: 'qr_link', code: 'ABCD' },
+          focusedInput: { active: false },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          devices: [
+            {
+              deviceId: 'rem_1',
+              deviceName: 'Bedroom Phone',
+              role: 'ADMIN',
+              createdAtMs: 1,
+              expiresAtMs: 0,
+              lastSeenMs: 2,
+              expired: false,
+              daysRemaining: 0,
+              isCurrent: true,
+            },
+          ],
+        }),
+      });
+    const service = new TvRemoteService('http://192.168.1.50:8484', mockFetch);
+    service.setAuthToken('tok_admin');
+    const live = await service.getLiveState();
+    expect(live.activeModal?.id).toBe('stremio_qr:ABCD');
+    expect(mockFetch).toHaveBeenNthCalledWith(1, 'http://192.168.1.50:8484/api/live', {
+      method: 'GET',
+      headers: { Authorization: 'Bearer tok_admin' },
+    });
+
+    const renamedList = await service.renamePairedDevice('rem_1', 'Bedroom Phone');
+    expect(renamedList[0].deviceName).toBe('Bedroom Phone');
+    expect(mockFetch).toHaveBeenNthCalledWith(2, 'http://192.168.1.50:8484/api/admin/devices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer tok_admin' },
+      body: JSON.stringify({ action: 'rename', deviceId: 'rem_1', deviceName: 'Bedroom Phone' }),
     });
   });
 });

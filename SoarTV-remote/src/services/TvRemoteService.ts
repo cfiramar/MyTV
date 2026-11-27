@@ -410,6 +410,104 @@ export function resolveMirroredModalVisibility(
   return { visible: true, modalId };
 }
 
+export interface TvLiveState {
+  ok?: boolean;
+  activeScreen?: number;
+  activeModal?: TvActiveModal;
+  focusedInput?: TvFocusedInput;
+}
+
+export interface PairingSheetCopy {
+  badge: string;
+  title: string;
+  subtitle: string;
+  waitingStatus: string;
+  expandManualByDefault: boolean;
+}
+
+/**
+ * Resolves the friendliest human-readable nickname for this phone, prioritizing the OS/Bluetooth
+ * device name from the native Android bridge (e.g. "Alex's S25 Ultra") before User-Agent fallbacks.
+ */
+export function pickBestDeviceNickname(
+  nativeDeviceName: string | null | undefined,
+  userAgent: string,
+  isNativeApk: boolean
+): string {
+  const nativeClean = (nativeDeviceName || '').trim();
+  const lowerNative = nativeClean.toLowerCase();
+  if (
+    nativeClean.length >= 2 &&
+    lowerNative !== 'android' &&
+    lowerNative !== 'android phone' &&
+    lowerNative !== 'localhost' &&
+    lowerNative !== 'unknown' &&
+    lowerNative !== 'generic' &&
+    lowerNative !== 'phone'
+  ) {
+    return nativeClean.slice(0, 42);
+  }
+  const ua = userAgent || '';
+  if (/iPhone/i.test(ua)) return 'iPhone Remote';
+  if (/iPad/i.test(ua)) return 'iPad Remote';
+  const androidMatch = ua.match(/Android\s+[0-9.]+;\s*([^;)]+)/i);
+  if (androidMatch && androidMatch[1]) {
+    const model = androidMatch[1].replace(/\bBuild\/.*$/i, '').trim();
+    if (model && model.toLowerCase() !== 'k') return model.slice(0, 36);
+  }
+  return isNativeApk ? 'Android Companion App' : 'Mobile Companion';
+}
+
+/**
+ * Computes the foreground-only `/api/live` polling interval (ms) for near-instant TV modal & text-field
+ * mirroring while keeping zero background network/battery drain when the phone screen is hidden.
+ */
+export function resolveLivePollIntervalMs(
+  isPaired: boolean,
+  isHidden: boolean,
+  hasActivePromptOrInput: boolean
+): number {
+  if (!isPaired || isHidden) return 0;
+  return hasActivePromptOrInput ? 500 : 650;
+}
+
+/**
+ * Produces clear, distraction-free pairing guidance copy tailored to First-Time Owner (Admin) setup,
+ * expired Guest access, or standard subsequent phone pairing.
+ */
+export function formatPairingSheetCopy(
+  bootstrapAdmin: boolean,
+  guestExpired: boolean,
+  tvName?: string
+): PairingSheetCopy {
+  const cleanTv = (tvName || '').trim() || 'SoarTV';
+  if (guestExpired) {
+    return {
+      badge: 'Guest Access Expired',
+      title: 'Guest Access Expired (30 Days)',
+      subtitle: 'Scan the QR code on TV, enter the 6-digit code, or ask the TV owner to approve again.',
+      waitingStatus: 'Prompt shown on TV — ask the TV owner to approve or scan QR above',
+      expandManualByDefault: true,
+    };
+  }
+  if (bootstrapAdmin) {
+    return {
+      badge: 'First-Time Owner Setup · Admin Access',
+      title: 'Set Up Owner Remote',
+      subtitle: `Your first phone automatically becomes Owner (Admin) of ${cleanTv}. Scan the QR on TV or press OK on Make Admin.`,
+      waitingStatus: 'Ready on TV — press OK on "Make Admin" on TV, or scan QR above',
+      expandManualByDefault: false,
+    };
+  }
+  return {
+    badge: '',
+    title: `Connect to ${cleanTv}`,
+    subtitle: 'Scan the QR code on your TV screen or ask the TV owner to approve.',
+    waitingStatus: 'QR shown on TV — scan above or approve on TV',
+    expandManualByDefault: false,
+  };
+}
+
 export interface TvStatus {
   tvModel: string;
   tvBrand: string;
@@ -1268,6 +1366,38 @@ export class TvRemoteService {
     }
     const data = (await response.json()) as { devices?: PairedDeviceInfo[] };
     return Array.isArray(data.devices) ? data.devices : [];
+  }
+
+  /**
+   * Renames a paired phone remote (`POST /api/admin/devices` with `action: "rename"`, ADMIN role required).
+   */
+  public async renamePairedDevice(deviceId: string, deviceName: string): Promise<PairedDeviceInfo[]> {
+    const cleanName = deviceName.trim();
+    if (!cleanName) {
+      throw new Error('Device nickname cannot be empty');
+    }
+    const response = await this.fetchFn(
+      `${this.baseUrl}/api/admin/devices`,
+      this.buildPostInit({ action: 'rename', deviceId: deviceId.trim(), deviceName: cleanName })
+    );
+    await this.throwIfUnauthorizedOrForbidden(response);
+    if (!response.ok) {
+      throw new Error(`Failed to rename device (HTTP ${response.status})`);
+    }
+    const data = (await response.json()) as { devices?: PairedDeviceInfo[] };
+    return Array.isArray(data.devices) ? data.devices : [];
+  }
+
+  /**
+   * Fetches ultra-lightweight RAM-only live TV modal & focused text input state (`GET /api/live`).
+   */
+  public async getLiveState(): Promise<TvLiveState> {
+    const response = await this.fetchFn(`${this.baseUrl}/api/live`, this.buildGetInit());
+    await this.throwIfUnauthorizedOrForbidden(response);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch live TV state (HTTP ${response.status})`);
+    }
+    return (await response.json()) as TvLiveState;
   }
 
   /**

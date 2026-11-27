@@ -487,6 +487,18 @@ public final class RemoteControlServer {
                     sendJson(out, "200 OK", RemoteAuthManager.MiniJson.stringify(resp), corsOrigin);
                     return;
                 }
+                if ("rename".equals(action)) {
+                    String nextName = req.optString("deviceName", "").trim();
+                    if (nextName.isEmpty()) {
+                        sendJson(out, "400 Bad Request", "{\"error\":\"invalid_name\"}", corsOrigin);
+                        return;
+                    }
+                    boolean renamed = auth.renameDevice(req.optString("deviceId", ""), nextName);
+                    resp.put("ok", renamed);
+                    resp.put("devices", auth.listPublicDeviceMaps(caller.tokenSha256));
+                    sendJson(out, "200 OK", RemoteAuthManager.MiniJson.stringify(resp), corsOrigin);
+                    return;
+                }
                 if ("create_invite".equals(action)) {
                     RemoteAuthManager.Role invRole = RemoteAuthManager.Role.fromString(
                             req.optString("role", "GUEST"),
@@ -511,6 +523,11 @@ public final class RemoteControlServer {
         }
 
         // 4. Protected GET Routes
+        if ("GET".equals(method) && "/api/live".equals(path)) {
+            JSONObject live = buildLiveStateJson(caller);
+            sendJson(out, "200 OK", live.toString(), corsOrigin);
+            return;
+        }
         if ("GET".equals(method) && "/api/status".equals(path)) {
             JSONObject status = buildStatusJson(caller);
             sendJson(out, "200 OK", status.toString(), corsOrigin);
@@ -931,6 +948,34 @@ public final class RemoteControlServer {
                 selfPkg,
                 System.currentTimeMillis()
         );
+    }
+
+    /**
+     * Builds an ultra-lightweight RAM-only snapshot ({@code GET /api/live}) containing active TV modals
+     * and focused text inputs with zero PackageManager or flash I/O so the phone Companion Remote can
+     * mirror QR codes, prompts, and TV text fields in under half a second.
+     */
+    private JSONObject buildLiveStateJson(RemoteAuthManager.PairedDevice caller) throws JSONException {
+        JSONObject out = new JSONObject();
+        out.put("ok", true);
+        Host h = host;
+        out.put("activeScreen", h != null ? h.getActiveScreen() : 1);
+        TvInputFieldSync.InputSnapshot focused = resolveFocusedInput();
+        JSONObject focusedJson = new JSONObject();
+        focusedJson.put("active", focused.active);
+        focusedJson.put("text", focused.text);
+        focusedJson.put("hint", focused.hint);
+        focusedJson.put("packageName", focused.packageName);
+        focusedJson.put("appLabel", focused.appLabel);
+        focusedJson.put("isPassword", focused.isPassword);
+        focusedJson.put("revision", focused.revision);
+        focusedJson.put("updatedAtMs", focused.updatedAtMs);
+        out.put("focusedInput", focusedJson);
+
+        TvRemoteBridge.ActiveModal modal = h != null ? h.getActiveModal() : TvRemoteBridge.ActiveModal.INACTIVE;
+        RemoteAuthManager.Role callerRole = caller != null ? caller.role : RemoteAuthManager.Role.GUEST;
+        out.put("activeModal", (modal != null ? modal : TvRemoteBridge.ActiveModal.INACTIVE).toJsonForRole(callerRole));
+        return out;
     }
 
     private JSONObject buildStatusJson(RemoteAuthManager.PairedDevice caller) throws JSONException {

@@ -2040,6 +2040,8 @@
   <div id="pairingOverlay" class="sheet-overlay" role="dialog" aria-modal="true" aria-labelledby="pairingOverlayTitle" onclick="handlePairingBackdropClick(event)">
     <div class="sheet-card">
       <div class="sheet-handle"></div>
+      <!-- Header with Optional First-Time Owner Badge -->
+      <div id="pairingOwnerBadge" class="status-pill connected" style="display:none; align-self:flex-start; font-size:11px; padding:4px 10px;">First-Time Owner Setup · Admin Access</div>
       <div class="sheet-head">
         <div style="min-width:0;">
           <div id="pairingOverlayTitle" class="sheet-title">Connect to SoarTV</div>
@@ -2081,20 +2083,26 @@
         <button class="btn btn-chip" onclick="requestTvPairPrompt(true)" style="flex-shrink:0;">Show QR</button>
       </div>
 
-      <!-- Clean 6-Digit Code Entry -->
-      <div class="input-row">
-        <input id="pairCodeInput" class="text-input pair-code-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit TV code" aria-label="6-Digit TV Pairing Code" />
-        <button class="btn" style="border-radius:999px; padding:10.5px 18px;" onclick="submitSixDigitPairCode()">Connect</button>
-      </div>
-
-      <!-- Subtle Owner / Admin Recovery -->
-      <div id="googleAdminAuthWrap" style="display:none; flex-direction:column; gap:10px;">
-        <div class="pairing-divider">Owner / Admin Access</div>
-        <button class="btn btn-blue" style="border-radius:999px; padding:11.5px 16px;" onclick="signInWithGoogleAdmin()">
-          <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          <span>Sign in with Google (Admin)</span>
-        </button>
-      </div>
+      <!-- Secondary Options (Kept tucked cleanly so First-Time Owner Setup stays effortless) -->
+      <details id="pairingMoreOptions" class="settings-disclosure">
+        <summary>
+          <span>Use 6-Digit Code or Admin Recovery</span>
+          <span style="font-size:11px; color:var(--ink-50);">Optional</span>
+        </summary>
+        <div class="disclosure-body">
+          <div class="input-row">
+            <input id="pairCodeInput" class="text-input pair-code-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit TV code" aria-label="6-Digit TV Pairing Code" />
+            <button class="btn" style="border-radius:999px; padding:10.5px 18px;" onclick="submitSixDigitPairCode()">Connect</button>
+          </div>
+          <div id="googleAdminAuthWrap" style="display:none; flex-direction:column; gap:10px;">
+            <div class="pairing-divider">Owner / Admin Recovery</div>
+            <button class="btn btn-blue" style="border-radius:999px; padding:11.5px 16px;" onclick="signInWithGoogleAdmin()">
+              <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <span>Sign in with Google (Admin)</span>
+            </button>
+          </div>
+        </div>
+      </details>
     </div>
   </div>
 

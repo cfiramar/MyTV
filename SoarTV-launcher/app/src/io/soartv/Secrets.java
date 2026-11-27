@@ -72,6 +72,7 @@ public class Secrets extends ContentProvider {
     public static final String GEMINI_API_KEY = "gemini_api_key";
     public static final String ADMIN_EMAILS = "admin_emails";
     public static final String REMOTE_PAIRED_DEVICES = "remote_paired_devices";
+    public static final String TRAKT_CLIENT_ID = "trakt_client_id";
 
     static final List<String> NAMES = Collections.unmodifiableList(Arrays.asList(
             ADB_KEY,
@@ -88,6 +89,7 @@ public class Secrets extends ContentProvider {
             GEMINI_API_KEY,
             ADMIN_EMAILS,
             REMOTE_PAIRED_DEVICES,
+            TRAKT_CLIENT_ID,
             "wiz_light_ips",
             "switcher_api_key",
             "enable_gaming",

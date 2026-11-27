@@ -36,6 +36,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.provider.Settings;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyPermanentlyInvalidatedException;
 import android.security.keystore.KeyProperties;
@@ -498,6 +499,46 @@ public final class RemoteAppActivity extends Activity {
             startActivity(browserIntent);
         } catch (Exception ignored) {
         }
+    }
+
+    private String resolvePhoneNickname() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
+                String globalName = Settings.Global.getString(getContentResolver(), Settings.Global.DEVICE_NAME);
+                if (isUsefulPhoneName(globalName)) {
+                    return globalName.trim();
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        try {
+            String btName = Settings.Secure.getString(getContentResolver(), "bluetooth_name");
+            if (isUsefulPhoneName(btName)) {
+                return btName.trim();
+            }
+        } catch (Throwable ignored) {
+        }
+        String model = Build.MODEL != null ? Build.MODEL.trim() : "";
+        String mfr = Build.MANUFACTURER != null ? Build.MANUFACTURER.trim() : "";
+        if (!model.isEmpty()) {
+            if (!mfr.isEmpty() && !model.toLowerCase(Locale.US).startsWith(mfr.toLowerCase(Locale.US))) {
+                String capMfr = Character.toUpperCase(mfr.charAt(0)) + mfr.substring(1);
+                return (capMfr + " " + model).trim();
+            }
+            return model;
+        }
+        return "";
+    }
+
+    private static boolean isUsefulPhoneName(String raw) {
+        if (raw == null) return false;
+        String clean = raw.trim();
+        if (clean.length() < 2) return false;
+        String lower = clean.toLowerCase(Locale.US);
+        return !"android".equals(lower)
+                && !"android phone".equals(lower)
+                && !"localhost".equals(lower)
+                && !"unknown".equals(lower);
     }
 
     /**
@@ -1379,6 +1420,17 @@ public final class RemoteAppActivity extends Activity {
             final String trimmed = url.trim();
             if (!trimmed.startsWith("https://") && !trimmed.startsWith("http://")) return;
             runOnUiThread(() -> openExternalBrowser(Uri.parse(trimmed)));
+        }
+
+        /**
+         * Returns the user-configured phone / Bluetooth device name (Settings.Global.DEVICE_NAME ->
+         * bluetooth_name -> Build.MODEL) with zero extra runtime permissions so paired phones appear
+         * under friendly nicknames like "Alex's S25 Ultra" on the TV.
+         */
+        @JavascriptInterface
+        public String getDeviceName() {
+            if (!trustedOriginActive) return "";
+            return resolvePhoneNickname();
         }
 
         @JavascriptInterface

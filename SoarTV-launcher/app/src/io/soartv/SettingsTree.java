@@ -2039,29 +2039,61 @@ public final class SettingsTree {
     // MARK: - Shared Reusable Sub-Trees (Initial Setup Guide, Accounts, Controllers, Theme, Genres, Screensaver)
 
     private static Node buildInitialSetupNode(StateSnapshot s) {
+        int activeRemotes = countActivePairedRemotes(s);
         int completedSteps = 0;
+        if (activeRemotes > 0) completedSteps++;
         if (s.traktConnected) completedSteps++;
         if (s.stremioConnected) completedSteps++;
         if (s.tvRoom != null && !s.tvRoom.isEmpty()) completedSteps++;
         if (s.hasSensiboKey || s.hasTuyaKeys || s.discoveredWizBulbs > 0) completedSteps++;
         if (s.hasTmdbKey) completedSteps++;
 
-        boolean allDone = completedSteps >= 5 || s.initialSetupDone;
-        String overallStatus = allDone ? "Completed" : (completedSteps + " / 5 Steps");
+        boolean allDone = completedSteps >= 6 || s.initialSetupDone;
+        String overallStatus = allDone ? "Completed" : (completedSteps + " / 6 Steps");
         StatusTone tone = allDone ? StatusTone.POSITIVE : StatusTone.WARNING;
 
         Node wizardStartNode = actionNode(
                 "setup_wizard_start",
                 "Guided Step-by-Step Initial Setup",
-                "Walk through Trakt, Stremio, TV Room, Smart-Home & Private API Keys",
+                "Pair your phone remote first, then breeze through Trakt, Stremio, TV Room & Keys",
                 overallStatus,
                 "sparkles",
                 allDone,
                 tone);
 
-        Node traktNode = buildTraktAccountNode(s, "1. Trakt Account (OAuth)");
-        Node stremioNode = buildStremioAccountNode(s, "2. Stremio Account (Library Sync)");
-        Node tvRoomNode = buildTvRoomNode(s, "3. TV Room Assignment");
+        String remoteStepValue;
+        String remoteStepSub;
+        if (activeRemotes > 0) {
+            String firstPhoneName = "";
+            long nowMs = s.referenceNowMs > 0L ? s.referenceNowMs : System.currentTimeMillis();
+            if (s.pairedRemotes != null) {
+                for (RemoteAuthManager.PairedDevice dev : s.pairedRemotes) {
+                    if (dev != null && !dev.isExpired(nowMs) && dev.deviceName != null && !dev.deviceName.isEmpty()) {
+                        firstPhoneName = dev.deviceName;
+                        break;
+                    }
+                }
+            }
+            remoteStepValue = (activeRemotes == 1 && !firstPhoneName.isEmpty())
+                    ? firstPhoneName
+                    : (activeRemotes + " Paired");
+            remoteStepSub = "Phone remote paired · Press OK to pair another phone or manage nicknames";
+        } else {
+            remoteStepValue = "Not Paired";
+            remoteStepSub = "Pair your phone as TV Owner (Admin) via QR to type & sign in faster";
+        }
+        Node pairRemoteNode = actionNode(
+                "setup_pair_remote",
+                "1. Companion Phone Remote (App & QR)",
+                remoteStepSub,
+                remoteStepValue,
+                "cast",
+                activeRemotes > 0,
+                activeRemotes > 0 ? StatusTone.POSITIVE : StatusTone.WARNING);
+
+        Node traktNode = buildTraktAccountNode(s, "2. Trakt Account (OAuth)");
+        Node stremioNode = buildStremioAccountNode(s, "3. Stremio Account (Library Sync)");
+        Node tvRoomNode = buildTvRoomNode(s, "4. TV Room Assignment");
 
         boolean shReady = s.hasSensiboKey || s.hasTuyaKeys || s.discoveredWizBulbs > 0;
         List<Node> shChildren = new ArrayList<>();
@@ -2076,7 +2108,7 @@ public final class SettingsTree {
 
         Node shSetupNode = groupNode(
                 "setup_smarthome",
-                "4. Smart-Home Devices Discovery & Keys",
+                "5. Smart-Home Devices Discovery & Keys",
                 "WiZ LAN bulbs, Sensibo AC, Tuya AC, Water Boiler & Google Home",
                 shReady ? "Completed" : "Optional",
                 "lightbulb",
@@ -2139,7 +2171,7 @@ public final class SettingsTree {
 
         Node keysNode = groupNode(
                 "setup_keys",
-                "5. Private API Keys & Cloud Vault",
+                "6. Private API Keys & Cloud Vault",
                 "TMDB, OMDb / MDBList (RT & MC ratings), Gemini AI & Supabase Vault",
                 keysReady ? "Completed" : (s.hasTmdbKey ? "Partially Completed" : "Required"),
                 "key",
@@ -2160,13 +2192,13 @@ public final class SettingsTree {
         return groupNode(
                 "initial_setup",
                 "Initial Setup & Cloud",
-                "One-time setup guide, Trakt & Stremio OAuth, TV Room, Smart-Home & Private Keys",
+                "Phone Remote pairing, Trakt & Stremio OAuth, TV Room, Smart-Home & Private Keys",
                 overallStatus,
                 "sparkles",
                 allDone,
                 "Steps show live status · Press OK to configure or change any step",
                 tone,
-                Arrays.asList(wizardStartNode, traktNode, stremioNode, tvRoomNode, shSetupNode, keysNode, finishNode));
+                Arrays.asList(wizardStartNode, pairRemoteNode, traktNode, stremioNode, tvRoomNode, shSetupNode, keysNode, finishNode));
     }
 
     private static List<Node> buildSmartHomeKeysChildren(StateSnapshot s) {
@@ -2379,7 +2411,7 @@ public final class SettingsTree {
                 String emailPrefix = (dev.googleEmail != null && !dev.googleEmail.isEmpty())
                         ? (dev.googleEmail + " · ")
                         : "";
-                String sub = emailPrefix + "Press OK to change role or kick remote";
+                String sub = emailPrefix + "Press OK to rename, change role, or kick remote";
                 String title = (dev.deviceName != null && !dev.deviceName.isEmpty()) ? dev.deviceName : "Companion Remote";
                 remoteChildren.add(new Node(
                         "remote_manage:" + dev.deviceId,
