@@ -107,8 +107,6 @@ public final class RemoteAppActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        applySystemBarAppearance(true);
-
         webView = new WebView(this);
         webView.setBackgroundColor(DARK_STATUS_BAR_COLOR);
         webView.setVerticalScrollBarEnabled(false);
@@ -136,6 +134,7 @@ public final class RemoteAppActivity extends Activity {
         webView.setWebChromeClient(new QrCameraWebChromeClient());
 
         setContentView(webView);
+        applySystemBarAppearance(true);
         handleIncomingIntent(getIntent());
         triggerBackgroundTvDiscovery("");
         webView.loadUrl(START_URL);
@@ -712,6 +711,8 @@ public final class RemoteAppActivity extends Activity {
     private void applySystemBarAppearance(boolean dark) {
         Window window = getWindow();
         if (window == null) return;
+        // Ensure DecorView is installed before touching WindowInsetsController (prevents Android 11-16 NPE)
+        View decor = window.getDecorView();
         window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
         int statusBg = dark ? DARK_STATUS_BAR_COLOR : LIGHT_STATUS_BAR_COLOR;
         int navBg = dark ? DARK_NAV_BAR_COLOR : LIGHT_NAV_BAR_COLOR;
@@ -721,29 +722,41 @@ public final class RemoteAppActivity extends Activity {
             webView.setBackgroundColor(statusBg);
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            WindowInsetsController ctrl = window.getInsetsController();
-            if (ctrl != null) {
-                int lightMask = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-                        | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
-                ctrl.setSystemBarsAppearance(dark ? 0 : lightMask, lightMask);
-            }
-        } else {
-            View decor = window.getDecorView();
-            if (decor != null) {
-                int flags = decor.getSystemUiVisibility();
-                if (dark) {
-                    flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
-                    }
-                } else {
-                    flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
-                    }
+            try {
+                WindowInsetsController ctrl = window.getInsetsController();
+                if (ctrl != null) {
+                    int lightMask = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                            | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                    ctrl.setSystemBarsAppearance(dark ? 0 : lightMask, lightMask);
+                } else if (decor != null) {
+                    decor.post(() -> {
+                        try {
+                            WindowInsetsController lateCtrl = window.getInsetsController();
+                            if (lateCtrl != null) {
+                                int lightMask = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                                        | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                                lateCtrl.setSystemBarsAppearance(dark ? 0 : lightMask, lightMask);
+                            }
+                        } catch (RuntimeException ignored) {
+                        }
+                    });
                 }
-                decor.setSystemUiVisibility(flags);
+            } catch (RuntimeException ignored) {
             }
+        } else if (decor != null) {
+            int flags = decor.getSystemUiVisibility();
+            if (dark) {
+                flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+                }
+            } else {
+                flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+                }
+            }
+            decor.setSystemUiVisibility(flags);
         }
     }
 
