@@ -861,6 +861,57 @@ public final class Stage2ModularizationAndBridgeTests {
         SettingsTree.Node pairedStep = pairedInitNode.findById("setup_pair_remote");
         assertTrue(pairedStep != null && pairedStep.checked && pairedStep.value.contains("Alex's S25"),
                 "Paired Initial Setup remote step shows phone nickname & POSITIVE status");
+
+        // v2.9: Quick Invite Admin shortcuts, ISO-18004 quiet zone >= 4, vector SVG QR, IPv4-mapped IPv6 normalization, and iOS/Android same-IP handoff
+        assertEquals("192.168.1.50", RemoteControlServer.normalizeSocketIp("::ffff:192.168.1.50"),
+                "normalizeSocketIp strips IPv4-mapped IPv6 prefix");
+        assertEquals("192.168.1.50", RemoteControlServer.normalizeSocketIp("192.168.1.50%wlan0"),
+                "normalizeSocketIp strips interface scope suffix");
+        assertEquals("http://192.168.1.50:8484",
+                RemoteControlServer.validateCorsOrigin("http://192.168.1.50:8484", "", "::ffff:192.168.1.50", 8484),
+                "validateCorsOrigin accepts LAN origin even when dual-stack socket reports ::ffff: IP");
+
+        assertTrue(RemoteAuthManager.PAIRING_QR_QUIET_ZONE >= 4,
+                "Pairing QR uses ISO-18004 >= 4 module quiet zone for reliable iPhone camera scanning");
+        String qrSvg = RemoteAuthManager.encodePairingQrSvg("http://192.168.1.50:8484/?pair=QrSecret128BitTestValue");
+        assertTrue(qrSvg != null && qrSvg.startsWith("<svg ") && qrSvg.contains("<path ") && qrSvg.endsWith("</svg>"),
+                "encodePairingQrSvg emits crisp self-contained inline SVG QR code");
+
+        File tmpDir3 = Files.createTempDirectory("soartv_v29_invite_test").toFile();
+        try {
+            Secrets.setJvmTestSecretsDir(tmpDir3);
+            AtomicLong clk3 = new AtomicLong(1_780_000_000_000L);
+            RemoteAuthManager auth3 = new RemoteAuthManager(null, clk3::get);
+            RemoteAuthManager.PendingPairRequest inv = auth3.createInvite(
+                    RemoteAuthManager.Role.ADMIN, "http://192.168.1.50:8484");
+            assertTrue(inv != null && inv.presetRole == RemoteAuthManager.Role.ADMIN,
+                    "Admin invite carries ADMIN presetRole");
+            assertTrue(inv.pairUrl.startsWith("http://192.168.1.50:8484/?pair="),
+                    "Admin invite URL uses LAN base with /?pair= query");
+
+            RemoteAuthManager.IssueResult verified = auth3.verifyPairing(
+                    "", inv.qrSecret, "", "", false, "iPhone Remote", "192.168.1.77");
+            assertEquals(200, verified.httpStatus, "Partner verifying Admin QR invite succeeds");
+            assertTrue(verified.device != null && verified.device.role == RemoteAuthManager.Role.ADMIN,
+                    "Partner receives ADMIN role from Admin invite QR");
+
+            // Simulates iPhone Add-to-Home-Screen standalone PWA (or Android newly-installed APK) opening with empty localStorage on same IP
+            String handoffCfg = auth3.buildAuthConfigJson("", "SmartTV-4K", "192.168.1.77");
+            assertTrue(handoffCfg.contains("\"handoffToken\"") && handoffCfg.contains("\"handoffRole\":\"ADMIN\""),
+                    "Same-IP handoff automatically transfers ADMIN token to newly installed iOS PWA / Android APK");
+        } finally {
+            Secrets.setJvmTestSecretsDir(null);
+            deleteRecursively(tmpDir3);
+        }
+
+        // Verify quick Invite Admin shortcut is directly reachable in Remotes & Accessories AND first inside Companion Phone Remotes
+        SettingsTree.Node remotesCat = SettingsTree.buildRoot(freshInit).findById("remotes_accessories");
+        assertTrue(remotesCat != null && remotesCat.findById("remote_invite:ADMIN") != null,
+                "Remotes & Accessories exposes quick Invite Admin Remote action");
+        SettingsTree.Node pairedGroup = remotesCat.findById("paired_remotes");
+        assertTrue(pairedGroup != null && !pairedGroup.children.isEmpty()
+                        && "remote_invite:ADMIN".equals(pairedGroup.children.get(0).id),
+                "Invite Admin Remote is placed first inside Companion Phone Remotes");
     }
 
     private static void collectAllNodes(SettingsTree.Node node, List<SettingsTree.Node> out) {

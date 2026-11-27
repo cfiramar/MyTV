@@ -302,6 +302,7 @@ if [ -d ../SoarTV-remote/android ] && [ -d ../SoarTV-remote/public ]; then
   cp -f ../SoarTV-remote/public/index.html out/remote/assets/
   [ -f ../SoarTV-remote/public/app.bundle.js ] && cp -f ../SoarTV-remote/public/app.bundle.js out/remote/assets/
   [ -f ../SoarTV-remote/public/manifest.json ] && cp -f ../SoarTV-remote/public/manifest.json out/remote/assets/
+  cp -f ../SoarTV-remote/public/*.png out/remote/assets/ 2>/dev/null || true
   "$BT/aapt2" compile --dir ../SoarTV-remote/android/res -o out/remote/res.zip
   "$BT/aapt2" link -o out/remote/base.apk -I "$AJ" --manifest ../SoarTV-remote/android/AndroidManifest.xml \
     --java out/remote/gen out/remote/res.zip --min-sdk-version 24 --target-sdk-version 34 -A out/remote/assets

@@ -8,7 +8,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="SoarTV Remote" />
   <meta id="themeColorMeta" name="theme-color" content="#0E1024" />
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230E1024'/%3E%3Crect x='18' y='10' width='28' height='44' rx='9' fill='%232563EB'/%3E%3Ccircle cx='32' cy='24' r='6' fill='%23FFFFFF'/%3E%3Crect x='24' y='38' width='16' height='4' rx='2' fill='%23FFFFFF'/%3E%3C/svg%3E" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
   <link rel="manifest" href="/manifest.json" />
   <title>SoarTV Remote</title>
   <style>
@@ -1180,21 +1182,22 @@
       padding: 4px;
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 2px;
       border-radius: 999px;
       z-index: 30;
     }
 
     .dock-tab {
-      flex: 1 1 0;
+      flex: 1 1 auto;
       min-width: 0;
       background: transparent;
       border: 1px solid transparent;
       color: var(--nav-inactive-ink);
-      padding: 7px 4px;
+      padding: 7px 6px;
       border-radius: 999px;
       font-family: inherit;
-      font-size: 10px;
+      font-size: clamp(9.5px, 2.55vw, 10.5px);
+      letter-spacing: -0.01em;
       font-weight: 500;
       display: flex;
       flex-direction: column;
@@ -1203,9 +1206,16 @@
       gap: 3px;
       white-space: nowrap;
       overflow: hidden;
-      text-overflow: ellipsis;
       cursor: pointer;
       transition: background 0.16s ease, color 0.16s ease, transform 0.12s ease;
+    }
+
+    .dock-tab span {
+      display: block;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .dock-tab:active {
@@ -1462,6 +1472,59 @@
       border-radius: 18px;
       box-shadow: 0 0 0 999px rgba(8, 11, 24, 0.48);
       pointer-events: none;
+    }
+
+    .invite-qr-card {
+      width: 168px;
+      height: 168px;
+      margin: 4px auto 2px;
+      padding: 8px;
+      border-radius: 18px;
+      background: #ffffff;
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.32);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .invite-qr-card svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .install-steps-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .install-step-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: var(--row-bg);
+      border: 1px solid var(--lg-border);
+      font-size: 12.5px;
+      color: var(--ink-92);
+      line-height: 1.35;
+    }
+
+    .install-step-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      background: var(--selected-bg);
+      color: var(--selected-ink);
+      font-size: 12px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }
 
     .segmented-pills {
@@ -1900,13 +1963,17 @@
       <div id="apkInstallBanner" class="tv-row is-active">
         <div class="tv-row-head">
           <div style="min-width:0;">
-            <div class="tv-row-title">Android Remote App</div>
-            <div class="tv-row-sub">Edge-to-edge · Hardware Volume · Fingerprint</div>
+            <div id="installBannerTitle" class="tv-row-title">Install SoarTV Remote App</div>
+            <div id="installBannerSub" class="tv-row-sub">Edge-to-edge · Hardware Volume · Fingerprint</div>
           </div>
           <a id="apkDownloadLink" href="/SoarTV-Remote.apk" download="SoarTV-Remote.apk" class="btn pill-focus btn-chip" style="flex-shrink:0;">
             <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             <span>Get APK</span>
           </a>
+          <button id="iosInstallGuideBtn" class="btn pill-focus btn-chip" style="display:none; flex-shrink:0;" onclick="openInstallAppSheet()">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 3v12"/><polyline points="7 8 12 3 17 8"/><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg>
+            <span>Add to Home</span>
+          </button>
         </div>
       </div>
 
@@ -1954,6 +2021,7 @@
             <div id="settingsPairSub" class="tv-row-sub">Paired via QR code or TV approval</div>
           </div>
           <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+            <button id="settingsQuickInviteAdminBtn" class="btn pill-focus btn-chip" style="display:none;" onclick="quickInviteAdmin()">Invite Admin</button>
             <button id="settingsUpgradeRoleBtn" class="btn pill-focus btn-chip" style="display:none;" onclick="rePairAsAdmin()">Upgrade Admin</button>
             <button class="btn btn-chip" onclick="closeSheet('settings'); openPairingOverlayManual(true);">Re-pair</button>
           </div>
@@ -1962,15 +2030,16 @@
 
       <!-- Admin-Only Paired Remotes (Collapsible) -->
       <div id="adminDevicesSection" style="display:none;">
-        <details class="settings-disclosure">
+        <details id="adminDevicesDisclosure" class="settings-disclosure">
           <summary>
-            <span>Paired Remotes &amp; Guests</span>
+            <span>Paired Remotes &amp; Invites</span>
             <span style="font-size:11px; color:var(--ink-50);">Admin</span>
           </summary>
           <div class="disclosure-body">
             <div class="input-row">
-              <button class="btn pill-focus" style="flex:1;" onclick="createAdminInvite('GUEST')">Invite Guest (30d)</button>
-              <button class="btn" style="flex:1;" onclick="createAdminInvite('HOUSEHOLD')">Invite Home</button>
+              <button class="btn pill-focus" style="flex:1; padding:10px 8px;" onclick="createAdminInvite('ADMIN')">Invite Admin</button>
+              <button class="btn" style="flex:1; padding:10px 8px;" onclick="createAdminInvite('HOUSEHOLD')">Invite Home</button>
+              <button class="btn" style="flex:1; padding:10px 8px;" onclick="createAdminInvite('GUEST')">Guest (30d)</button>
             </div>
             <div id="adminInviteResultBox" class="tv-row is-active" style="display:none;"></div>
             <div id="pairedDevicesList" style="display:flex; flex-direction:column; gap:8px;"></div>
@@ -2031,6 +2100,59 @@
       </button>
 
       <div id="tvModalActionsList" class="tv-modal-actions"></div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       SHEET 7: INSTALL SOARTV REMOTE APP (Auto-Shown After QR Invite Pairing)
+       ======================================================================== -->
+  <div id="sheet-install-app" class="sheet-overlay" role="dialog" aria-modal="true" aria-labelledby="installSheetTitle" onclick="handleSheetBackdropClick(event, 'install-app')">
+    <div class="sheet-card">
+      <div class="sheet-handle"></div>
+      <div id="installSheetBadge" class="status-pill connected" style="align-self:flex-start; font-size:11px; padding:4px 10px;">Paired as Admin</div>
+      <div class="sheet-head">
+        <div style="display:flex; align-items:center; gap:11px; min-width:0;">
+          <img src="/apple-touch-icon.png" alt="SoarTV Remote" width="46" height="46" style="border-radius:12px; flex-shrink:0; box-shadow:0 6px 18px rgba(0,0,0,0.34);" />
+          <div style="min-width:0;">
+            <div id="installSheetTitle" class="sheet-title">Install SoarTV Remote</div>
+            <div id="installSheetSub" class="sheet-sub">Keep full-screen remote access on your Home Screen</div>
+          </div>
+        </div>
+        <button class="orb-sm lg-sm" style="width:32px;height:32px;flex-shrink:0;" onclick="closeSheet('install-app')" aria-label="Close">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <!-- Android Browser Flow: 1-Tap Native APK Download + Auto Same-IP Token Handoff -->
+      <div id="installAndroidFlow" style="display:none; flex-direction:column; gap:10px;">
+        <a id="installSheetApkLink" href="/SoarTV-Remote.apk" download="SoarTV-Remote.apk" class="btn pill-focus" style="padding:13px 16px; border-radius:999px;">
+          <svg class="icon icon-md" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>Download &amp; Install SoarTV Remote (APK)</span>
+        </a>
+        <div class="tv-row-sub" style="text-align:center;">
+          Your paired role transfers automatically when you open the installed app — zero re-pairing needed.
+        </div>
+      </div>
+
+      <!-- iPhone / iPad Safari Flow: Native Full-Screen Home Screen App + Auto Same-IP Token Handoff -->
+      <div id="installIosFlow" style="display:none; flex-direction:column; gap:10px;">
+        <div class="install-steps-list">
+          <div class="install-step-item">
+            <span class="install-step-num">1</span>
+            <span>Tap the <strong>Share</strong> icon (square with upward arrow) at the bottom of Safari.</span>
+          </div>
+          <div class="install-step-item">
+            <span class="install-step-num">2</span>
+            <span>Scroll down and tap <strong>Add to Home Screen</strong>, then tap <strong>Add</strong>.</span>
+          </div>
+          <div class="install-step-item">
+            <span class="install-step-num">3</span>
+            <span>Open <strong>SoarTV Remote</strong> from your Home Screen — your access transfers automatically!</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn" style="border-radius:999px;" onclick="closeSheet('install-app')">Continue in Browser</button>
     </div>
   </div>
 

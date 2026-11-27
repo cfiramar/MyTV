@@ -989,6 +989,14 @@ public final class SettingsTree {
                 "speaker");
 
         Node controllersNode = buildControllersListNode(s);
+        Node quickInviteAdminNode = actionNode(
+                "remote_invite:ADMIN",
+                "Invite Admin Phone (QR & App)",
+                "Show QR code to pair another Admin phone & install the Companion Remote app",
+                "QR Code",
+                "shield",
+                false,
+                StatusTone.NONE);
         Node pairedRemotesNode = buildPairedRemotesNode(s);
 
         Node remoteButtonsNode = actionNode(
@@ -1009,7 +1017,7 @@ public final class SettingsTree {
                 totalConnected > 0,
                 "",
                 totalConnected > 0 ? StatusTone.POSITIVE : StatusTone.NONE,
-                Arrays.asList(btPairInApp, btSysAccessories, controllersNode, pairedRemotesNode, remoteButtonsNode));
+                Arrays.asList(quickInviteAdminNode, pairedRemotesNode, btPairInApp, btSysAccessories, controllersNode, remoteButtonsNode));
     }
 
     // MARK: - Section 2: SoarTV Experience
@@ -2366,27 +2374,27 @@ public final class SettingsTree {
     private static Node buildPairedRemotesNode(StateSnapshot s) {
         List<Node> remoteChildren = new ArrayList<>();
         remoteChildren.add(actionNode(
-                "remote_invite:GUEST",
-                "Invite Guest Remote (30 Days)",
-                "Generate 6-digit code & QR for a temporary 30-day visitor remote",
+                "remote_invite:ADMIN",
+                "Invite Admin Remote (QR & App)",
+                "Show QR code to pair another Admin phone & download the app (full Admin + PC Unlock)",
                 "Invite",
-                "plus",
+                "shield",
                 false,
                 StatusTone.NONE));
         remoteChildren.add(actionNode(
                 "remote_invite:HOUSEHOLD",
-                "Invite Household Remote",
-                "Generate 6-digit code & QR for a permanent family remote",
+                "Invite Household Remote (QR & App)",
+                "Show QR code to pair a permanent family phone & download the app",
                 "Invite",
                 "users",
                 false,
                 StatusTone.NONE));
         remoteChildren.add(actionNode(
-                "remote_invite:ADMIN",
-                "Invite Admin Remote",
-                "Generate 6-digit code & QR with full Admin & PC Unlock access",
+                "remote_invite:GUEST",
+                "Invite Guest Remote (30 Days)",
+                "Show QR code for a temporary 30-day visitor remote & quick browser link",
                 "Invite",
-                "shield",
+                "plus",
                 false,
                 StatusTone.NONE));
 

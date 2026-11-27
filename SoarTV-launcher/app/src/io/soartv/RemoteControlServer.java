@@ -82,10 +82,10 @@ public final class RemoteControlServer {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService pool = new ThreadPoolExecutor(
             2,
-            8,
+            16,
             30L,
             TimeUnit.SECONDS,
-            new ArrayBlockingQueue<>(32),
+            new ArrayBlockingQueue<>(48),
             r -> {
                 Thread t = new Thread(r, "remote-server-worker");
                 t.setDaemon(true);
@@ -158,39 +158,79 @@ public final class RemoteControlServer {
     }
 
     /**
-     * Resolves the TV's private IPv4 address on Wi-Fi or Ethernet (excluding VPN interfaces).
+     * Normalizes dual-stack socket IP strings (e.g., strips {@code ::ffff:} IPv4-mapped IPv6 prefixes
+     * and {@code %iface} zone suffixes) so CORS origin matching and same-IP iOS/Android handoff never fail.
+     */
+    static String normalizeSocketIp(String rawIp) {
+        if (rawIp == null) return "";
+        String clean = rawIp.trim();
+        int pct = clean.indexOf('%');
+        if (pct >= 0) {
+            clean = clean.substring(0, pct);
+        }
+        if (clean.regionMatches(true, 0, "::ffff:", 0, 7)) {
+            clean = clean.substring(7);
+        }
+        return clean;
+    }
+
+    /**
+     * Resolves the TV's private IPv4 address on Wi-Fi or Ethernet (excluding VPN interfaces),
+     * falling back to direct {@link java.net.NetworkInterface} enumeration so QR URLs never
+     * regress to {@code 127.0.0.1} while connected to a LAN.
      *
      * @param c Application context.
      * @return Site-local IPv4 address, or {@code null} when offline.
      */
     @SuppressWarnings("deprecation")
     static InetAddress lanAddress(Context c) {
-        if (c == null) return null;
-        try {
-            android.net.ConnectivityManager cm = c.getSystemService(android.net.ConnectivityManager.class);
-            if (cm == null) return null;
-            android.net.Network active = cm.getActiveNetwork();
-            List<android.net.Network> networks = new ArrayList<>();
-            if (active != null) networks.add(active);
-            for (android.net.Network n : cm.getAllNetworks()) {
-                if (!n.equals(active)) networks.add(n);
+        if (c != null) {
+            try {
+                android.net.ConnectivityManager cm = c.getSystemService(android.net.ConnectivityManager.class);
+                if (cm != null) {
+                    android.net.Network active = cm.getActiveNetwork();
+                    List<android.net.Network> networks = new ArrayList<>();
+                    if (active != null) networks.add(active);
+                    for (android.net.Network n : cm.getAllNetworks()) {
+                        if (!n.equals(active)) networks.add(n);
+                    }
+                    for (android.net.Network n : networks) {
+                        android.net.NetworkCapabilities caps = cm.getNetworkCapabilities(n);
+                        if (caps == null || caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)
+                                || !(caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI)
+                                        || caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET))) {
+                            continue;
+                        }
+                        android.net.LinkProperties link = cm.getLinkProperties(n);
+                        if (link == null) continue;
+                        for (android.net.LinkAddress a : link.getLinkAddresses()) {
+                            InetAddress ip = a.getAddress();
+                            if (ip instanceof java.net.Inet4Address && ip.isSiteLocalAddress()) return ip;
+                        }
+                    }
+                }
+            } catch (RuntimeException e) {
+                AppLog.w("RemoteControlServer lanAddress ConnectivityManager failed: " + e.getMessage());
             }
-            for (android.net.Network n : networks) {
-                android.net.NetworkCapabilities caps = cm.getNetworkCapabilities(n);
-                if (caps == null || caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)
-                        || !(caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI)
-                                || caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET))) {
+        }
+        try {
+            java.util.Enumeration<java.net.NetworkInterface> ifaces = java.net.NetworkInterface.getNetworkInterfaces();
+            while (ifaces != null && ifaces.hasMoreElements()) {
+                java.net.NetworkInterface nif = ifaces.nextElement();
+                if (!nif.isUp() || nif.isLoopback() || nif.isVirtual()) continue;
+                String name = nif.getName() != null ? nif.getName().toLowerCase(Locale.ROOT) : "";
+                if (name.startsWith("tun") || name.startsWith("tap") || name.startsWith("ppp") || name.startsWith("wg")) {
                     continue;
                 }
-                android.net.LinkProperties link = cm.getLinkProperties(n);
-                if (link == null) continue;
-                for (android.net.LinkAddress a : link.getLinkAddresses()) {
-                    InetAddress ip = a.getAddress();
-                    if (ip instanceof java.net.Inet4Address && ip.isSiteLocalAddress()) return ip;
+                java.util.Enumeration<InetAddress> addrs = nif.getInetAddresses();
+                while (addrs.hasMoreElements()) {
+                    InetAddress ip = addrs.nextElement();
+                    if (ip instanceof java.net.Inet4Address && !ip.isLoopbackAddress() && ip.isSiteLocalAddress()) {
+                        return ip;
+                    }
                 }
             }
-        } catch (RuntimeException e) {
-            AppLog.w("RemoteControlServer lanAddress failed: " + e.getMessage());
+        } catch (Exception ignored) {
         }
         return null;
     }
@@ -220,8 +260,9 @@ public final class RemoteControlServer {
         if (lanUrl != null && !lanUrl.isEmpty() && lanUrl.replaceAll("/+$", "").equalsIgnoreCase(origin)) {
             return origin;
         }
-        if (localSocketIp != null && !localSocketIp.isEmpty()
-                && ("http://" + localSocketIp + ":" + serverPort).equalsIgnoreCase(origin)) {
+        String normalizedLocalIp = normalizeSocketIp(localSocketIp);
+        if (!normalizedLocalIp.isEmpty()
+                && ("http://" + normalizedLocalIp + ":" + serverPort).equalsIgnoreCase(origin)) {
             return origin;
         }
         if (("http://127.0.0.1:" + serverPort).equalsIgnoreCase(origin)
@@ -322,8 +363,8 @@ public final class RemoteControlServer {
             String queryString = qIdx >= 0 ? fullPath.substring(qIdx + 1) : "";
 
             Map<String, String> headers = parseHeaderMap(lines);
-            String localIp = s.getLocalAddress() != null ? s.getLocalAddress().getHostAddress() : "";
-            String clientIp = s.getInetAddress() != null ? s.getInetAddress().getHostAddress() : "";
+            String localIp = normalizeSocketIp(s.getLocalAddress() != null ? s.getLocalAddress().getHostAddress() : "");
+            String clientIp = normalizeSocketIp(s.getInetAddress() != null ? s.getInetAddress().getHostAddress() : "");
             String corsOrigin = validateCorsOrigin(headers.get("origin"), getLanUrl(), localIp, port);
             if (FORBIDDEN_ORIGIN_SENTINEL.equals(corsOrigin)) {
                 sendJson(out, "403 Forbidden", "{\"error\":\"forbidden_origin\"}", "");
@@ -331,7 +372,7 @@ public final class RemoteControlServer {
             }
 
             if ("OPTIONS".equals(method)) {
-                sendResponse(out, "204 No Content", "text/plain", new byte[0], corsOrigin, "no-store", null);
+                sendResponse(out, "204 No Content", "text/plain", new byte[0], corsOrigin, "no-store", null, false);
                 return;
             }
 
@@ -352,15 +393,16 @@ public final class RemoteControlServer {
                 body = new String(buf, 0, read, StandardCharsets.UTF_8);
             }
 
-            if ("/auth/callback".equals(path) && "GET".equals(method)) {
-                serveGoogleAuthCallbackPage(out, corsOrigin);
+            boolean headOnly = "HEAD".equals(method);
+            if ("/auth/callback".equals(path) && ("GET".equals(method) || headOnly)) {
+                serveGoogleAuthCallbackPage(out, corsOrigin, headOnly);
                 return;
             }
 
             if (path.startsWith("/api/")) {
                 handleApi(method, path, queryString, headers, body, clientIp, corsOrigin, out);
             } else {
-                serveStaticAsset(path, headers.get("if-none-match"), corsOrigin, out);
+                serveStaticAsset(path, headers.get("if-none-match"), corsOrigin, headOnly, out);
             }
         } catch (Exception ignored) {
         }
@@ -510,6 +552,7 @@ public final class RemoteControlServer {
                     resp.put("code", inv.sixDigitCode);
                     resp.put("qrSecret", inv.qrSecret);
                     resp.put("pairUrl", inv.pairUrl);
+                    resp.put("qrSvg", RemoteAuthManager.encodePairingQrSvg(inv.pairUrl));
                     resp.put("role", invRole.name());
                     resp.put("expiresAtMs", inv.expiresAtMs);
                     sendJson(out, "200 OK", RemoteAuthManager.MiniJson.stringify(resp), corsOrigin);
@@ -1076,7 +1119,7 @@ public final class RemoteControlServer {
      * Reads {@code #access_token=...} from URL hash in JS, exchanges it via {@code POST /api/auth/google},
      * saves the issued local token to {@code localStorage}, and redirects cleanly to {@code /}.
      */
-    private void serveGoogleAuthCallbackPage(OutputStream out, String corsOrigin) throws IOException {
+    private void serveGoogleAuthCallbackPage(OutputStream out, String corsOrigin, boolean headOnly) throws IOException {
         String html = "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"/>"
                 + "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\"/>"
                 + "<title>SoarTV Admin Sign-In</title>"
@@ -1109,65 +1152,74 @@ public final class RemoteControlServer {
                 + "msg.textContent=(data&&data.error==='email_not_whitelisted')?'This Google account is not in the TV owner whitelist. Use 6-digit / QR pairing for Guest access.':'Could not verify Google account ('+(data&&data.error||res.status)+').';"
                 + "btn.style.display='inline-block';}catch(e){ttl.textContent='Connection Error';msg.textContent='Could not reach TV over Wi-Fi.';btn.style.display='inline-block';}"
                 + "})();</script></body></html>";
-        sendResponse(out, "200 OK", "text/html; charset=utf-8", html.getBytes(StandardCharsets.UTF_8), corsOrigin, "no-store", null);
+        sendResponse(out, "200 OK", "text/html; charset=utf-8", html.getBytes(StandardCharsets.UTF_8), corsOrigin, "no-store", null, headOnly);
     }
 
-    private void serveStaticAsset(String path, String ifNoneMatch, String corsOrigin, OutputStream out) throws IOException {
+    private void serveStaticAsset(String path, String ifNoneMatch, String corsOrigin, boolean headOnly, OutputStream out) throws IOException {
         if ("/SoarTV-Remote.apk".equals(path)) {
-            streamApkAsset(ifNoneMatch, corsOrigin, out);
+            streamApkAsset(ifNoneMatch, corsOrigin, headOnly, out);
             return;
         }
-        String assetPath = "/".equals(path) || path.isEmpty() ? "remote/index.html" : "remote" + path;
+        String normalizedPath = path;
+        if ("/apple-touch-icon-precomposed.png".equals(path) || "/apple-touch-icon-180x180.png".equals(path)) {
+            normalizedPath = "/apple-touch-icon.png";
+        } else if ("/favicon.ico".equals(path)) {
+            normalizedPath = "/favicon.png";
+        }
+        String assetPath = "/".equals(normalizedPath) || normalizedPath.isEmpty() ? "remote/index.html" : "remote" + normalizedPath;
         if (assetPath.contains("..") || assetPath.contains("\\")) {
-            sendResponse(out, "403 Forbidden", "text/plain", "Forbidden".getBytes(StandardCharsets.UTF_8), corsOrigin, "no-store", null);
+            sendResponse(out, "403 Forbidden", "text/plain", "Forbidden".getBytes(StandardCharsets.UTF_8), corsOrigin, "no-store", null, headOnly);
             return;
         }
         byte[] content = readAssetBytes(assetPath);
-        if (content == null && !path.contains(".")) {
+        if (content == null && !normalizedPath.contains(".")) {
             content = readAssetBytes("remote/index.html");
             assetPath = "remote/index.html";
         }
         if (content == null) {
-            sendResponse(out, "404 Not Found", "text/plain", "Not Found".getBytes(StandardCharsets.UTF_8), corsOrigin, "no-store", null);
+            sendResponse(out, "404 Not Found", "text/plain", "Not Found".getBytes(StandardCharsets.UTF_8), corsOrigin, "no-store", null, headOnly);
             return;
         }
         String etag = computeWeakEtag(content);
         if (etagMatches(ifNoneMatch, etag)) {
-            sendResponse(out, "304 Not Modified", guessMimeType(assetPath), new byte[0], corsOrigin, "public, max-age=300", etag);
+            sendResponse(out, "304 Not Modified", guessMimeType(assetPath), new byte[0], corsOrigin, "public, max-age=300", etag, true);
             return;
         }
-        sendResponse(out, "200 OK", guessMimeType(assetPath), content, corsOrigin, "public, max-age=300", etag);
+        sendResponse(out, "200 OK", guessMimeType(assetPath), content, corsOrigin, "public, max-age=300", etag, headOnly);
     }
 
     /**
      * Streams {@code assets/remote/SoarTV-Remote.apk} directly to the socket in {@code 8192}-byte chunks
      * without allocating a 1.5 MB {@code byte[]} buffer in RAM ({@code PERF-14}), with {@code ETag} / {@code 304} support.
      */
-    private void streamApkAsset(String ifNoneMatch, String corsOrigin, OutputStream out) throws IOException {
+    private void streamApkAsset(String ifNoneMatch, String corsOrigin, boolean headOnly, OutputStream out) throws IOException {
         ensureApkMetadataLoaded();
         if (cachedApkLength <= 0L) {
-            sendResponse(out, "404 Not Found", "text/plain", "APK Not Found".getBytes(StandardCharsets.UTF_8), corsOrigin, "no-store", null);
+            sendResponse(out, "404 Not Found", "text/plain", "APK Not Found".getBytes(StandardCharsets.UTF_8), corsOrigin, "no-store", null, headOnly);
             return;
         }
         if (etagMatches(ifNoneMatch, cachedApkEtag)) {
             sendResponse(out, "304 Not Modified", "application/vnd.android.package-archive", new byte[0],
-                    corsOrigin, "public, max-age=300", cachedApkEtag);
+                    corsOrigin, "public, max-age=300", cachedApkEtag, true);
+            return;
+        }
+        StringBuilder headers = new StringBuilder(320);
+        headers.append("HTTP/1.1 200 OK\r\n");
+        headers.append("Content-Type: application/vnd.android.package-archive\r\n");
+        headers.append("Content-Length: ").append(cachedApkLength).append("\r\n");
+        headers.append("Content-Disposition: attachment; filename=\"SoarTV-Remote.apk\"\r\n");
+        if (cachedApkEtag != null && !cachedApkEtag.isEmpty()) {
+            headers.append("ETag: ").append(cachedApkEtag).append("\r\n");
+        }
+        appendCorsHeaders(headers, corsOrigin);
+        headers.append("Cache-Control: public, max-age=300\r\n");
+        headers.append("Connection: close\r\n\r\n");
+        out.write(headers.toString().getBytes(StandardCharsets.ISO_8859_1));
+        if (headOnly) {
+            out.flush();
             return;
         }
         try (InputStream in = appContext.getAssets().open("remote/SoarTV-Remote.apk")) {
-            StringBuilder headers = new StringBuilder(320);
-            headers.append("HTTP/1.1 200 OK\r\n");
-            headers.append("Content-Type: application/vnd.android.package-archive\r\n");
-            headers.append("Content-Length: ").append(cachedApkLength).append("\r\n");
-            headers.append("Content-Disposition: attachment; filename=\"SoarTV-Remote.apk\"\r\n");
-            if (cachedApkEtag != null && !cachedApkEtag.isEmpty()) {
-                headers.append("ETag: ").append(cachedApkEtag).append("\r\n");
-            }
-            appendCorsHeaders(headers, corsOrigin);
-            headers.append("Cache-Control: public, max-age=300\r\n");
-            headers.append("Connection: close\r\n\r\n");
-            out.write(headers.toString().getBytes(StandardCharsets.ISO_8859_1));
-
             byte[] chunk = new byte[STREAM_CHUNK_BYTES];
             int n;
             while ((n = in.read(chunk)) > 0) {
@@ -1313,7 +1365,7 @@ public final class RemoteControlServer {
     }
 
     private static void sendJson(OutputStream out, String status, String json, String corsOrigin) throws IOException {
-        sendResponse(out, status, "application/json; charset=utf-8", json.getBytes(StandardCharsets.UTF_8), corsOrigin, "no-store", null);
+        sendResponse(out, status, "application/json; charset=utf-8", json.getBytes(StandardCharsets.UTF_8), corsOrigin, "no-store", null, false);
     }
 
     private static void sendResponse(
@@ -1323,7 +1375,8 @@ public final class RemoteControlServer {
             byte[] body,
             String corsOrigin,
             String cacheControl,
-            String etag) throws IOException {
+            String etag,
+            boolean headOnly) throws IOException {
         StringBuilder headers = new StringBuilder(320);
         headers.append("HTTP/1.1 ").append(status).append("\r\n");
         headers.append("Content-Type: ").append(contentType).append("\r\n");
@@ -1338,7 +1391,7 @@ public final class RemoteControlServer {
         headers.append("Cache-Control: ").append(cacheControl != null ? cacheControl : "no-store").append("\r\n");
         headers.append("Connection: close\r\n\r\n");
         out.write(headers.toString().getBytes(StandardCharsets.ISO_8859_1));
-        if (body.length > 0) {
+        if (!headOnly && body.length > 0) {
             out.write(body);
         }
         out.flush();

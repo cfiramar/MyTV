@@ -1145,21 +1145,39 @@ public final class ModalOverlayRenderer {
         border.setColor(isDark ? 0x3CFFFFFF : 0x30000000);
         c.drawRoundRect(pairingPanelRect, 38 * k, 38 * k, border);
 
-        // Header: cast symbol + Title + Subtitle with phone device name
-        boolean isOwnerSetup = req.bootstrapAdmin || req.presetRole == RemoteAuthManager.Role.ADMIN;
-        Symbols.draw(ctx, c, isOwnerSetup ? "shield" : "cast", mx + 56 * k, my + 56 * k, 30 * k, ink);
+        // Header: shield/cast symbol + Title + Subtitle tailored to Owner Setup, Admin/Role Invite, or Incoming Request
+        boolean isAdminInvite = req.presetRole == RemoteAuthManager.Role.ADMIN && !req.bootstrapAdmin;
+        boolean isOwnerSetup = req.bootstrapAdmin;
+        boolean isRoleInvite = req.presetRole != null && !req.bootstrapAdmin;
+        Symbols.draw(ctx, c, (isOwnerSetup || isAdminInvite) ? "shield" : "cast", mx + 56 * k, my + 56 * k, 30 * k, ink);
         fitPaint.set(lCardTitle);
         fitPaint.setTextSize(32 * k);
         fitPaint.setColor(ink);
-        String title = isOwnerSetup ? Ui.tr("Pair Owner Remote (Admin)") : Ui.tr("New Remote Detected");
+        String title;
+        if (isOwnerSetup) {
+            title = Ui.tr("Pair Owner Remote (Admin)");
+        } else if (req.presetRole == RemoteAuthManager.Role.ADMIN) {
+            title = Ui.tr("Invite Admin Remote");
+        } else if (req.presetRole == RemoteAuthManager.Role.HOUSEHOLD) {
+            title = Ui.tr("Invite Household Remote");
+        } else if (req.presetRole == RemoteAuthManager.Role.GUEST) {
+            title = Ui.tr("Invite Guest Remote (30d)");
+        } else {
+            title = Ui.tr("New Remote Detected");
+        }
         c.drawText(title, mx + 86 * k, my + 66 * k, fitPaint);
 
         String devName = (req.deviceName != null && !req.deviceName.isEmpty()) ? req.deviceName : "Companion Remote";
-        String subLine = isOwnerSetup
-                ? (devName + " \u00B7 "
-                        + Ui.tr("First phone becomes TV Owner (Admin) — press OK on Make Admin or scan QR"))
-                : (devName + " \u00B7 "
-                        + Ui.tr("Scan QR code or enter 6-digit code on phone, or approve below"));
+        String subLine;
+        if (isOwnerSetup) {
+            subLine = devName + " \u00B7 "
+                    + Ui.tr("First phone becomes TV Owner (Admin) — press OK on Make Admin or scan QR");
+        } else if (isRoleInvite) {
+            subLine = Ui.tr("Scan with iPhone or Android camera to pair & install app (same Wi-Fi)");
+        } else {
+            subLine = devName + " \u00B7 "
+                    + Ui.tr("Scan QR code or enter 6-digit code on phone, or approve below");
+        }
         fitPaint.set(lSubTab);
         fitPaint.setTextSize(20 * k);
         fitPaint.setColor(subInk);
@@ -1211,11 +1229,14 @@ public final class ModalOverlayRenderer {
         String clippedUrl = TextUtils.ellipsize(urlCaption, fitPaint, rightAvailW, TextUtils.TruncateAt.END).toString();
         c.drawText(clippedUrl, rightColX, qrTop + 178 * k, fitPaint);
 
-        String roleHint = isOwnerSetup
-                ? Ui.tr("Recommended: Press OK on Make Admin below (or scan QR)")
-                : (req.presetRole != null
-                        ? (Ui.tr("Invited Role: ") + req.presetRole.name())
-                        : Ui.tr("Or approve directly with your TV remote below:"));
+        String roleHint;
+        if (isOwnerSetup) {
+            roleHint = Ui.tr("Recommended: Press OK on Make Admin below (or scan QR)");
+        } else if (isRoleInvite) {
+            roleHint = Ui.tr("Same Wi-Fi · Android APK & iPhone Safari") + " · " + req.presetRole.name();
+        } else {
+            roleHint = Ui.tr("Or approve directly with your TV remote below:");
+        }
         String clippedRoleHint = TextUtils.ellipsize(roleHint, fitPaint, rightAvailW, TextUtils.TruncateAt.END).toString();
         c.drawText(clippedRoleHint, rightColX, qrTop + 214 * k, fitPaint);
 

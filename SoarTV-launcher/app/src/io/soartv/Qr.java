@@ -60,6 +60,43 @@ final class Qr {
         }
     }
 
+    /**
+     * Renders a compact, resolution-independent inline SVG QR code with an ISO-18004 quiet zone
+     * (pure Java — safe on headless JVM and directly embeddable inside Companion Remote invite cards).
+     */
+    static String encodeSvg(String text, int quietZone) {
+        if (text == null || text.isEmpty()) return "";
+        try {
+            boolean[][] modules = encode(text);
+            int modSize = modules.length;
+            int qz = Math.max(1, quietZone);
+            int total = modSize + 2 * qz;
+            StringBuilder path = new StringBuilder(modSize * modSize * 5);
+            for (int y = 0; y < modSize; y++) {
+                int x = 0;
+                while (x < modSize) {
+                    if (!modules[y][x]) {
+                        x++;
+                        continue;
+                    }
+                    int runStart = x;
+                    while (x < modSize && modules[y][x]) {
+                        x++;
+                    }
+                    int runLen = x - runStart;
+                    path.append('M').append(runStart + qz).append(',').append(y + qz)
+                            .append('h').append(runLen).append("v1h-").append(runLen).append('z');
+                }
+            }
+            return "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 " + total + " " + total
+                    + "\" shape-rendering=\"crispEdges\" role=\"img\" aria-label=\"SoarTV Pairing QR Code\">"
+                    + "<rect width=\"" + total + "\" height=\"" + total + "\" fill=\"#FFFFFF\"/>"
+                    + "<path fill=\"#111827\" d=\"" + path + "\"/></svg>";
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
     /** mask: 0 to 7, or -1 for the one with the lowest penalty. */
     static boolean[][] encode(byte[] data, int mask) {
         int version = 1;

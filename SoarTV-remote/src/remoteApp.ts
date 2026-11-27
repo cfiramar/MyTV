@@ -3,6 +3,7 @@ import {
   AuthConfigResponse,
   GamingGameItem,
   GamingStatus,
+  InstallPlatform,
   PairedDeviceInfo,
   RemoteForbiddenError,
   RemoteKeyName,
@@ -15,8 +16,11 @@ import {
   TvFocusedInput,
   TvRemoteService,
   TvStatus,
+  buildInviteShareText,
   buildTvInputSyncSignature,
   computeKeyboardOffsetPx,
+  detectInstallPlatform,
+  extractInitialQrPairUrl,
   formatFocusedInputCue,
   formatGameSubtitle,
   formatPairingSheetCopy,
@@ -231,13 +235,28 @@ function showToast(msg: string): void {
   window.__toastTimer = setTimeout(() => el.classList.remove('visible'), 2200);
 }
 
+function getInstallPlatform(): InstallPlatform {
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
+  const isStandalonePwa =
+    (typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(display-mode: standalone)').matches) ||
+    Boolean(
+      typeof navigator !== 'undefined' &&
+        (navigator as Navigator & { standalone?: boolean }).standalone
+    );
+  return detectInstallPlatform(ua, IS_NATIVE_APK, isStandalonePwa);
+}
+
 function syncApkDownloadLinks(): void {
   const base = remoteService.getBaseUrl();
   const href = base ? remoteService.getAndroidApkDownloadUrl() : '/SoarTV-Remote.apk';
   const bannerLink = document.getElementById('apkDownloadLink') as HTMLAnchorElement | null;
   const tab5Link = document.getElementById('tab5ApkDownloadBtn') as HTMLAnchorElement | null;
+  const sheetApkLink = document.getElementById('installSheetApkLink') as HTMLAnchorElement | null;
   if (bannerLink) bannerLink.href = href;
   if (tab5Link) tab5Link.href = href;
+  if (sheetApkLink) sheetApkLink.href = href;
 }
 
 function applyRoleVisibility(role: RemoteRole | ''): void {
@@ -248,6 +267,7 @@ function applyRoleVisibility(role: RemoteRole | ''): void {
   const pairBtn = document.getElementById('headerPairBtn');
   const roleSub = document.getElementById('settingsRoleSub');
   const upgradeBtn = document.getElementById('settingsUpgradeRoleBtn');
+  const quickInviteAdminBtn = document.getElementById('settingsQuickInviteAdminBtn');
   const roleLabel = role === 'ADMIN' ? 'Admin' : role === 'HOUSEHOLD' ? 'Household' : role ? 'Guest' : '';
   if (roleBadge) {
     if (!role) {
@@ -256,6 +276,9 @@ function applyRoleVisibility(role: RemoteRole | ''): void {
       roleBadge.style.display = 'inline-flex';
       roleBadge.textContent = roleLabel;
     }
+  }
+  if (quickInviteAdminBtn) {
+    quickInviteAdminBtn.style.display = role === 'ADMIN' ? 'inline-flex' : 'none';
   }
   if (upgradeBtn) {
     upgradeBtn.style.display = role && role !== 'ADMIN' ? 'inline-flex' : 'none';
@@ -409,7 +432,10 @@ async function ensureTvDiscovered(forceRescan: boolean = false): Promise<string>
   return remoteService.getBaseUrl();
 }
 
-async function handleScannedQrPayload(rawPayload: string): Promise<boolean> {
+async function handleScannedQrPayload(
+  rawPayload: string,
+  fromBrowserInviteLink: boolean = false
+): Promise<boolean> {
   const parsed = TvRemoteService.parsePairingQrPayload(rawPayload);
   if (!parsed.baseUrl && !parsed.qrSecret && !parsed.code && !parsed.token) {
     return false;
@@ -423,7 +449,7 @@ async function handleScannedQrPayload(rawPayload: string): Promise<boolean> {
   }
   if (parsed.token) {
     stopQrScanner();
-    await completePairingSuccess(parsed.token, parsed.role || 'GUEST');
+    await completePairingSuccess(parsed.token, parsed.role || 'GUEST', fromBrowserInviteLink);
     return true;
   }
   if (!remoteService.getBaseUrl()) {
@@ -438,7 +464,7 @@ async function handleScannedQrPayload(rawPayload: string): Promise<boolean> {
       deviceName: detectDeviceName(),
     });
     stopQrScanner();
-    await completePairingSuccess(verified.token, verified.role);
+    await completePairingSuccess(verified.token, verified.role, fromBrowserInviteLink);
     return true;
   } catch (err) {
     showToast(err instanceof Error ? err.message : 'QR code expired — scan the fresh QR on TV');
@@ -648,7 +674,42 @@ function handleUnauthorizedTransition(guestExpired: boolean): void {
   void requestTvPairPrompt();
 }
 
-async function completePairingSuccess(token: string, role: RemoteRole): Promise<void> {
+function openInstallAppSheet(roleOverride?: RemoteRole | ''): void {
+  const platform = getInstallPlatform();
+  if (platform === 'installed_app') return;
+  syncApkDownloadLinks();
+  const role = roleOverride || currentRole;
+  const roleLabel =
+    role === 'ADMIN' ? 'Admin' : role === 'HOUSEHOLD' ? 'Household' : role === 'GUEST' ? 'Guest (30d)' : '';
+  const badgeEl = document.getElementById('installSheetBadge');
+  const titleEl = document.getElementById('installSheetTitle');
+  const subEl = document.getElementById('installSheetSub');
+  const androidFlow = document.getElementById('installAndroidFlow');
+  const iosFlow = document.getElementById('installIosFlow');
+
+  if (badgeEl) {
+    badgeEl.style.display = roleLabel ? 'inline-flex' : 'none';
+    if (roleLabel) badgeEl.textContent = `Paired as ${roleLabel}`;
+  }
+  if (platform === 'ios_browser') {
+    if (titleEl) titleEl.textContent = 'Add SoarTV to Home Screen';
+    if (subEl) subEl.textContent = 'Use SoarTV full-screen on iPhone like a native app';
+    if (androidFlow) androidFlow.style.display = 'none';
+    if (iosFlow) iosFlow.style.display = 'flex';
+  } else {
+    if (titleEl) titleEl.textContent = 'Install SoarTV Remote App';
+    if (subEl) subEl.textContent = 'Edge-to-edge native app with hardware volume & fingerprint';
+    if (androidFlow) androidFlow.style.display = 'flex';
+    if (iosFlow) iosFlow.style.display = 'none';
+  }
+  openSheet('install-app');
+}
+
+async function completePairingSuccess(
+  token: string,
+  role: RemoteRole,
+  fromBrowserInviteLink: boolean = false
+): Promise<void> {
   stopPairingPoll();
   stopQrScanner();
   activePairRequestId = '';
@@ -671,6 +732,12 @@ async function completePairingSuccess(token: string, role: RemoteRole): Promise<
   void loadGamingZone(false);
   if (role === 'ADMIN') {
     void refreshPairedDevices();
+  }
+  if (fromBrowserInviteLink) {
+    const platform = getInstallPlatform();
+    if (platform === 'android_browser' || platform === 'ios_browser') {
+      openInstallAppSheet(role);
+    }
   }
 }
 
@@ -814,13 +881,14 @@ async function bootstrapConnectionAndAuth(): Promise<void> {
   syncApkDownloadLinks();
 
   // 1. Check if user opened a QR pairing link (`/?pair=<128-bit-secret>`)
-  const qrSecret = TvRemoteService.extractPairSecretFromUrl(window.location.href);
-  if (qrSecret) {
+  // IMPORTANT: Capture full href BEFORE replaceState cleans the address bar!
+  const initialQrHref = extractInitialQrPairUrl(window.location.href);
+  if (initialQrHref) {
     if (window.history && window.history.replaceState) {
       const cleanUrl = window.location.pathname + (IS_NATIVE_APK ? '?native=1' : '');
       window.history.replaceState(null, '', cleanUrl);
     }
-    const ok = await handleScannedQrPayload(window.location.href);
+    const ok = await handleScannedQrPayload(initialQrHref, true);
     if (ok) return;
   }
 
@@ -2272,35 +2340,93 @@ async function changePairedDeviceRole(deviceId: string, role: string): Promise<v
   }
 }
 
+let latestAdminInvite: AdminInviteResponse | null = null;
+
+function sanitizeInlineQrSvg(rawSvg?: string): string {
+  if (!rawSvg) return '';
+  const trimmed = rawSvg.trim();
+  if (!trimmed.startsWith('<svg ') || !trimmed.endsWith('</svg>')) return '';
+  if (/script|onload|onerror|javascript:/i.test(trimmed)) return '';
+  return trimmed;
+}
+
+async function quickInviteAdmin(): Promise<void> {
+  const details = document.getElementById('adminDevicesDisclosure') as HTMLDetailsElement | null;
+  if (details) {
+    details.open = true;
+  }
+  await createAdminInvite('ADMIN');
+  document.getElementById('adminInviteResultBox')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
 async function createAdminInvite(role: RemoteRole): Promise<void> {
   try {
     const inv: AdminInviteResponse = await remoteService.createInvite(role);
+    latestAdminInvite = inv;
     const box = document.getElementById('adminInviteResultBox');
+    const roleLabel =
+      inv.role === 'ADMIN' ? 'Admin' : inv.role === 'HOUSEHOLD' ? 'Household' : 'Guest (30d)';
+    const digits = (inv.code || '').replace(/\D/g, '');
+    const formattedCode = digits.length === 6 ? `${digits.slice(0, 3)} ${digits.slice(3)}` : inv.code;
+    const safeQrSvg = sanitizeInlineQrSvg(inv.qrSvg);
     if (box) {
       box.style.display = 'flex';
       box.innerHTML = `
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-          <div style="min-width:0; flex:1;">
-            <div class="tv-row-title">${escapeHtml(inv.role)} Invite: <span style="letter-spacing:0.12em;">${escapeHtml(inv.code)}</span></div>
-            <div class="tv-row-sub">Shown on TV for 5 min · Share link or code</div>
+        <div style="display:flex; flex-direction:column; gap:10px; width:100%;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+            <div style="min-width:0; flex:1;">
+              <div class="tv-row-title">${escapeHtml(roleLabel)} Invite · <span style="letter-spacing:0.12em;">${escapeHtml(formattedCode)}</span></div>
+              <div class="tv-row-sub">QR shown on TV &amp; below for 5 min · Same Wi-Fi</div>
+            </div>
           </div>
-          <button class="btn pill-focus btn-chip" onclick="copyInviteLink('${escapeAttr(inv.pairUrl)}')">Copy Link</button>
+          ${safeQrSvg ? `<div class="invite-qr-card">${safeQrSvg}</div>` : ''}
+          <div class="tv-row-sub" style="text-align:center;">
+            Scan with iPhone or Android camera — pairs as <strong>${escapeHtml(roleLabel)}</strong> &amp; prompts to install the app.
+          </div>
+          <div class="input-row">
+            <button class="btn pill-focus" style="flex:1;" onclick="shareInviteLink()">Share Invite</button>
+            <button class="btn" style="flex:1;" onclick="copyInviteLink('${escapeAttr(inv.pairUrl)}')">Copy Link</button>
+          </div>
+          <div class="tv-row-sub" style="font-size:10.5px; text-align:center; opacity:0.84;">
+            iPhone tip: Connect to home Wi-Fi &amp; allow Safari Local Network in iOS Settings, then Share &rarr; Add to Home Screen.
+          </div>
         </div>
       `;
     }
-    showToast(`${inv.role} invite code: ${inv.code}`);
+    showToast(`${roleLabel} invite ready: ${formattedCode}`);
   } catch (err) {
     showToast(err instanceof Error ? err.message : 'Could not create invite');
   }
 }
 
-async function copyInviteLink(url: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(url);
-    showToast('Copied pairing link to clipboard');
-  } catch {
-    showToast(url);
+async function shareInviteLink(): Promise<void> {
+  if (!latestAdminInvite) return;
+  const tvName = currentStatus?.tvModel || currentAuthConfig?.tvName || 'SoarTV';
+  const shareText = buildInviteShareText(
+    latestAdminInvite.role,
+    latestAdminInvite.code,
+    latestAdminInvite.pairUrl,
+    tvName
+  );
+  if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    try {
+      await navigator.share({
+        title: `SoarTV ${latestAdminInvite.role} Remote Invite`,
+        text: shareText,
+        url: latestAdminInvite.pairUrl,
+      });
+      return;
+    } catch {
+      // User cancelled or WebView blocked share; fall back cleanly to clipboard copy
+    }
   }
+  const copied = await writeToPhoneClipboard(shareText);
+  showToast(copied ? 'Invite message & link copied to clipboard' : latestAdminInvite.pairUrl);
+}
+
+async function copyInviteLink(url: string): Promise<void> {
+  const ok = await writeToPhoneClipboard(url);
+  showToast(ok ? 'Copied pairing & download link' : url);
 }
 
 /* ==========================================================================
@@ -2685,8 +2811,11 @@ function registerNativeCallbacksAndGlobals(): void {
     renamePairedDevicePrompt,
     revokePairedDevice,
     changePairedDeviceRole,
+    quickInviteAdmin,
     createAdminInvite,
+    shareInviteLink,
     copyInviteLink,
+    openInstallAppSheet,
   });
 }
 
@@ -2694,21 +2823,37 @@ function initNativeAndBannerState(): void {
   const b = document.getElementById('apkInstallBanner');
   const fsBtn = document.getElementById('fullscreenBtn');
   const tab5Btn = document.getElementById('tab5ApkDownloadBtn');
-  const isStandalonePwa =
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(display-mode: standalone)').matches;
-  if (IS_NATIVE_APK || isStandalonePwa) {
+  const bannerTitle = document.getElementById('installBannerTitle');
+  const bannerSub = document.getElementById('installBannerSub');
+  const apkLink = document.getElementById('apkDownloadLink');
+  const iosBtn = document.getElementById('iosInstallGuideBtn');
+  const platform = getInstallPlatform();
+
+  if (platform === 'installed_app') {
     if (b) b.classList.add('hidden');
     if (fsBtn) fsBtn.style.display = 'none';
     if (IS_NATIVE_APK && tab5Btn) tab5Btn.style.display = 'none';
+    return;
+  }
+
+  if (platform === 'ios_browser') {
+    if (bannerTitle) bannerTitle.textContent = 'Add SoarTV to iPhone Home Screen';
+    if (bannerSub) bannerSub.textContent = 'Full-screen app icon · Keeps your access automatically';
+    if (apkLink) apkLink.style.display = 'none';
+    if (iosBtn) iosBtn.style.display = 'inline-flex';
   } else {
-    try {
-      if (sessionStorage.getItem('soartv_hide_apk_banner') === '1' && b) {
-        b.classList.add('hidden');
-      }
-    } catch {
-      // Ignore
+    if (bannerTitle) bannerTitle.textContent = 'Install SoarTV Remote App';
+    if (bannerSub) bannerSub.textContent = 'Edge-to-edge · Hardware Volume · Fingerprint';
+    if (apkLink) apkLink.style.display = 'inline-flex';
+    if (iosBtn) iosBtn.style.display = 'none';
+  }
+
+  try {
+    if (sessionStorage.getItem('soartv_hide_apk_banner') === '1' && b) {
+      b.classList.add('hidden');
     }
+  } catch {
+    // Ignore
   }
 }
 

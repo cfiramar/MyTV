@@ -82,6 +82,8 @@ public final class RemoteAuthManager {
     public static final long GUEST_TTL_MS = 30L * 86_400_000L;
     public static final long PENDING_PAIR_TTL_MS = 5L * 60_000L;
     public static final long APK_HANDOFF_TTL_MS = 15L * 60_000L;
+    /** ISO-18004 standard 4-module quiet zone so iPhone &amp; Android cameras lock onto TV QR codes reliably. */
+    public static final int PAIRING_QR_QUIET_ZONE = 4;
     private static final long RATE_WINDOW_MS = 60_000L;
     private static final int MAX_PAIR_REQUESTS_PER_MIN = 5;
     private static final int MAX_VERIFY_FAILURES_PER_MIN = 8;
@@ -345,7 +347,13 @@ public final class RemoteAuthManager {
     /** Renders a crisp QR code {@link Bitmap} for {@code pairUrl} using the built-in {@link Qr} encoder. */
     public static Bitmap encodePairingQrBitmap(String pairUrl, int sizePx) {
         if (pairUrl == null || pairUrl.isEmpty()) return null;
-        return Qr.encode(pairUrl, Math.max(120, sizePx), 2, 0xFF111827, 0xFFFFFFFF);
+        return Qr.encode(pairUrl, Math.max(160, sizePx), PAIRING_QR_QUIET_ZONE, 0xFF111827, 0xFFFFFFFF);
+    }
+
+    /** Renders a crisp inline SVG QR code for {@code pairUrl} so Admins can show a scannable invite QR on their own phone. */
+    public static String encodePairingQrSvg(String pairUrl) {
+        if (pairUrl == null || pairUrl.isEmpty()) return "";
+        return Qr.encodeSvg(pairUrl, PAIRING_QR_QUIET_ZONE);
     }
 
     public static String sanitizeDeviceName(String raw) {

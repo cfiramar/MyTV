@@ -11,6 +11,9 @@ import {
   formatPairingSheetCopy,
   getThemeColorMeta,
   pickBestDeviceNickname,
+  buildInviteShareText,
+  detectInstallPlatform,
+  extractInitialQrPairUrl,
   resolveFallbackDockTab,
   resolveLiveMirrorDecision,
   resolveLivePollIntervalMs,
@@ -1179,5 +1182,46 @@ describe('TvRemoteService', () => {
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer tok_admin' },
       body: JSON.stringify({ action: 'rename', deviceId: 'rem_1', deviceName: 'Bedroom Phone' }),
     });
+  });
+
+  it('preserves initial QR invite URL before history cleanup, detects iOS vs Android install surface, and formats shareable Admin invites', () => {
+    // 1. Initial QR pairing URL must be preserved before history.replaceState cleans the address bar
+    const qrHref = 'http://192.168.1.50:8484/?pair=QrSecret128BitAdminInvite';
+    expect(extractInitialQrPairUrl(qrHref)).toBe(qrHref);
+    expect(extractInitialQrPairUrl('http://192.168.1.50:8484/')).toBe('');
+
+    // 2. Platform-aware install guidance (never offer Android .apk to iPhone Safari!)
+    expect(
+      detectInstallPlatform(
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 18_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Mobile/15E148 Safari/604.1',
+        false,
+        false
+      )
+    ).toBe('ios_browser');
+    expect(
+      detectInstallPlatform(
+        'Mozilla/5.0 (Linux; Android 16; Pixel 9 Pro) AppleWebKit/537.36 Chrome/133.0.0.0 Mobile Safari/537.36',
+        false,
+        false
+      )
+    ).toBe('android_browser');
+    expect(
+      detectInstallPlatform('Mozilla/5.0 (iPhone; CPU iPhone OS 18_3 like Mac OS X)', false, true)
+    ).toBe('installed_app');
+    expect(
+      detectInstallPlatform('Mozilla/5.0 (Linux; Android 16; Pixel 9 Pro)', true, false)
+    ).toBe('installed_app');
+    expect(
+      detectInstallPlatform('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/133.0.0.0', false, false)
+    ).toBe('desktop_browser');
+
+    // 3. Shareable Admin invite text includes role, code, link, same Wi-Fi, and Android + iPhone install guidance
+    const shareText = buildInviteShareText('ADMIN', '482910', qrHref, 'SmartTV-4K');
+    expect(shareText).toContain('Admin');
+    expect(shareText).toContain('482 910');
+    expect(shareText).toContain(qrHref);
+    expect(shareText).toContain('Wi-Fi');
+    expect(shareText).toContain('iPhone');
+    expect(shareText).toContain('Android');
   });
 });

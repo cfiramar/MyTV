@@ -508,6 +508,57 @@ export function formatPairingSheetCopy(
   };
 }
 
+export type InstallPlatform = 'ios_browser' | 'android_browser' | 'desktop_browser' | 'installed_app';
+
+/**
+ * Captures the full incoming QR pairing URL before `history.replaceState` strips `?pair=...` from
+ * the browser address bar so iPhone Safari & Android Chrome never lose the invite secret on boot.
+ */
+export function extractInitialQrPairUrl(href: string): string {
+  if (!href) return '';
+  const secret = TvRemoteService.extractPairSecretFromUrl(href);
+  return secret ? href : '';
+}
+
+/**
+ * Classifies the current phone/browser environment so the Companion Remote always offers the right
+ * app installation experience (Android native APK vs iPhone Safari "Add to Home Screen").
+ */
+export function detectInstallPlatform(
+  userAgent: string,
+  isNativeApk: boolean,
+  isStandalonePwa: boolean
+): InstallPlatform {
+  if (isNativeApk || isStandalonePwa) return 'installed_app';
+  const ua = userAgent || '';
+  if (/iPhone|iPad|iPod/i.test(ua)) return 'ios_browser';
+  if (/Android/i.test(ua)) return 'android_browser';
+  return 'desktop_browser';
+}
+
+/**
+ * Formats a clear, copy/share-ready invitation message containing the role, formatted 6-digit code,
+ * direct LAN pairing link, and both Android (APK) + iPhone (Safari Home Screen) install guidance.
+ */
+export function buildInviteShareText(
+  role: RemoteRole,
+  code: string,
+  pairUrl: string,
+  tvName?: string
+): string {
+  const cleanTv = (tvName || '').trim() || 'SoarTV';
+  const roleLabel = role === 'ADMIN' ? 'Admin' : role === 'HOUSEHOLD' ? 'Household' : 'Guest (30d)';
+  const digits = (code || '').replace(/\D/g, '');
+  const formattedCode = digits.length === 6 ? `${digits.slice(0, 3)} ${digits.slice(3)}` : code;
+  return [
+    `Join ${cleanTv} as ${roleLabel} Remote`,
+    `Open on the same Wi-Fi: ${pairUrl}`,
+    `6-digit code: ${formattedCode}`,
+    'Android: pairs automatically and prompts to install the SoarTV Remote APK.',
+    'iPhone: open in Safari (allow Local Network for Safari if prompted), then tap Share -> Add to Home Screen.',
+  ].join('\n');
+}
+
 export interface TvStatus {
   tvModel: string;
   tvBrand: string;
@@ -611,6 +662,7 @@ export interface AdminInviteResponse {
   code: string;
   qrSecret: string;
   pairUrl: string;
+  qrSvg?: string;
   role: RemoteRole;
   expiresAtMs: number;
 }
