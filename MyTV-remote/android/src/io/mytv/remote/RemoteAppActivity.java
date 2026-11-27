@@ -8,18 +8,46 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.ImageFormat;
+import android.graphics.Matrix;
+import android.graphics.Paint;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
+import android.graphics.RectF;
+import android.graphics.SurfaceTexture;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.hardware.biometrics.BiometricPrompt;
+import android.hardware.camera2.CameraCaptureSession;
+import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraDevice;
+import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.params.StreamConfigurationMap;
+import android.media.Image;
+import android.media.ImageReader;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.CancellationSignal;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyPermanentlyInvalidatedException;
 import android.security.keystore.KeyProperties;
 import android.util.Base64;
+import android.util.Size;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.Surface;
+import android.view.TextureView;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
@@ -31,12 +59,16 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
 import java.net.HttpURLConnection;
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -86,8 +118,10 @@ public final class RemoteAppActivity extends Activity {
     private static final String PREF_ENC_IV = "enc_iv";
     private static final String KEYSTORE_ALIAS = "mytv_pc_unlock_pin_key";
     private static final int REQ_CAMERA_PERMISSION = 1001;
+    private static final int REQ_NATIVE_QR_CAMERA = 1002;
     private static final int DEFAULT_TV_PORT = 8484;
 
+    private FrameLayout rootContainer;
     private WebView webView;
     private volatile boolean pageLoaded = false;
     private volatile boolean trustedOriginActive = true;
@@ -95,7 +129,24 @@ public final class RemoteAppActivity extends Activity {
     private volatile String pendingQrPairUri = null;
     private volatile String lastDiscoveredTvUrl = "";
     private PermissionRequest pendingWebPermissionRequest = null;
+    private boolean pendingNativeQrOpen = false;
     private CancellationSignal activeBiometricSignal;
+
+    // Native Camera2 QR Scanner state (works natively without HTTPS WebRTC restrictions)
+    private FrameLayout nativeQrOverlay;
+    private TextureView qrTextureView;
+    private CameraDevice qrCameraDevice;
+    private CameraCaptureSession qrCaptureSession;
+    private ImageReader qrImageReader;
+    private HandlerThread qrCameraThread;
+    private Handler qrCameraHandler;
+    private Size qrPreviewSize;
+    private volatile boolean qrScannerActive = false;
+    private volatile boolean qrLockDispatched = false;
+    private volatile long lastQrFrameAnalyzedMs = 0L;
+    private int qrConsecutiveHits = 0;
+    private final byte[] qrLumaBuf = new byte[160 * 120];
+    private boolean currentDarkTheme = true;
 
     private static final int DARK_STATUS_BAR_COLOR = Color.parseColor("#0E1024");
     private static final int DARK_NAV_BAR_COLOR = Color.parseColor("#0A1522");
@@ -133,7 +184,13 @@ public final class RemoteAppActivity extends Activity {
         webView.setWebViewClient(new HardenedRemoteWebViewClient());
         webView.setWebChromeClient(new QrCameraWebChromeClient());
 
-        setContentView(webView);
+        rootContainer = new FrameLayout(this);
+        rootContainer.setBackgroundColor(DARK_STATUS_BAR_COLOR);
+        rootContainer.addView(webView, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+        setContentView(rootContainer);
         applySystemBarAppearance(true);
         handleIncomingIntent(getIntent());
         triggerBackgroundTvDiscovery("");
@@ -144,6 +201,12 @@ public final class RemoteAppActivity extends Activity {
     protected void onResume() {
         super.onResume();
         triggerBackgroundTvDiscovery(lastDiscoveredTvUrl);
+    }
+
+    @Override
+    protected void onPause() {
+        closeNativeQrScanner(false);
+        super.onPause();
     }
 
     @Override
@@ -485,6 +548,649 @@ public final class RemoteAppActivity extends Activity {
                     req.deny();
                 }
             }
+        } else if (requestCode == REQ_NATIVE_QR_CAMERA) {
+            boolean shouldOpen = pendingNativeQrOpen;
+            pendingNativeQrOpen = false;
+            if (shouldOpen) {
+                if (grantResults != null && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    showNativeQrScannerOverlay();
+                } else {
+                    evalCallbackOnJs("onMyTvNativeQrClosed", jsonQuote("Camera permission is needed to scan TV QR codes"));
+                }
+            }
+        }
+    }
+
+    private float dp(float value) {
+        return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, getResources().getDisplayMetrics());
+    }
+
+    private void requestOrOpenNativeQrScanner() {
+        if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            showNativeQrScannerOverlay();
+        } else {
+            pendingNativeQrOpen = true;
+            requestPermissions(new String[]{Manifest.permission.CAMERA}, REQ_NATIVE_QR_CAMERA);
+        }
+    }
+
+    /**
+     * Opens a full-bleed Liquid Glass live Camera2 QR viewfinder directly inside the app, bypassing
+     * Chromium WebView's HTTPS-only {@code navigator.mediaDevices} restriction on {@code http://remote.mytv.local}.
+     */
+    private void showNativeQrScannerOverlay() {
+        if (rootContainer == null) return;
+        closeNativeQrScanner(false);
+
+        qrScannerActive = true;
+        qrLockDispatched = false;
+        qrConsecutiveHits = 0;
+        lastQrFrameAnalyzedMs = 0L;
+        applySystemBarColors(true);
+
+        FrameLayout overlay = new FrameLayout(this);
+        overlay.setBackgroundColor(Color.parseColor("#080B18"));
+        overlay.setClickable(true);
+        overlay.setFocusable(true);
+
+        TextureView tv = new TextureView(this);
+        overlay.addView(tv, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+
+        QrReticleOverlayView reticle = new QrReticleOverlayView(this);
+        overlay.addView(reticle, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+
+        // Top Liquid Glass floating header pill
+        LinearLayout topPill = new LinearLayout(this);
+        topPill.setOrientation(LinearLayout.VERTICAL);
+        topPill.setGravity(Gravity.CENTER_HORIZONTAL);
+        GradientDrawable topBg = new GradientDrawable();
+        topBg.setColor(0xB8141A30);
+        topBg.setCornerRadius(dp(22));
+        topBg.setStroke(Math.round(dp(1)), 0x38FFFFFF);
+        topPill.setBackground(topBg);
+        int padH = Math.round(dp(20));
+        int padV = Math.round(dp(12));
+        topPill.setPadding(padH, padV, padH, padV);
+
+        TextView title = new TextView(this);
+        title.setText("Scan TV QR Code");
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setGravity(Gravity.CENTER);
+        topPill.addView(title);
+
+        TextView sub = new TextView(this);
+        sub.setText("Point your camera at the QR code on your TV");
+        sub.setTextColor(0xC0FFFFFF);
+        sub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f);
+        sub.setGravity(Gravity.CENTER);
+        sub.setPadding(0, Math.round(dp(3)), 0, 0);
+        topPill.addView(sub);
+
+        FrameLayout.LayoutParams topLp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP | Gravity.CENTER_HORIZONTAL
+        );
+        topLp.topMargin = Math.round(dp(56));
+        topLp.leftMargin = Math.round(dp(20));
+        topLp.rightMargin = Math.round(dp(20));
+        overlay.addView(topPill, topLp);
+
+        // Bottom Liquid Glass Cancel pill button
+        TextView cancelBtn = new TextView(this);
+        cancelBtn.setText("Cancel");
+        cancelBtn.setTextColor(Color.WHITE);
+        cancelBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14.5f);
+        cancelBtn.setTypeface(Typeface.DEFAULT_BOLD);
+        cancelBtn.setGravity(Gravity.CENTER);
+        GradientDrawable btnBg = new GradientDrawable();
+        btnBg.setColor(0xCC1B223C);
+        btnBg.setCornerRadius(dp(999));
+        btnBg.setStroke(Math.round(dp(1)), 0x48FFFFFF);
+        cancelBtn.setBackground(btnBg);
+        cancelBtn.setPadding(Math.round(dp(34)), Math.round(dp(13)), Math.round(dp(34)), Math.round(dp(13)));
+        cancelBtn.setOnClickListener(v -> closeNativeQrScanner(true));
+
+        FrameLayout.LayoutParams btnLp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL
+        );
+        btnLp.bottomMargin = Math.round(dp(54));
+        overlay.addView(cancelBtn, btnLp);
+
+        nativeQrOverlay = overlay;
+        qrTextureView = tv;
+        rootContainer.addView(overlay, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+
+        tv.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+            @Override
+            public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
+                openCamera2ForQr(surface, width, height);
+            }
+
+            @Override
+            public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
+                configureQrPreviewTransform(width, height);
+            }
+
+            @Override
+            public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
+                return true;
+            }
+
+            @Override
+            public void onSurfaceTextureUpdated(SurfaceTexture surface) {
+            }
+        });
+        if (tv.isAvailable()) {
+            openCamera2ForQr(tv.getSurfaceTexture(), tv.getWidth(), tv.getHeight());
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private void openCamera2ForQr(final SurfaceTexture surfaceTexture, final int viewWidth, final int viewHeight) {
+        if (!qrScannerActive) return;
+        try {
+            CameraManager manager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
+            if (manager == null) {
+                closeNativeQrScanner(false);
+                evalCallbackOnJs("onMyTvNativeQrClosed", jsonQuote("Camera unavailable on this device"));
+                return;
+            }
+            String chosenId = null;
+            Size bestPreview = new Size(1280, 720);
+            Size bestAnalysis = new Size(640, 480);
+            for (String camId : manager.getCameraIdList()) {
+                CameraCharacteristics chars = manager.getCameraCharacteristics(camId);
+                Integer facing = chars.get(CameraCharacteristics.LENS_FACING);
+                if (facing != null && facing == CameraCharacteristics.LENS_FACING_BACK) {
+                    chosenId = camId;
+                    bestPreview = pickCameraPreviewSize(chars);
+                    bestAnalysis = pickCameraAnalysisSize(chars);
+                    break;
+                }
+                if (chosenId == null) {
+                    chosenId = camId;
+                    bestPreview = pickCameraPreviewSize(chars);
+                    bestAnalysis = pickCameraAnalysisSize(chars);
+                }
+            }
+            if (chosenId == null) {
+                closeNativeQrScanner(false);
+                evalCallbackOnJs("onMyTvNativeQrClosed", jsonQuote("No camera found on this device"));
+                return;
+            }
+            qrPreviewSize = bestPreview;
+            configureQrPreviewTransform(viewWidth, viewHeight);
+
+            qrCameraThread = new HandlerThread("mytv-qr-camera");
+            qrCameraThread.start();
+            qrCameraHandler = new Handler(qrCameraThread.getLooper());
+
+            qrImageReader = ImageReader.newInstance(
+                    bestAnalysis.getWidth(), bestAnalysis.getHeight(), ImageFormat.YUV_420_888, 2);
+            qrImageReader.setOnImageAvailableListener(reader -> {
+                Image img = null;
+                try {
+                    img = reader.acquireLatestImage();
+                    if (img == null || !qrScannerActive || qrLockDispatched) return;
+                    long now = System.currentTimeMillis();
+                    if (now - lastQrFrameAnalyzedMs < 150L) return;
+                    lastQrFrameAnalyzedMs = now;
+                    analyzeCameraYPlaneForQr(img);
+                } catch (Exception ignored) {
+                } finally {
+                    if (img != null) {
+                        try {
+                            img.close();
+                        } catch (Exception ignored) {
+                        }
+                    }
+                }
+            }, qrCameraHandler);
+
+            manager.openCamera(chosenId, new CameraDevice.StateCallback() {
+                @Override
+                public void onOpened(CameraDevice camera) {
+                    if (!qrScannerActive) {
+                        camera.close();
+                        return;
+                    }
+                    qrCameraDevice = camera;
+                    startQrCaptureSession(camera, surfaceTexture);
+                }
+
+                @Override
+                public void onDisconnected(CameraDevice camera) {
+                    camera.close();
+                    if (qrCameraDevice == camera) qrCameraDevice = null;
+                }
+
+                @Override
+                public void onError(CameraDevice camera, int error) {
+                    camera.close();
+                    if (qrCameraDevice == camera) qrCameraDevice = null;
+                    runOnUiThread(() -> {
+                        closeNativeQrScanner(false);
+                        evalCallbackOnJs("onMyTvNativeQrClosed", jsonQuote("Could not start camera (" + error + ")"));
+                    });
+                }
+            }, qrCameraHandler);
+        } catch (Exception e) {
+            closeNativeQrScanner(false);
+            evalCallbackOnJs("onMyTvNativeQrClosed", jsonQuote("Could not open camera"));
+        }
+    }
+
+    private void startQrCaptureSession(CameraDevice camera, SurfaceTexture surfaceTexture) {
+        try {
+            if (qrPreviewSize != null) {
+                surfaceTexture.setDefaultBufferSize(qrPreviewSize.getWidth(), qrPreviewSize.getHeight());
+            }
+            Surface previewSurface = new Surface(surfaceTexture);
+            Surface readerSurface = qrImageReader.getSurface();
+            final CaptureRequest.Builder reqBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            reqBuilder.addTarget(previewSurface);
+            reqBuilder.addTarget(readerSurface);
+            reqBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+            reqBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
+
+            camera.createCaptureSession(
+                    Arrays.asList(previewSurface, readerSurface),
+                    new CameraCaptureSession.StateCallback() {
+                        @Override
+                        public void onConfigured(CameraCaptureSession session) {
+                            if (!qrScannerActive || qrCameraDevice == null) {
+                                session.close();
+                                return;
+                            }
+                            qrCaptureSession = session;
+                            try {
+                                session.setRepeatingRequest(reqBuilder.build(), null, qrCameraHandler);
+                            } catch (Exception ignored) {
+                            }
+                        }
+
+                        @Override
+                        public void onConfigureFailed(CameraCaptureSession session) {
+                            runOnUiThread(() -> {
+                                closeNativeQrScanner(false);
+                                evalCallbackOnJs("onMyTvNativeQrClosed", jsonQuote("Camera preview unavailable"));
+                            });
+                        }
+                    },
+                    qrCameraHandler
+            );
+        } catch (Exception e) {
+            runOnUiThread(() -> {
+                closeNativeQrScanner(false);
+                evalCallbackOnJs("onMyTvNativeQrClosed", jsonQuote("Camera setup failed"));
+            });
+        }
+    }
+
+    private static Size pickCameraPreviewSize(CameraCharacteristics chars) {
+        StreamConfigurationMap map = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+        if (map == null) return new Size(1280, 720);
+        Size[] sizes = map.getOutputSizes(SurfaceTexture.class);
+        if (sizes == null || sizes.length == 0) return new Size(1280, 720);
+        Size best = sizes[0];
+        int bestScore = Integer.MAX_VALUE;
+        for (Size s : sizes) {
+            if (s.getWidth() > 1920 || s.getHeight() > 1440) continue;
+            int score = Math.abs(s.getWidth() - 1280) + Math.abs(s.getHeight() - 720);
+            if (score < bestScore) {
+                bestScore = score;
+                best = s;
+            }
+        }
+        return best;
+    }
+
+    /** Selects the smallest hardware-supported YUV_420_888 analysis size (>= 320x240) so Camera2 HAL never rejects the session. */
+    private static Size pickCameraAnalysisSize(CameraCharacteristics chars) {
+        StreamConfigurationMap map = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+        if (map == null) return new Size(640, 480);
+        Size[] sizes = map.getOutputSizes(ImageFormat.YUV_420_888);
+        if (sizes == null || sizes.length == 0) return new Size(640, 480);
+        Size best = sizes[0];
+        int bestScore = Integer.MAX_VALUE;
+        for (Size s : sizes) {
+            if (s.getWidth() < 240 || s.getHeight() < 180) continue;
+            int score = Math.abs(s.getWidth() - 640) + Math.abs(s.getHeight() - 480);
+            if (score < bestScore) {
+                bestScore = score;
+                best = s;
+            }
+        }
+        return best;
+    }
+
+    private void configureQrPreviewTransform(int viewWidth, int viewHeight) {
+        if (qrTextureView == null || qrPreviewSize == null || viewWidth <= 0 || viewHeight <= 0) return;
+        // Portrait phone displays camera sensor buffer rotated 90 degrees -> effective aspect is height / width
+        float bufferW = qrPreviewSize.getHeight();
+        float bufferH = qrPreviewSize.getWidth();
+        float viewRatio = (float) viewWidth / (float) viewHeight;
+        float bufferRatio = bufferW / bufferH;
+        float scaleX = 1f;
+        float scaleY = 1f;
+        if (bufferRatio > viewRatio) {
+            scaleX = bufferRatio / viewRatio;
+        } else {
+            scaleY = viewRatio / bufferRatio;
+        }
+        Matrix matrix = new Matrix();
+        matrix.setScale(scaleX, scaleY, viewWidth / 2f, viewHeight / 2f);
+        qrTextureView.setTransform(matrix);
+    }
+
+    private void analyzeCameraYPlaneForQr(Image img) {
+        Image.Plane[] planes = img.getPlanes();
+        if (planes == null || planes.length == 0) return;
+        ByteBuffer yBuf = planes[0].getBuffer();
+        int rowStride = planes[0].getRowStride();
+        int pixelStride = planes[0].getPixelStride();
+        int srcW = img.getWidth();
+        int srcH = img.getHeight();
+        if (srcW < 64 || srcH < 64) return;
+
+        final int dstW = 160;
+        final int dstH = 120;
+        for (int y = 0; y < dstH; y++) {
+            int sy = (y * srcH) / dstH;
+            int rowOff = sy * rowStride;
+            int dstRow = y * dstW;
+            for (int x = 0; x < dstW; x++) {
+                int sx = (x * srcW) / dstW;
+                int idx = rowOff + sx * pixelStride;
+                qrLumaBuf[dstRow + x] = idx < yBuf.limit() ? yBuf.get(idx) : (byte) 240;
+            }
+        }
+
+        if (hasQrFinderPatternInLuma(qrLumaBuf, dstW, dstH)) {
+            qrConsecutiveHits++;
+            if (qrConsecutiveHits >= 2 && !qrLockDispatched) {
+                qrLockDispatched = true;
+                runOnUiThread(() -> {
+                    vibrateGentleConfirm();
+                    closeNativeQrScanner(false);
+                    evalCallbackOnJs("onMyTvNativeQrDetected", "");
+                });
+            }
+        } else {
+            qrConsecutiveHits = 0;
+        }
+    }
+
+    private void vibrateGentleConfirm() {
+        try {
+            Vibrator vib = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+            if (vib == null || !vib.hasVibrator()) return;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vib.vibrate(VibrationEffect.createOneShot(28, VibrationEffect.DEFAULT_AMPLITUDE));
+            } else {
+                //noinspection deprecation
+                vib.vibrate(28);
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void closeNativeQrScanner(boolean notifyCancelled) {
+        qrScannerActive = false;
+        if (qrCaptureSession != null) {
+            try {
+                qrCaptureSession.close();
+            } catch (Exception ignored) {
+            }
+            qrCaptureSession = null;
+        }
+        if (qrCameraDevice != null) {
+            try {
+                qrCameraDevice.close();
+            } catch (Exception ignored) {
+            }
+            qrCameraDevice = null;
+        }
+        if (qrImageReader != null) {
+            try {
+                qrImageReader.close();
+            } catch (Exception ignored) {
+            }
+            qrImageReader = null;
+        }
+        if (qrCameraThread != null) {
+            try {
+                qrCameraThread.quitSafely();
+            } catch (Exception ignored) {
+            }
+            qrCameraThread = null;
+            qrCameraHandler = null;
+        }
+        if (nativeQrOverlay != null && rootContainer != null) {
+            rootContainer.removeView(nativeQrOverlay);
+        }
+        nativeQrOverlay = null;
+        qrTextureView = null;
+        applySystemBarColors(currentDarkTheme);
+        if (notifyCancelled) {
+            evalCallbackOnJs("onMyTvNativeQrClosed", "''");
+        }
+    }
+
+    /**
+     * Detects ISO/IEC 18004 {@code 1:1:3:1:1} QR Finder Patterns in an 8-bit grayscale luminance buffer
+     * with horizontal + vertical cross-verification (zero third-party barcode dependencies).
+     * Tests a center-reticle contrast midpoint first (ideal for glowing TV QR codes in dim rooms)
+     * and falls back to the full-frame mean threshold.
+     */
+    static boolean hasQrFinderPatternInLuma(byte[] luma, int width, int height) {
+        if (luma == null || width < 32 || height < 32 || luma.length < width * height) {
+            return false;
+        }
+        int cx0 = width / 5;
+        int cx1 = width - cx0;
+        int cy0 = height / 5;
+        int cy1 = height - cy0;
+        int centerMin = 255;
+        int centerMax = 0;
+        for (int y = cy0; y < cy1; y += 2) {
+            int row = y * width;
+            for (int x = cx0; x < cx1; x += 2) {
+                int v = luma[row + x] & 0xFF;
+                if (v < centerMin) centerMin = v;
+                if (v > centerMax) centerMax = v;
+            }
+        }
+        int centerMid = (centerMax - centerMin >= 40) ? ((centerMin + centerMax) / 2) : -1;
+        if (centerMid >= 0 && scanLumaForQrFinderAtThreshold(luma, width, height, centerMid)) {
+            return true;
+        }
+
+        long sum = 0;
+        int stepSample = Math.max(1, (width * height) / 1024);
+        int countSample = 0;
+        for (int i = 0; i < width * height; i += stepSample) {
+            sum += (luma[i] & 0xFF);
+            countSample++;
+        }
+        int globalMean = countSample > 0 ? (int) (sum / countSample) : 128;
+        if (Math.abs(globalMean - centerMid) >= 12) {
+            return scanLumaForQrFinderAtThreshold(luma, width, height, globalMean);
+        }
+        return false;
+    }
+
+    private static boolean scanLumaForQrFinderAtThreshold(byte[] luma, int width, int height, int threshold) {
+        int[] foundX = new int[4];
+        int[] foundY = new int[4];
+        int foundCount = 0;
+        int rowStep = Math.max(1, height / 64);
+
+        for (int y = 2; y < height - 2; y += rowStep) {
+            int[] counts = new int[5];
+            int state = 0;
+            for (int x = 0; x < width; x++) {
+                boolean isDark = (luma[y * width + x] & 0xFF) < threshold;
+                if (isDark) {
+                    if (state == 1 || state == 3) state++;
+                    counts[state]++;
+                } else {
+                    if (state == 0) {
+                        if (counts[0] > 0) {
+                            state = 1;
+                            counts[1] = 1;
+                        }
+                    } else if (state == 2) {
+                        state = 3;
+                        counts[3] = 1;
+                    } else if (state == 4) {
+                        if (matches11311(counts)) {
+                            int total = counts[0] + counts[1] + counts[2] + counts[3] + counts[4];
+                            int cx = Math.max(0, Math.min(width - 1, x - counts[4] - counts[3] - counts[2] / 2));
+                            if (verifyVerticalFinder(luma, width, height, threshold, cx, y, (total + 1) / 2)) {
+                                boolean dup = false;
+                                double minDist = Math.max(10.0, total * 0.6);
+                                for (int k = 0; k < foundCount; k++) {
+                                    if (Math.hypot(foundX[k] - cx, foundY[k] - y) < minDist) {
+                                        dup = true;
+                                        break;
+                                    }
+                                }
+                                if (!dup) {
+                                    foundX[foundCount] = cx;
+                                    foundY[foundCount] = y;
+                                    foundCount++;
+                                    if (foundCount >= 2) return true;
+                                }
+                            }
+                        }
+                        counts[0] = counts[2];
+                        counts[1] = counts[3];
+                        counts[2] = counts[4];
+                        counts[3] = 1;
+                        counts[4] = 0;
+                        state = 3;
+                    } else {
+                        counts[state]++;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean matches11311(int[] c) {
+        int total = c[0] + c[1] + c[2] + c[3] + c[4];
+        if (total < 7) return false;
+        double mod = total / 7.0;
+        double maxVar = mod * 0.65;
+        return Math.abs(mod - c[0]) <= maxVar
+                && Math.abs(mod - c[1]) <= maxVar
+                && Math.abs(3.0 * mod - c[2]) <= 3.0 * maxVar
+                && Math.abs(mod - c[3]) <= maxVar
+                && Math.abs(mod - c[4]) <= maxVar;
+    }
+
+    private static boolean verifyVerticalFinder(
+            byte[] luma, int width, int height, int threshold, int cx, int startY, int maxMod) {
+        int[] c = new int[5];
+        int y = startY;
+        while (y >= 0 && (luma[y * width + cx] & 0xFF) < threshold) {
+            c[2]++;
+            y--;
+        }
+        if (y < 0) return false;
+        while (y >= 0 && (luma[y * width + cx] & 0xFF) >= threshold && c[1] <= maxMod) {
+            c[1]++;
+            y--;
+        }
+        if (y < 0 || c[1] > maxMod) return false;
+        while (y >= 0 && (luma[y * width + cx] & 0xFF) < threshold && c[0] <= maxMod) {
+            c[0]++;
+            y--;
+        }
+        y = startY + 1;
+        while (y < height && (luma[y * width + cx] & 0xFF) < threshold) {
+            c[2]++;
+            y++;
+        }
+        if (y >= height) return false;
+        while (y < height && (luma[y * width + cx] & 0xFF) >= threshold && c[3] <= maxMod) {
+            c[3]++;
+            y++;
+        }
+        if (y >= height || c[3] > maxMod) return false;
+        while (y < height && (luma[y * width + cx] & 0xFF) < threshold && c[4] <= maxMod) {
+            c[4]++;
+            y++;
+        }
+        return matches11311(c);
+    }
+
+    /** Lightweight Liquid Glass QR scanner reticle overlay (zero allocations in {@code onDraw}). */
+    private final class QrReticleOverlayView extends View {
+        private final Paint scrimPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint clearPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint cornerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final RectF holeRect = new RectF();
+
+        QrReticleOverlayView(Context ctx) {
+            super(ctx);
+            setLayerType(LAYER_TYPE_SOFTWARE, null);
+            scrimPaint.setColor(0x9E080B18);
+            clearPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
+            borderPaint.setStyle(Paint.Style.STROKE);
+            borderPaint.setStrokeWidth(dp(1.2f));
+            borderPaint.setColor(0x52FFFFFF);
+            cornerPaint.setStyle(Paint.Style.STROKE);
+            cornerPaint.setStrokeWidth(dp(3.6f));
+            cornerPaint.setStrokeCap(Paint.Cap.ROUND);
+            cornerPaint.setColor(Color.WHITE);
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            int w = getWidth();
+            int h = getHeight();
+            if (w <= 0 || h <= 0) return;
+            float box = Math.min(w * 0.68f, dp(256));
+            float left = (w - box) / 2f;
+            float top = (h - box) / 2f;
+            float r = dp(26);
+            holeRect.set(left, top, left + box, top + box);
+
+            canvas.drawRect(0, 0, w, h, scrimPaint);
+            canvas.drawRoundRect(holeRect, r, r, clearPaint);
+            canvas.drawRoundRect(holeRect, r, r, borderPaint);
+
+            float arm = dp(26);
+            // Four crisp white corner accents matching Liquid Glass framing
+            canvas.drawLine(left + r * 0.45f, top, left + r * 0.45f + arm, top, cornerPaint);
+            canvas.drawLine(left, top + r * 0.45f, left, top + r * 0.45f + arm, cornerPaint);
+
+            canvas.drawLine(left + box - r * 0.45f - arm, top, left + box - r * 0.45f, top, cornerPaint);
+            canvas.drawLine(left + box, top + r * 0.45f, left + box, top + r * 0.45f + arm, cornerPaint);
+
+            canvas.drawLine(left + r * 0.45f, top + box, left + r * 0.45f + arm, top + box, cornerPaint);
+            canvas.drawLine(left, top + box - r * 0.45f - arm, left, top + box - r * 0.45f, cornerPaint);
+
+            canvas.drawLine(left + box - r * 0.45f - arm, top + box, left + box - r * 0.45f, top + box, cornerPaint);
+            canvas.drawLine(left + box, top + box - r * 0.45f - arm, left + box, top + box - r * 0.45f, cornerPaint);
         }
     }
 
@@ -654,6 +1360,18 @@ public final class RemoteAppActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void openNativeQrScanner() {
+            if (!trustedOriginActive) return;
+            runOnUiThread(RemoteAppActivity.this::requestOrOpenNativeQrScanner);
+        }
+
+        @JavascriptInterface
+        public void closeNativeQrScanner() {
+            if (!trustedOriginActive) return;
+            runOnUiThread(() -> RemoteAppActivity.this.closeNativeQrScanner(false));
+        }
+
+        @JavascriptInterface
         public boolean isBiometricAvailable() {
             if (!trustedOriginActive || Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
                 return false;
@@ -707,8 +1425,16 @@ public final class RemoteAppActivity extends Activity {
         }
     }
 
-    @SuppressWarnings("deprecation")
     private void applySystemBarAppearance(boolean dark) {
+        currentDarkTheme = dark;
+        if (nativeQrOverlay != null) {
+            return;
+        }
+        applySystemBarColors(dark);
+    }
+
+    @SuppressWarnings("deprecation")
+    private void applySystemBarColors(boolean dark) {
         Window window = getWindow();
         if (window == null) return;
         // Ensure DecorView is installed before touching WindowInsetsController (prevents Android 11-16 NPE)
@@ -945,6 +1671,10 @@ public final class RemoteAppActivity extends Activity {
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK && nativeQrOverlay != null) {
+            closeNativeQrScanner(true);
+            return true;
+        }
         if (webView != null && trustedOriginActive) {
             if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
                 webView.evaluateJavascript("if (window.sendKey) window.sendKey('vol_up');", null);
@@ -960,6 +1690,7 @@ public final class RemoteAppActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        closeNativeQrScanner(false);
         if (activeBiometricSignal != null) {
             try {
                 activeBiometricSignal.cancel();

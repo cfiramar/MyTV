@@ -29,6 +29,8 @@ interface MyTvNativeBridgeInterface {
   discoverTv?(hintUrl: string): string;
   startNativeTvDiscovery?(hintUrl: string): void;
   setSystemBarTheme?(dark: boolean): void;
+  openNativeQrScanner?(): void;
+  closeNativeQrScanner?(): void;
   isBiometricAvailable(): boolean;
   hasSavedPcUnlockPin(): boolean;
   enrollPcUnlockPin(pin: string): void;
@@ -51,6 +53,8 @@ declare global {
     onMyTvGoogleAuthCallback?: (accessToken: string) => void;
     onMyTvDiscovered?: (baseUrl: string) => void;
     onMyTvQrScanned?: (rawUri: string) => void;
+    onMyTvNativeQrDetected?: () => void;
+    onMyTvNativeQrClosed?: (reason: string) => void;
     onBiometricEnrollResult?: (ok: boolean, errorMessage: string) => void;
     onBiometricPcPinReady?: (pin: string) => void;
     onBiometricPcPinError?: (errorMessage: string) => void;
@@ -223,6 +227,7 @@ function applyRoleVisibility(role: RemoteRole | ''): void {
   const roleBadge = document.getElementById('roleHeaderBadge');
   const pairBtn = document.getElementById('headerPairBtn');
   const roleSub = document.getElementById('settingsRoleSub');
+  const upgradeBtn = document.getElementById('settingsUpgradeRoleBtn');
   const roleLabel = role === 'ADMIN' ? 'Admin' : role === 'HOUSEHOLD' ? 'Household' : role ? 'Guest' : '';
   if (roleBadge) {
     if (!role) {
@@ -231,6 +236,9 @@ function applyRoleVisibility(role: RemoteRole | ''): void {
       roleBadge.style.display = 'inline-flex';
       roleBadge.textContent = roleLabel;
     }
+  }
+  if (upgradeBtn) {
+    upgradeBtn.style.display = role && role !== 'ADMIN' ? 'inline-flex' : 'none';
   }
   if (roleSub) {
     roleSub.textContent = role ? `Connected · ${roleLabel}` : 'Not paired';
@@ -335,6 +343,30 @@ function closePairingOverlayManual(): void {
   setPairingOverlayVisible(false);
 }
 
+function handlePairingBackdropClick(ev: MouseEvent): void {
+  if (ev.target === ev.currentTarget && isPaired) {
+    closePairingOverlayManual();
+  }
+}
+
+function rePairAsAdmin(): void {
+  closeSheet('settings');
+  isPaired = false;
+  isGuestExpiredState = false;
+  activePairRequestId = '';
+  remoteService.setAuthToken('');
+  writeStorage(STORAGE_TOKEN, '');
+  writeStorage(STORAGE_ROLE, '');
+  applyRoleVisibility('');
+  setPairingOverlayVisible(true);
+  renderGoogleAuthAvailability(currentAuthConfig);
+  updateOverlayStatusText(
+    'Upgrade to Admin',
+    'Sign in with Google below or select Make Admin on your TV screen.'
+  );
+  void requestTvPairPrompt(true);
+}
+
 function updateOverlayStatusText(title: string, subtitle: string): void {
   const t = document.getElementById('pairingOverlayTitle');
   const s = document.getElementById('pairingOverlaySub');
@@ -399,7 +431,17 @@ async function handleScannedQrPayload(rawPayload: string): Promise<boolean> {
 
 async function startQrScanner(): Promise<void> {
   setPairingOverlayVisible(true);
-  void requestTvPairPrompt();
+  void requestTvPairPrompt(true);
+
+  // Native Android APK: open full-screen hardware Camera2 QR viewfinder immediately on tap
+  if (nativeBridge && typeof nativeBridge.openNativeQrScanner === 'function') {
+    try {
+      nativeBridge.openNativeQrScanner();
+      return;
+    } catch {
+      // Fall through to browser WebRTC scanner if native bridge fails
+    }
+  }
 
   const box = document.getElementById('qrScannerBox');
   const video = document.getElementById('qrVideo') as HTMLVideoElement | null;
@@ -605,7 +647,7 @@ async function completePairingSuccess(token: string, role: RemoteRole): Promise<
   }
 }
 
-async function requestTvPairPrompt(): Promise<void> {
+async function requestTvPairPrompt(forceFresh: boolean = false): Promise<void> {
   const waitBadge = document.getElementById('pairPollStatusText');
   let base = remoteService.getBaseUrl();
   if (!base) {
@@ -614,7 +656,7 @@ async function requestTvPairPrompt(): Promise<void> {
   }
   if (!base) {
     if (waitBadge) {
-      waitBadge.textContent = 'Tap Pair (Scan TV QR Code) above to locate and pair with your TV.';
+      waitBadge.textContent = 'Tap Scan TV QR Code above to locate and pair with your TV.';
     }
     return;
   }
@@ -623,18 +665,18 @@ async function requestTvPairPrompt(): Promise<void> {
     const cfg = await remoteService.getAuthConfig();
     currentAuthConfig = cfg;
     renderGoogleAuthAvailability(cfg);
-    if (cfg.paired && cfg.role) {
+    if (!forceFresh && cfg.paired && cfg.role) {
       await completePairingSuccess(remoteService.getAuthToken(), cfg.role);
       return;
     }
-    if (cfg.handoffToken) {
+    if (!forceFresh && cfg.handoffToken) {
       await completePairingSuccess(cfg.handoffToken, cfg.handoffRole || 'GUEST');
       return;
     }
     if (cfg.bootstrapAdmin && !isGuestExpiredState) {
       updateOverlayStatusText(
         'First-Time Owner Setup',
-        'Scan the QR code shown on TV or click Approve on TV to pair this phone as Admin.'
+        'Scan the QR code on TV or choose Make Admin on your TV screen.'
       );
     }
   } catch {
@@ -811,9 +853,9 @@ function openQrPairScanner(): void {
   void startQrScanner();
 }
 
-function openPairingOverlayManual(): void {
+function openPairingOverlayManual(forceFresh: boolean = false): void {
   setPairingOverlayVisible(true);
-  void requestTvPairPrompt();
+  void requestTvPairPrompt(forceFresh);
 }
 
 function toggleFullscreen(): void {
@@ -2164,6 +2206,38 @@ function registerNativeCallbacksAndGlobals(): void {
     void handleScannedQrPayload(rawUri);
   };
 
+  window.onMyTvNativeQrDetected = async () => {
+    if (qrVerifyInFlight) return;
+    if (!activePairRequestId) {
+      await requestTvPairPrompt(true);
+    }
+    if (!activePairRequestId || !remoteService.getBaseUrl()) {
+      showToast('Show QR on TV first, then scan again');
+      return;
+    }
+    qrVerifyInFlight = true;
+    try {
+      const verified = await remoteService.verifyPairing({
+        requestId: activePairRequestId,
+        clientId: getOrCreateClientId(),
+        qrCameraDetected: true,
+        deviceName: detectDeviceName(),
+      });
+      await completePairingSuccess(verified.token, verified.role);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'QR expired — tap Show QR on TV and scan again');
+      void requestTvPairPrompt(true);
+    } finally {
+      qrVerifyInFlight = false;
+    }
+  };
+
+  window.onMyTvNativeQrClosed = (reason: string) => {
+    if (reason && reason.trim()) {
+      showToast(reason.trim());
+    }
+  };
+
   window.onMyTvGoogleAuthCallback = async (accessToken: string) => {
     if (!accessToken) return;
     showToast('Verifying Google Admin account with TV...');
@@ -2220,7 +2294,9 @@ function registerNativeCallbacksAndGlobals(): void {
     stopQrScanner,
     scanQrImageFile,
     closePairingOverlayManual,
+    handlePairingBackdropClick,
     openPairingOverlayManual,
+    rePairAsAdmin,
     requestTvPairPrompt,
     submitSixDigitPairCode,
     signInWithGoogleAdmin,

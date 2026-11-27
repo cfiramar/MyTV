@@ -684,6 +684,30 @@ public final class Stage2ModularizationAndBridgeTests {
                     "MyTV-Remote manifest declares android.intent.category.LAUNCHER so phone launchers display the app");
             assertTrue(!xml.contains("android.intent.action.LAUNCHER"),
                     "MyTV-Remote manifest must never contain invalid android.intent.action.LAUNCHER typo");
+            assertTrue(xml.contains("android.permission.CAMERA"),
+                    "MyTV-Remote manifest declares CAMERA permission for native Camera2 QR scanner");
+            assertTrue(xml.contains("android.permission.VIBRATE"),
+                    "MyTV-Remote manifest declares VIBRATE permission for gentle QR scan feedback");
+        }
+        File remoteActivity = new File("../MyTV-remote/android/src/io/mytv/remote/RemoteAppActivity.java");
+        if (remoteActivity.isFile()) {
+            String javaSrc = new String(Files.readAllBytes(remoteActivity.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+            assertTrue(javaSrc.contains("public void openNativeQrScanner()"),
+                    "RemoteAppActivity exposes openNativeQrScanner() native Camera2 bridge");
+            assertTrue(javaSrc.contains("pickCameraAnalysisSize("),
+                    "RemoteAppActivity selects hardware-supported YUV_420_888 analysis size");
+            int setContentIdx = javaSrc.indexOf("setContentView(rootContainer);");
+            int applyBarIdx = javaSrc.indexOf("applySystemBarAppearance(true);");
+            assertTrue(setContentIdx > 0 && applyBarIdx > setContentIdx,
+                    "RemoteAppActivity calls setContentView before applySystemBarAppearance to prevent Android 11-16 NPE");
+        }
+        File remoteHtml = new File("../MyTV-remote/public/index.html");
+        if (remoteHtml.isFile()) {
+            String html = new String(Files.readAllBytes(remoteHtml.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+            assertTrue(html.contains("id=\"pairingOverlay\" class=\"sheet-overlay\""),
+                    "Pairing overlay matches Liquid Glass slide-up sheet styling");
+            assertTrue(html.contains("id=\"settingsUpgradeRoleBtn\"") && html.contains("rePairAsAdmin()"),
+                    "Settings TV Connection includes Upgrade Admin action for accidental Guest pairing recovery");
         }
     }
 

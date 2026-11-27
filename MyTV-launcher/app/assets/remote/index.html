@@ -1405,9 +1405,62 @@
 
     .pair-code-input {
       text-align: center;
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 700;
-      letter-spacing: 0.24em;
+      letter-spacing: 0.20em;
+    }
+
+    .pairing-status-pill {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 9px 10px 9px 14px;
+      border-radius: 16px;
+      background: var(--row-bg);
+      border: 1px solid var(--lg-border);
+    }
+
+    .pairing-status-main {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .pairing-status-text {
+      font-size: 12px;
+      color: var(--ink-70);
+      line-height: 1.35;
+    }
+
+    .qr-scanner-frame {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      padding: 10px;
+      border-radius: 20px;
+      background: var(--input-bg);
+      border: 1px solid var(--lg-border);
+    }
+
+    .qr-video-box {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #080b18;
+    }
+
+    .qr-reticle {
+      position: absolute;
+      inset: 18%;
+      border: 2px solid rgba(255, 255, 255, 0.92);
+      border-radius: 18px;
+      box-shadow: 0 0 0 999px rgba(8, 11, 24, 0.48);
+      pointer-events: none;
     }
 
     .segmented-pills {
@@ -1574,10 +1627,10 @@
       background: var(--hairline);
     }
 
-    /* Pairing Modal Centering */
+    /* Pairing Sheet uses the exact same bottom Liquid Glass sheet geometry as all other sheets */
     #pairingOverlay {
       z-index: 85;
-      align-items: center;
+      align-items: flex-end;
     }
 
     /* Toast */
@@ -1865,12 +1918,15 @@
         <div class="tv-row-head">
           <div style="min-width:0;">
             <div class="tv-row-title">
-              <span>TV Pairing</span>
+              <span>TV Connection</span>
               <span id="roleHeaderBadge" class="status-pill connected" style="display:none; padding:2px 8px; font-size:10px;"></span>
             </div>
-            <div class="tv-row-sub">Pair via QR code or 6-digit TV code</div>
+            <div id="settingsPairSub" class="tv-row-sub">Paired via QR code or TV approval</div>
           </div>
-          <button class="btn btn-chip" onclick="closeSheet('settings'); openQrPairScanner();" style="flex-shrink:0;">Pair QR</button>
+          <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+            <button id="settingsUpgradeRoleBtn" class="btn pill-focus btn-chip" style="display:none;" onclick="rePairAsAdmin()">Upgrade Admin</button>
+            <button class="btn btn-chip" onclick="closeSheet('settings'); openPairingOverlayManual(true);">Re-pair</button>
+          </div>
         </div>
       </div>
 
@@ -1915,37 +1971,35 @@
   </div>
 
   <!-- ========================================================================
-       PAIRING & GOOGLE ADMIN RECOVERY OVERLAY
+       PAIRING & OWNER RECOVERY LIQUID GLASS SHEET (Matches All Remote Sheets)
        ======================================================================== -->
-  <div id="pairingOverlay" class="sheet-overlay" role="dialog" aria-modal="true" aria-labelledby="pairingOverlayTitle">
+  <div id="pairingOverlay" class="sheet-overlay" role="dialog" aria-modal="true" aria-labelledby="pairingOverlayTitle" onclick="handlePairingBackdropClick(event)">
     <div class="sheet-card">
+      <div class="sheet-handle"></div>
       <div class="sheet-head">
-        <div style="display:flex; align-items:center; gap:10px; min-width:0;">
-          <div class="orb-sm btn-blue" style="pointer-events:none; flex-shrink:0;">
-            <svg class="icon icon-md" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3z"/><path d="M18 18h3v3h-3z"/><path d="M14 18h3"/><path d="M18 14v3"/></svg>
-          </div>
-          <div style="min-width:0;">
-            <div id="pairingOverlayTitle" class="sheet-title">Pair with MyTV</div>
-            <div id="pairingOverlaySub" class="sheet-sub">Scan the QR on TV or tap Approve on your TV.</div>
-          </div>
+        <div style="min-width:0;">
+          <div id="pairingOverlayTitle" class="sheet-title">Connect to MyTV</div>
+          <div id="pairingOverlaySub" class="sheet-sub">Scan the QR on TV or approve on your TV screen</div>
         </div>
-        <button class="orb-sm lg-sm" style="width:32px;height:32px;" onclick="closePairingOverlayManual()" aria-label="Close">
+        <button class="orb-sm lg-sm" style="width:32px;height:32px;flex-shrink:0;" onclick="closePairingOverlayManual()" aria-label="Close">
           <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
 
-      <button id="overlayScanQrBtn" class="btn pill-focus" style="padding:12px 14px;" onclick="startQrScanner()">
-        <svg class="icon icon-md" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3z"/><path d="M18 18h3v3h-3z"/></svg>
+      <!-- Primary Liquid Glass CTA: Opens Native Camera Scanner in APK or WebRTC in Browser -->
+      <button id="overlayScanQrBtn" class="btn pill-focus" style="padding:13px 16px; border-radius:999px;" onclick="startQrScanner()">
+        <svg class="icon icon-md" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3h-3z"/><path d="M18 18h3v3h-3z"/></svg>
         <span>Scan TV QR Code</span>
       </button>
 
-      <div id="qrScannerBox" style="display:none; flex-direction:column; gap:8px; padding:10px; border-radius:16px; background:rgba(4,7,16,0.56); border:1px solid var(--lg-border);">
-        <div style="position:relative; width:100%; aspect-ratio:4/3; border-radius:12px; overflow:hidden; background:#070a14;">
+      <!-- Browser-only Inline Live Camera Scanner (Native APK opens full-screen hardware camera) -->
+      <div id="qrScannerBox" class="qr-scanner-frame">
+        <div class="qr-video-box">
           <video id="qrVideo" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>
-          <div style="position:absolute; inset:18%; border:2px solid #ffffff; border-radius:16px; box-shadow:0 0 0 999px rgba(4,6,14,0.44); pointer-events:none;"></div>
+          <div class="qr-reticle"></div>
         </div>
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-          <span id="qrScannerHint" style="font-size:11.5px; color:var(--ink-70);">Point camera at the QR on TV...</span>
+          <span id="qrScannerHint" class="pairing-status-text">Point camera at the QR on TV...</span>
           <label class="btn btn-chip" style="cursor:pointer; flex-shrink:0;">
             <span>Snap QR</span>
             <input id="qrFileInput" type="file" accept="image/*" capture="environment" style="display:none;" onchange="scanQrImageFile(event)" />
@@ -1954,21 +2008,25 @@
         </div>
       </div>
 
-      <div class="tv-row is-active" style="padding:10px 12px 10px 16px;">
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-          <span id="pairPollStatusText" style="font-size:11.5px; color:var(--ink-70);">Finding MyTV on Wi-Fi...</span>
-          <button class="btn btn-chip" onclick="requestTvPairPrompt()" style="flex-shrink:0;">Show QR</button>
+      <!-- Whisper-Quiet TV Prompt Status Pill -->
+      <div class="pairing-status-pill">
+        <div class="pairing-status-main">
+          <span class="live-input-dot"></span>
+          <span id="pairPollStatusText" class="pairing-status-text">Finding MyTV on Wi-Fi...</span>
         </div>
+        <button class="btn btn-chip" onclick="requestTvPairPrompt(true)" style="flex-shrink:0;">Show QR</button>
       </div>
 
+      <!-- Clean 6-Digit Code Entry -->
       <div class="input-row">
-        <input id="pairCodeInput" class="text-input pair-code-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" aria-label="6-Digit TV Pairing Code" />
-        <button class="btn pill-focus" onclick="submitSixDigitPairCode()">Pair</button>
+        <input id="pairCodeInput" class="text-input pair-code-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit TV code" aria-label="6-Digit TV Pairing Code" />
+        <button class="btn" style="border-radius:999px; padding:10.5px 18px;" onclick="submitSixDigitPairCode()">Connect</button>
       </div>
 
-      <div id="googleAdminAuthWrap" style="display:none; flex-direction:column; gap:9px;">
-        <div class="pairing-divider">Owner Recovery</div>
-        <button class="btn btn-blue" onclick="signInWithGoogleAdmin()">
+      <!-- Subtle Owner / Admin Recovery -->
+      <div id="googleAdminAuthWrap" style="display:none; flex-direction:column; gap:10px;">
+        <div class="pairing-divider">Owner / Admin Access</div>
+        <button class="btn btn-blue" style="border-radius:999px; padding:11.5px 16px;" onclick="signInWithGoogleAdmin()">
           <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           <span>Sign in with Google (Admin)</span>
         </button>

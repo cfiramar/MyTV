@@ -1254,6 +1254,7 @@
         const roleBadge = document.getElementById('roleHeaderBadge');
         const pairBtn = document.getElementById('headerPairBtn');
         const roleSub = document.getElementById('settingsRoleSub');
+        const upgradeBtn = document.getElementById('settingsUpgradeRoleBtn');
         const roleLabel = role === 'ADMIN' ? 'Admin' : role === 'HOUSEHOLD' ? 'Household' : role ? 'Guest' : '';
         if (roleBadge) {
             if (!role) {
@@ -1263,6 +1264,9 @@
                 roleBadge.style.display = 'inline-flex';
                 roleBadge.textContent = roleLabel;
             }
+        }
+        if (upgradeBtn) {
+            upgradeBtn.style.display = role && role !== 'ADMIN' ? 'inline-flex' : 'none';
         }
         if (roleSub) {
             roleSub.textContent = role ? `Connected · ${roleLabel}` : 'Not paired';
@@ -1358,6 +1362,25 @@
     function closePairingOverlayManual() {
         setPairingOverlayVisible(false);
     }
+    function handlePairingBackdropClick(ev) {
+        if (ev.target === ev.currentTarget && isPaired) {
+            closePairingOverlayManual();
+        }
+    }
+    function rePairAsAdmin() {
+        closeSheet('settings');
+        isPaired = false;
+        isGuestExpiredState = false;
+        activePairRequestId = '';
+        remoteService.setAuthToken('');
+        writeStorage(STORAGE_TOKEN, '');
+        writeStorage(STORAGE_ROLE, '');
+        applyRoleVisibility('');
+        setPairingOverlayVisible(true);
+        renderGoogleAuthAvailability(currentAuthConfig);
+        updateOverlayStatusText('Upgrade to Admin', 'Sign in with Google below or select Make Admin on your TV screen.');
+        void requestTvPairPrompt(true);
+    }
     function updateOverlayStatusText(title, subtitle) {
         const t = document.getElementById('pairingOverlayTitle');
         const s = document.getElementById('pairingOverlaySub');
@@ -1424,7 +1447,17 @@
     }
     async function startQrScanner() {
         setPairingOverlayVisible(true);
-        void requestTvPairPrompt();
+        void requestTvPairPrompt(true);
+        // Native Android APK: open full-screen hardware Camera2 QR viewfinder immediately on tap
+        if (nativeBridge && typeof nativeBridge.openNativeQrScanner === 'function') {
+            try {
+                nativeBridge.openNativeQrScanner();
+                return;
+            }
+            catch {
+                // Fall through to browser WebRTC scanner if native bridge fails
+            }
+        }
         const box = document.getElementById('qrScannerBox');
         const video = document.getElementById('qrVideo');
         const hint = document.getElementById('qrScannerHint');
@@ -1629,7 +1662,7 @@
             void refreshPairedDevices();
         }
     }
-    async function requestTvPairPrompt() {
+    async function requestTvPairPrompt(forceFresh = false) {
         const waitBadge = document.getElementById('pairPollStatusText');
         let base = remoteService.getBaseUrl();
         if (!base) {
@@ -1639,7 +1672,7 @@
         }
         if (!base) {
             if (waitBadge) {
-                waitBadge.textContent = 'Tap Pair (Scan TV QR Code) above to locate and pair with your TV.';
+                waitBadge.textContent = 'Tap Scan TV QR Code above to locate and pair with your TV.';
             }
             return;
         }
@@ -1647,16 +1680,16 @@
             const cfg = await remoteService.getAuthConfig();
             currentAuthConfig = cfg;
             renderGoogleAuthAvailability(cfg);
-            if (cfg.paired && cfg.role) {
+            if (!forceFresh && cfg.paired && cfg.role) {
                 await completePairingSuccess(remoteService.getAuthToken(), cfg.role);
                 return;
             }
-            if (cfg.handoffToken) {
+            if (!forceFresh && cfg.handoffToken) {
                 await completePairingSuccess(cfg.handoffToken, cfg.handoffRole || 'GUEST');
                 return;
             }
             if (cfg.bootstrapAdmin && !isGuestExpiredState) {
-                updateOverlayStatusText('First-Time Owner Setup', 'Scan the QR code shown on TV or click Approve on TV to pair this phone as Admin.');
+                updateOverlayStatusText('First-Time Owner Setup', 'Scan the QR code on TV or choose Make Admin on your TV screen.');
             }
         }
         catch {
@@ -1836,9 +1869,9 @@
     function openQrPairScanner() {
         void startQrScanner();
     }
-    function openPairingOverlayManual() {
+    function openPairingOverlayManual(forceFresh = false) {
         setPairingOverlayVisible(true);
-        void requestTvPairPrompt();
+        void requestTvPairPrompt(forceFresh);
     }
     function toggleFullscreen() {
         const doc = document;
@@ -3137,6 +3170,39 @@
                 return;
             void handleScannedQrPayload(rawUri);
         };
+        window.onMyTvNativeQrDetected = async () => {
+            if (qrVerifyInFlight)
+                return;
+            if (!activePairRequestId) {
+                await requestTvPairPrompt(true);
+            }
+            if (!activePairRequestId || !remoteService.getBaseUrl()) {
+                showToast('Show QR on TV first, then scan again');
+                return;
+            }
+            qrVerifyInFlight = true;
+            try {
+                const verified = await remoteService.verifyPairing({
+                    requestId: activePairRequestId,
+                    clientId: getOrCreateClientId(),
+                    qrCameraDetected: true,
+                    deviceName: detectDeviceName(),
+                });
+                await completePairingSuccess(verified.token, verified.role);
+            }
+            catch (err) {
+                showToast(err instanceof Error ? err.message : 'QR expired — tap Show QR on TV and scan again');
+                void requestTvPairPrompt(true);
+            }
+            finally {
+                qrVerifyInFlight = false;
+            }
+        };
+        window.onMyTvNativeQrClosed = (reason) => {
+            if (reason && reason.trim()) {
+                showToast(reason.trim());
+            }
+        };
         window.onMyTvGoogleAuthCallback = async (accessToken) => {
             if (!accessToken)
                 return;
@@ -3196,7 +3262,9 @@
             stopQrScanner,
             scanQrImageFile,
             closePairingOverlayManual,
+            handlePairingBackdropClick,
             openPairingOverlayManual,
+            rePairAsAdmin,
             requestTvPairPrompt,
             submitSixDigitPairCode,
             signInWithGoogleAdmin,
