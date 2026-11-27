@@ -121,6 +121,7 @@
         android:name=".App"
         android:label="SoarTV"
         android:icon="@drawable/icon"
+        android:roundIcon="@drawable/icon"
         android:banner="@drawable/banner"
         android:allowBackup="false"
         android:extractNativeLibs="true"

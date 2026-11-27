@@ -1,4 +1,4 @@
-# SoarTV
+# <img src="assets/icons/soartv_icon_rounded.png" alt="SoarTV" width="44" height="44" align="absmiddle" /> SoarTV
 
 **A bloat-free 4K home screen built around you — not billboards.**
 
@@ -248,7 +248,9 @@ If you are an AI coding assistant (like **Claude Code**, **Google Antigravity**,
 SoarTV/
 ├── setup_wizard.py             # Visual TV-styled Setup Studio (auto-launched by your AI agent)
 ├── setup_wizard.py                 # Cross-platform Python entry point for Setup Studio
-├── assets/screenshots/             # 4K TV & Phone Companion Remote preview images
+├── assets/
+│   ├── icons/                      # Official SoarTV app icons, 16:9 banner, trimmed transparent marks & bird SVG
+│   └── screenshots/                # 4K TV & Phone Companion Remote preview images
 ├── docs/
 │   ├── agents/                     # Step-by-step AI agent installation & TV-brand adaptation guides
 │   └── supabase-schema.sql         # Optional Supabase Dual-Path RLS & Encrypted Vault SQL schema
