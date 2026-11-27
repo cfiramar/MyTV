@@ -673,6 +673,18 @@ public final class Stage2ModularizationAndBridgeTests {
         assertTrue(TvInputFieldSync.isSubmitButtonLabel("Go"), "Recognizes Go submit label");
         assertTrue(TvInputFieldSync.isSubmitButtonLabel("חיפוש"), "Recognizes Hebrew search submit label");
         assertTrue(!TvInputFieldSync.isSubmitButtonLabel("Cancel"), "Rejects Cancel as submit label");
+
+        // 6. Companion Remote AndroidManifest LAUNCHER category regression guard (ensures phone app-drawer visibility)
+        File remoteManifest = new File("../MyTV-remote/android/AndroidManifest.xml");
+        if (remoteManifest.isFile()) {
+            String xml = new String(Files.readAllBytes(remoteManifest.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+            assertTrue(xml.contains("android.intent.action.MAIN"),
+                    "MyTV-Remote manifest declares android.intent.action.MAIN");
+            assertTrue(xml.contains("android.intent.category.LAUNCHER"),
+                    "MyTV-Remote manifest declares android.intent.category.LAUNCHER so phone launchers display the app");
+            assertTrue(!xml.contains("android.intent.action.LAUNCHER"),
+                    "MyTV-Remote manifest must never contain invalid android.intent.action.LAUNCHER typo");
+        }
     }
 
     private static void collectAllNodes(SettingsTree.Node node, List<SettingsTree.Node> out) {

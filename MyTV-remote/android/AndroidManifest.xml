@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="io.mytv.remote"
-    android:versionCode="4"
-    android:versionName="2.2">
+    android:versionCode="5"
+    android:versionName="2.3">
 
     <uses-sdk
         android:minSdkVersion="24"
@@ -21,6 +21,7 @@
     <application
         android:label="MyTV Remote"
         android:icon="@drawable/ic_launcher"
+        android:roundIcon="@drawable/ic_launcher"
         android:usesCleartextTraffic="true"
         android:allowBackup="false"
         android:supportsRtl="true"
@@ -28,13 +29,14 @@
 
         <activity
             android:name=".RemoteAppActivity"
+            android:label="MyTV Remote"
             android:exported="true"
             android:launchMode="singleTop"
             android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
             android:windowSoftInputMode="adjustPan">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.action.LAUNCHER" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
