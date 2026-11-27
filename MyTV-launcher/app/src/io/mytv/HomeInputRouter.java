@@ -24,6 +24,34 @@ public final class HomeInputRouter {
     /** Number of selectable buttons on the on-TV "New Remote Detected" Liquid Glass platter. */
     public static final int PAIRING_BUTTON_COUNT = 4;
 
+    /** Standard Android KeyEvent.KEYCODE_DPAD_* values (pure-Java constants for headless JVM tests). */
+    public static final int KEYCODE_DPAD_UP = 19;
+    public static final int KEYCODE_DPAD_DOWN = 20;
+    public static final int KEYCODE_DPAD_LEFT = 21;
+    public static final int KEYCODE_DPAD_RIGHT = 22;
+
+    /**
+     * Resolves a Companion Remote touchpad swipe delta {@code (dx, dy)} into a standard D-Pad keycode.
+     *
+     * <p><b>Why:</b> Routing touchpad vertical swipes into {@code wheel()} clamped focus at row {@code 0}
+     * and prevented reaching the Top-Bar tabs ({@code Z_TOP}) or navigating Settings/Modals. Mapping swipes
+     * directly to standard D-Pad keycodes guarantees 100% parity with the physical TV remote across every
+     * screen, grid, Settings rail, Hold-OK menu, and modal.
+     *
+     * @param dx Horizontal swipe step delta (negative = left, positive = right).
+     * @param dy Vertical swipe step delta (negative = up, positive = down).
+     * @return Matching {@code KEYCODE_DPAD_*} constant, or {@code 0} if both deltas are zero.
+     */
+    public static int resolveRemoteScrollKeyCode(int dx, int dy) {
+        if (Math.abs(dy) >= Math.abs(dx) && dy != 0) {
+            return dy > 0 ? KEYCODE_DPAD_DOWN : KEYCODE_DPAD_UP;
+        }
+        if (dx != 0) {
+            return dx > 0 ? KEYCODE_DPAD_RIGHT : KEYCODE_DPAD_LEFT;
+        }
+        return 0;
+    }
+
     private final RowScrollMemory rowScrollMemory = new RowScrollMemory();
     private final BackNavigationStack backStack = new BackNavigationStack();
 

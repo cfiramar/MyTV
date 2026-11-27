@@ -1992,12 +1992,189 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     @Override
     public void onRemoteKey(int keyCode) {
         Recs.notifyUserInteraction();
+        wake();
         if (lgModalOpen) {
             handleLiquidGlassModalRemoteKey(keyCode);
             return;
         }
+        if (streamQualityModalOpen && streamQualityModalState != null) {
+            switch (keyCode) {
+                case KeyEvent.KEYCODE_DPAD_UP:
+                    if (streamQualityModalState.moveFocus(0, -1)) {
+                        persistStreamQualityModalValues();
+                        click.move();
+                        toastLayer.invalidate();
+                    }
+                    break;
+                case KeyEvent.KEYCODE_DPAD_DOWN:
+                    if (streamQualityModalState.moveFocus(0, 1)) {
+                        persistStreamQualityModalValues();
+                        click.move();
+                        toastLayer.invalidate();
+                    }
+                    break;
+                case KeyEvent.KEYCODE_DPAD_LEFT:
+                    if (streamQualityModalState.moveFocus(-1, 0)) {
+                        click.move();
+                        toastLayer.invalidate();
+                    }
+                    break;
+                case KeyEvent.KEYCODE_DPAD_RIGHT:
+                    if (streamQualityModalState.moveFocus(1, 0)) {
+                        click.move();
+                        toastLayer.invalidate();
+                    }
+                    break;
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                case KeyEvent.KEYCODE_ENTER:
+                case KeyEvent.KEYCODE_NUMPAD_ENTER:
+                case KeyEvent.KEYCODE_BACK:
+                    closeStreamQualityModal();
+                    break;
+                default:
+                    break;
+            }
+            return;
+        }
+        if (sleepModalOpen && sleepModalState != null) {
+            switch (keyCode) {
+                case KeyEvent.KEYCODE_DPAD_UP:
+                    sleepModalState.moveFocus(0, -1);
+                    click.move();
+                    toastLayer.invalidate();
+                    break;
+                case KeyEvent.KEYCODE_DPAD_DOWN:
+                    sleepModalState.moveFocus(0, 1);
+                    click.move();
+                    toastLayer.invalidate();
+                    break;
+                case KeyEvent.KEYCODE_DPAD_LEFT:
+                    sleepModalState.moveFocus(-1, 0);
+                    click.move();
+                    toastLayer.invalidate();
+                    break;
+                case KeyEvent.KEYCODE_DPAD_RIGHT:
+                    sleepModalState.moveFocus(1, 0);
+                    click.move();
+                    toastLayer.invalidate();
+                    break;
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                case KeyEvent.KEYCODE_ENTER:
+                case KeyEvent.KEYCODE_NUMPAD_ENTER: {
+                    int slot = sleepModalState.getFocusSlot();
+                    if (slot == ModalOverlayRenderer.SleepTimerModalState.SLOT_TOGGLE) {
+                        sleepModalState.toggleEnabled();
+                        click.move();
+                        toastLayer.invalidate();
+                    } else if (slot == ModalOverlayRenderer.SleepTimerModalState.SLOT_ADD_FIVE) {
+                        sleepModalState.addFiveMinutes();
+                        click.move();
+                        toastLayer.invalidate();
+                    } else if (slot == ModalOverlayRenderer.SleepTimerModalState.SLOT_CANCEL) {
+                        closeSleepTimerModal();
+                    } else {
+                        saveSleepTimerModal();
+                    }
+                    break;
+                }
+                case KeyEvent.KEYCODE_BACK:
+                    closeSleepTimerModal();
+                    break;
+                default:
+                    break;
+            }
+            return;
+        }
         if (activePendingPairing != null) {
             handlePairingModalRemoteKey(keyCode);
+            return;
+        }
+        if (gameLaunchModalOpen) {
+            if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER
+                    || keyCode == KeyEvent.KEYCODE_ENTER
+                    || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER
+                    || keyCode == KeyEvent.KEYCODE_BACK) {
+                cancelGameLaunchModalByUser();
+            }
+            return;
+        }
+        if (syncModalOpen) {
+            if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER
+                    || keyCode == KeyEvent.KEYCODE_ENTER
+                    || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER
+                    || keyCode == KeyEvent.KEYCODE_BACK) {
+                syncModalOpen = false;
+                toastLayer.invalidate();
+                click.move();
+                showToast(Ui.tr("Continuing sync in background…"));
+            }
+            return;
+        }
+        if (menuOpen) {
+            switch (keyCode) {
+                case KeyEvent.KEYCODE_DPAD_UP:
+                    moveMenu(-1);
+                    break;
+                case KeyEvent.KEYCODE_DPAD_DOWN:
+                    moveMenu(1);
+                    break;
+                case KeyEvent.KEYCODE_DPAD_LEFT:
+                    if (smartCardOpen) adjustSmartCardValue(-1);
+                    break;
+                case KeyEvent.KEYCODE_DPAD_RIGHT:
+                    if (smartCardOpen) adjustSmartCardValue(1);
+                    break;
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                case KeyEvent.KEYCODE_ENTER:
+                case KeyEvent.KEYCODE_NUMPAD_ENTER:
+                    if (smartCardOpen) {
+                        if (smartCardDevice != null
+                                && smartCardDevice.getProtocol() == SmartHomeManager.Protocol.WIZ_LIGHT
+                                && menuIndex == 1) {
+                            adjustSmartCardValue(1);
+                        } else {
+                            closeMenu(false);
+                            click.open();
+                        }
+                    } else {
+                        pickMenu();
+                    }
+                    break;
+                case KeyEvent.KEYCODE_BACK:
+                    closeMenu(false);
+                    click.move();
+                    break;
+                default:
+                    break;
+            }
+            return;
+        }
+        if (reordering) {
+            switch (keyCode) {
+                case KeyEvent.KEYCODE_DPAD_LEFT:
+                    shiftReorder(-1);
+                    break;
+                case KeyEvent.KEYCODE_DPAD_RIGHT:
+                    shiftReorder(1);
+                    break;
+                case KeyEvent.KEYCODE_DPAD_UP:
+                    shiftReorder(reorderAppsGrid ? -COLUMNS : -1);
+                    break;
+                case KeyEvent.KEYCODE_DPAD_DOWN:
+                    shiftReorder(reorderAppsGrid ? COLUMNS : 1);
+                    break;
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                case KeyEvent.KEYCODE_ENTER:
+                case KeyEvent.KEYCODE_NUMPAD_ENTER:
+                    dropReorder();
+                    break;
+                case KeyEvent.KEYCODE_BACK:
+                    cancelReorder(false);
+                    click.move();
+                    break;
+                default:
+                    break;
+            }
             return;
         }
         switch (keyCode) {
@@ -2023,11 +2200,9 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     @Override
     public void onRemoteScroll(int dx, int dy) {
-        Recs.notifyUserInteraction();
-        if (Math.abs(dy) >= Math.abs(dx) && Math.abs(dy) > 0) {
-            wheel(dy > 0 ? 1 : -1);
-        } else if (Math.abs(dx) > 0) {
-            move(dx > 0 ? 1 : -1, 0);
+        int keyCode = HomeInputRouter.resolveRemoteScrollKeyCode(dx, dy);
+        if (keyCode != 0) {
+            onRemoteKey(keyCode);
         }
     }
 

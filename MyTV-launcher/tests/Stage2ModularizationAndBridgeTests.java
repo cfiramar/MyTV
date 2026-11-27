@@ -709,6 +709,30 @@ public final class Stage2ModularizationAndBridgeTests {
             assertTrue(html.contains("id=\"settingsUpgradeRoleBtn\"") && html.contains("rePairAsAdmin()"),
                     "Settings TV Connection includes Upgrade Admin action for accidental Guest pairing recovery");
         }
+        // Companion Remote touchpad swipe -> D-Pad routing (allows reaching Top-Bar Z_TOP and Settings/Modals)
+        assertTrue(HomeInputRouter.resolveRemoteScrollKeyCode(0, -1) == HomeInputRouter.KEYCODE_DPAD_UP,
+                "Touchpad swipe up maps to KEYCODE_DPAD_UP so user can reach Top-Bar tabs row");
+        assertTrue(HomeInputRouter.resolveRemoteScrollKeyCode(1, -2) == HomeInputRouter.KEYCODE_DPAD_UP,
+                "Diagonal upward swipe prioritizes KEYCODE_DPAD_UP");
+        assertTrue(HomeInputRouter.resolveRemoteScrollKeyCode(0, 1) == HomeInputRouter.KEYCODE_DPAD_DOWN,
+                "Touchpad swipe down maps to KEYCODE_DPAD_DOWN");
+        assertTrue(HomeInputRouter.resolveRemoteScrollKeyCode(-1, 0) == HomeInputRouter.KEYCODE_DPAD_LEFT,
+                "Touchpad swipe left maps to KEYCODE_DPAD_LEFT");
+        assertTrue(HomeInputRouter.resolveRemoteScrollKeyCode(2, 1) == HomeInputRouter.KEYCODE_DPAD_RIGHT,
+                "Horizontal dominant swipe right maps to KEYCODE_DPAD_RIGHT");
+        assertTrue(HomeInputRouter.resolveRemoteScrollKeyCode(0, 0) == 0,
+                "Zero scroll delta maps to no-op");
+        File homeViewFile = new File("app/src/io/mytv/HomeView.java");
+        if (homeViewFile.isFile()) {
+            String hvSrc = new String(Files.readAllBytes(homeViewFile.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+            int scrollIdx = hvSrc.indexOf("public void onRemoteScroll(int dx, int dy)");
+            assertTrue(scrollIdx > 0, "HomeView defines onRemoteScroll");
+            String scrollBody = hvSrc.substring(scrollIdx, Math.min(hvSrc.length(), scrollIdx + 300));
+            assertTrue(scrollBody.contains("HomeInputRouter.resolveRemoteScrollKeyCode(dx, dy)")
+                    && scrollBody.contains("onRemoteKey(keyCode)")
+                    && !scrollBody.contains("wheel("),
+                    "HomeView.onRemoteScroll must route through onRemoteKey (never clamping wheel()) so touchpad swipe UP reaches Top-Bar tabs");
+        }
     }
 
     private static void collectAllNodes(SettingsTree.Node node, List<SettingsTree.Node> out) {
