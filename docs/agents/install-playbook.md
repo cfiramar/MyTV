@@ -63,12 +63,13 @@ Follow this structured runbook when helping a human user install, configure, or 
 6. Guide the user on the TV: open **MyTV -> Settings** to switch Launcher Mode (`Original -> MyTV`), pair **Trakt / Stremio**, and scan the **Companion Remote** QR code (`http://<TV_IP>:8484`).
 
 ### 3d. LG webOS & Samsung Tizen TVs
-- **LG webOS**:
+- *Platform scope*: LG webOS and Samsung Tizen run the lightweight ES5 web launcher (`MyTV-launcher/web/`: App Shelf, TMDB Movies/Shows/Explore picks, HDMI & Live TV switching, Open-Meteo weather, sunrise/sunset themes, and screensaver). Companion Remote (`port 8484`), Smart-Home Hub, PC Game Streaming, Gemini AI Search, and Trakt/Stremio sync are native Android TV (`MyTV.apk`) features only.
+- **LG webOS** (webOS 3.0–24+; Python 3 + OpenSSH only, no LG CLI needed):
   ```bash
   cd MyTV-launcher && python3 webos/build.py
   ```
-  Have the user run `python3 webos/install.py <LG_TV_IP>` in their own terminal the first time to enter the LG Developer Mode passphrase.
-- **Samsung Tizen**:
+  Have the user run `python3 webos/install.py <LG_TV_IP>` in their own terminal the first time to enter the LG Developer Mode passphrase (the script auto-scales to `1280x720` on non-4K LG sets). On older **webOS 3** sets (or if the TV blocks in-app `listLaunchPoints`), run `python3 webos/apps.py <LG_TV_IP>` first to pull installed apps & icons from the TV, then re-run `python3 webos/build.py && python3 webos/install.py <LG_TV_IP>`.
+- **Samsung Tizen** (Tizen 2.3–9+):
   ```bash
   cd MyTV-launcher && python3 tizen/build.py --sign <TIZEN_CERT_PROFILE>
   python3 tizen/install.py <SAMSUNG_TV_IP>

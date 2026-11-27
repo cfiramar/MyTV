@@ -463,6 +463,9 @@ final class Config {
     static final boolean SCREENSAVER = true;
     static final boolean GENERIC = true;
     static final boolean OPEN_IN_STREMIO = false;
+    static final String ENABLE_GAMING = "auto";
+    static final String ENABLE_SMARTHOME = "auto";
+    static final String ENABLE_REELS = "false";
 }
 """,
         encoding="utf-8",

@@ -48,10 +48,10 @@ Modern smart TVs bury your favorite apps under rows of sponsored banners, auto-p
 
 ## Supported TVs & Platforms
 
-- **Android TV & Google TV (`MyTV.apk`)**: Xiaomi, TCL, Sony BRAVIA, Philips, Hisense, Toshiba, Skyworth / JVC, Chromecast with Google TV, Google TV Streamer, Walmart `onn.`, NVIDIA Shield, and AOSP projectors (Android 8 through Android 14+).
-- **Amazon Fire TV (`MyTV.apk`)**: Fire TV sets and Fire TV Sticks (opens cleanly as an app with dedicated HDMI switching while respecting Fire OS's Home button).
-- **LG Smart TVs (`MyTV-webos.ipk`)**: Lightweight web launcher package for LG webOS 3.0 through webOS 24+.
-- **Samsung Smart TVs (`MyTV-tizen.wgt`)**: Lightweight web launcher package for Samsung Tizen 2.3 through Tizen 9+.
+- **Android TV & Google TV (`MyTV.apk` — Full Feature Set)**: Xiaomi, TCL, Sony BRAVIA, Philips, Hisense, Toshiba, Skyworth / JVC, Chromecast with Google TV, Google TV Streamer, Walmart `onn.`, NVIDIA Shield, and AOSP projectors (Android 8 through Android 14+). Includes every feature: Launcher, Discovery, AI Search, Companion Remote, Smart-Home Hub, PC Game Streaming, Screensaver, and Multi-User Profiles.
+- **Amazon Fire TV (`MyTV.apk`)**: Fire TV sets and Fire TV Sticks (full Android TV app with dedicated HDMI switching; opens as an app while respecting Fire OS's Home button).
+- **LG Smart TVs (`MyTV-webos.ipk` — Lightweight Web Launcher)**: Runs on LG webOS 3.0 through webOS 24+ (ad-free app shelf, TMDB Movies/Shows discovery, HDMI & Live TV switching, local weather, sunrise/sunset themes, Magic Remote pointer, and screensaver). *Note: Phone Companion Remote, Smart-Home Hub, PC Game Streaming, AI Search, and Trakt/Stremio sync are native Android TV features — for the full suite on an LG or Samsung TV, plug in any Google TV / Android TV streamer.*
+- **Samsung Smart TVs (`MyTV-tizen.wgt` — Lightweight Web Launcher)**: Runs on Samsung Tizen 2.3 through Tizen 9+ (same lightweight web launcher feature set as LG webOS; requires signing with a free Samsung Tizen certificate via Tizen Studio or TizenBrew Installer).
 
 ---
 
