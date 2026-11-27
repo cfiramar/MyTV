@@ -68,7 +68,7 @@ You don't need to manually download files, edit configuration files, or know how
 3. **Click `Save` — No Prompt Copying Needed**: When you click **Save & Continue Setup**, Setup Studio saves your keys privately on your computer (never uploaded anywhere), writes a local non-secret summary (`MyTV-launcher/.setup_handoff.json`), closes automatically, and wakes your AI agent right back up.
 4. **Safe TV Install & Full Reversibility**: You turn on *Developer Debugging* on your TV once (see [Troubleshooting & Q&A](#troubleshooting--qa) below) and press **Allow** on your TV screen. Installing MyTV changes nothing on your TV until *you* open MyTV Settings and switch Launcher Mode from **Original** to **MyTV** — and switching back to **Original** restores your factory home screen anytime.
 
-*(Prefer to open Setup Studio manually after cloning? Double-click **`Setup-MyTV.bat`** on Windows or run **`./setup-mytv.sh`** on macOS/Linux.)*
+*(Prefer to open Setup Studio manually after cloning? Run `python setup_wizard.py`.)*
 
 ---
 
@@ -186,7 +186,7 @@ Every service supported by MyTV offers a **free personal tier**. Click any group
 
 You have three simple fallback options:
 1. **Right on your TV screen**: Open **MyTV -> Settings -> Get Started (Initial Setup & Cloud)** to pair Trakt with a QR code, sign in to Stremio, scan Wi-Fi for WiZ bulbs, and enter API keys directly.
-2. **Using MyTV Setup Studio on your computer**: Launch `Setup-MyTV.bat` (Windows) or `./setup-mytv.sh` (Mac/Linux), open **API Keys & Save**, paste your keys, and click **Save Settings Locally**.
+2. **Using MyTV Setup Studio on your computer**: Run `python setup_wizard.py`, enter your keys under **Media & Ratings** / **Optional Extras**, and click **Save & Continue Setup**.
 3. **Editing `config.properties` directly**: Copy `MyTV-launcher/config.example.properties` to `MyTV-launcher/config.properties`, paste your key after `=`, and re-run the build.
 
 </details>
@@ -246,7 +246,7 @@ If you are an AI coding assistant (like **Claude Code**, **Google Antigravity**,
 
 ```text
 MyTV/
-├── Setup-MyTV.bat / setup-mytv.sh  # One-click launcher for the Liquid Glass Desktop Setup Studio
+├── setup_wizard.py             # Visual TV-styled Setup Studio (auto-launched by your AI agent)
 ├── setup_wizard.py                 # Cross-platform Python entry point for Setup Studio
 ├── assets/screenshots/             # 4K TV & Phone Companion Remote preview images
 ├── docs/

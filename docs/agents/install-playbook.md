@@ -23,7 +23,7 @@ Follow this structured runbook when helping a human user install, configure, or 
 ## 2. Guiding the Human User Through Free API Keys
 
 - **Never print, echo, or commit secret values** (`config.properties`, `.env`, `keys.txt`, and `*.keystore` are git-ignored).
-- Recommend launching the visual **MyTV Setup Studio** (`Setup-MyTV.bat` on Windows or `./setup-mytv.sh` on macOS/Linux) so the user can paste keys directly into local files without exposing them in chat — or write values directly into `MyTV-launcher/config.properties` if the user provides them.
+- Launch the visual **MyTV Setup Studio** (`python setup_wizard.py --wait-for-save`) so the user can paste keys directly into local files without exposing them in chat — or write values directly into `MyTV-launcher/config.properties` if the user provides them.
 - **Key Priority Guide**:
   - **TMDB (`tmdb_key`) — Required for catalogs**: Free at `https://www.themoviedb.org/settings/api`.
   - **Trakt (`trakt_client_id`) & Stremio (`stremio_email`) — Recommended**: Trakt app Redirect URI must be `urn:ietf:wg:oauth:2.0:oob`; user pairs via QR code on the TV after install.

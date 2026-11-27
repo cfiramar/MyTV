@@ -74,7 +74,7 @@ jobs:
           python3 -c '
           import glob, zipfile, os
           items = [
-              "Setup-MyTV.bat", "setup-mytv.sh", "setup_wizard.py", "README.md", "AGENTS.md", "CLAUDE.md",
+              "setup_wizard.py", "README.md", "AGENTS.md", "CLAUDE.md",
               ".env.example", "MyTV-launcher/config.example.properties",
               "MyTV-launcher/tools/setup_gui/wizard_app.py",
               "MyTV-launcher/tools/setup_gui/static/index.html",
