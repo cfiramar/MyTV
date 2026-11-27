@@ -10,6 +10,7 @@ import {
   resolveFallbackDockTab,
   resolveSmartHomeIconKind,
   resolveTabVisibility,
+  resolveTouchpadTapAction,
 } from './TvRemoteService';
 
 const MOCK_STATUS: TvStatus = {
@@ -937,7 +938,14 @@ describe('TvRemoteService', () => {
     );
     expect(formatGameSubtitle({ category: 'standalone', hidden: false })).toBe('PC Game');
 
-    expect(getThemeColorMeta(true)).toEqual({ themeColor: '#1E1A3B', navColor: '#152536' });
-    expect(getThemeColorMeta(false)).toEqual({ themeColor: '#F6F8FE', navColor: '#F3F6FD' });
+    expect(getThemeColorMeta(true)).toEqual({ themeColor: '#0E1024', navColor: '#0A1522' });
+    expect(getThemeColorMeta(false)).toEqual({ themeColor: '#F7F9FF', navColor: '#EEF3FC' });
+
+    expect(resolveTouchpadTapAction(0.5, 0.5)).toBe('ok');
+    expect(resolveTouchpadTapAction(0.62, 0.42)).toBe('ok');
+    expect(resolveTouchpadTapAction(0.5, 0.12)).toBe('up');
+    expect(resolveTouchpadTapAction(0.5, 0.88)).toBe('down');
+    expect(resolveTouchpadTapAction(0.12, 0.5)).toBe('left');
+    expect(resolveTouchpadTapAction(0.88, 0.5)).toBe('right');
   });
 });

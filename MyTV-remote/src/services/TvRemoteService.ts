@@ -120,14 +120,34 @@ export interface ResolvedTabVisibility {
 
 export const MYTV_THEME_META = {
   dark: {
-    themeColor: '#1E1A3B',
-    navColor: '#152536',
+    themeColor: '#0E1024',
+    navColor: '#0A1522',
   },
   light: {
-    themeColor: '#F6F8FE',
-    navColor: '#F3F6FD',
+    themeColor: '#F7F9FF',
+    navColor: '#EEF3FC',
   },
 } as const;
+
+/**
+ * Resolves a quick tap at normalized coordinates `(relX, relY)` in `[0..1]` on the Liquid Glass
+ * Clickpad into directional edge clicks (`up`/`down`/`left`/`right`) or center `ok`.
+ */
+export function resolveTouchpadTapAction(
+  relX: number,
+  relY: number
+): 'up' | 'down' | 'left' | 'right' | 'ok' {
+  const dx = relX - 0.5;
+  const dy = relY - 0.5;
+  const edgeThreshold = 0.28;
+  if (Math.abs(dx) < edgeThreshold && Math.abs(dy) < edgeThreshold) {
+    return 'ok';
+  }
+  if (Math.abs(dx) > Math.abs(dy)) {
+    return dx < 0 ? 'left' : 'right';
+  }
+  return dy < 0 ? 'up' : 'down';
+}
 
 /**
  * Returns the Twilight Aurora (Dark) or Luminous Pearl Glass (Light) system bar colors.

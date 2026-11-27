@@ -18,6 +18,7 @@ import {
   resolveFallbackDockTab,
   resolveSmartHomeIconKind,
   resolveTabVisibility,
+  resolveTouchpadTapAction,
 } from './services/TvRemoteService';
 
 interface MyTvNativeBridgeInterface {
@@ -66,6 +67,7 @@ const STORAGE_BASE_URL = 'mytv_base_url';
 const STORAGE_TOKEN = 'mytv_remote_token';
 const STORAGE_ROLE = 'mytv_remote_role';
 const STORAGE_CLIENT_ID = 'mytv_client_id';
+const STORAGE_PAD_MODE = 'mytv_pad_mode';
 const SCREEN_NAMES = ['Search', 'Home', 'Apps', 'Gaming', 'Reels', 'Smart-Home', 'Settings'];
 
 const nativeBridge: MyTvNativeBridgeInterface | undefined =
@@ -212,13 +214,18 @@ function applyRoleVisibility(role: RemoteRole | ''): void {
 
   const roleBadge = document.getElementById('roleHeaderBadge');
   const pairBtn = document.getElementById('headerPairBtn');
+  const roleSub = document.getElementById('settingsRoleSub');
+  const roleLabel = role === 'ADMIN' ? 'Admin' : role === 'HOUSEHOLD' ? 'Household' : role ? 'Guest' : '';
   if (roleBadge) {
     if (!role) {
       roleBadge.style.display = 'none';
     } else {
       roleBadge.style.display = 'inline-flex';
-      roleBadge.textContent = role === 'ADMIN' ? 'Admin' : role === 'HOUSEHOLD' ? 'Household' : 'Guest';
+      roleBadge.textContent = roleLabel;
     }
+  }
+  if (roleSub) {
+    roleSub.textContent = role ? `Connected · ${roleLabel}` : 'Not paired';
   }
   if (pairBtn) {
     pairBtn.style.display = role ? 'none' : 'inline-flex';
@@ -850,6 +857,54 @@ function applyTheme(dark: boolean): void {
       ? '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>'
       : '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/>';
   }
+  const themeLbl = document.getElementById('themeToggleLabel');
+  if (themeLbl) {
+    themeLbl.textContent = dark ? 'Dark Theme' : 'Light Theme';
+  }
+}
+
+function openSheet(sheetName: string): void {
+  document.querySelectorAll('.sheet-overlay').forEach((el) => {
+    if (el.id !== 'pairingOverlay') el.classList.remove('visible');
+  });
+  const el = document.getElementById(`sheet-${sheetName}`);
+  if (el) el.classList.add('visible');
+  if (sheetName === 'settings' && currentRole === 'ADMIN') {
+    void refreshPairedDevices();
+  }
+}
+
+function closeSheet(sheetName: string): void {
+  const el = document.getElementById(`sheet-${sheetName}`);
+  if (el) el.classList.remove('visible');
+}
+
+function closeAllSheets(): void {
+  document.querySelectorAll('.sheet-overlay').forEach((el) => {
+    if (el.id !== 'pairingOverlay') el.classList.remove('visible');
+  });
+}
+
+function handleSheetBackdropClick(ev: MouseEvent, sheetName: string): void {
+  if (ev.target === ev.currentTarget) {
+    closeSheet(sheetName);
+  }
+}
+
+function openSearchSheet(): void {
+  openSheet('search');
+  setTimeout(() => {
+    const input = document.getElementById('remoteTextInput') as HTMLInputElement | null;
+    if (input) input.focus();
+  }, 120);
+}
+
+function setPadMode(mode: 'pad' | 'keys'): void {
+  const stage = document.getElementById('navStage');
+  if (stage) stage.setAttribute('data-pad-mode', mode);
+  document.getElementById('modePadBtn')?.classList.toggle('active', mode === 'pad');
+  document.getElementById('modeKeysBtn')?.classList.toggle('active', mode === 'keys');
+  writeStorage(STORAGE_PAD_MODE, mode);
 }
 
 async function toggleTheme(): Promise<void> {
@@ -876,6 +931,9 @@ async function switchTvScreen(idx: number, keyName: RemoteKeyName): Promise<void
   document.querySelectorAll('.tv-screen-pill').forEach((b) => {
     b.classList.toggle('active', Number(b.getAttribute('data-screen')) === idx);
   });
+  const topLbl = document.getElementById('topScreenLabel');
+  if (topLbl) topLbl.textContent = `· ${SCREEN_NAMES[idx] || 'Home'}`;
+  closeSheet('screens');
   await sendKey(keyName);
   setTimeout(() => void refreshStatus(), 220);
 }
@@ -1248,6 +1306,7 @@ function selectSmartDevice(deviceId: string, ev?: Event): void {
   if (currentStatus && Array.isArray(currentStatus.smartHome)) {
     renderSmartHomeSection(currentStatus.smartHome);
   }
+  openSheet('device');
 }
 
 function smartHomeIconSvg(kind: SmartHomeIconKind): string {
@@ -1403,8 +1462,11 @@ function renderSmartHomeSection(devices: SmartHomeDevice[]): void {
   selectedSmartDeviceId = activeDev.id;
 
   shGrid.innerHTML = devices
-    .map((d) => renderSmartDeviceTile(d, d.id === activeDev.id))
+    .map((d) => renderSmartDeviceTile(d, false))
     .join('');
+
+  const sheetTitle = document.getElementById('deviceSheetTitle');
+  if (sheetTitle) sheetTitle.textContent = activeDev.name;
 
   if (controlsPanel) {
     controlsPanel.style.display = 'flex';
@@ -1711,11 +1773,15 @@ function renderStatus(st: TvStatus | null): void {
   const scrIdx = typeof st.activeScreen === 'number' ? st.activeScreen : 1;
   const scrName = SCREEN_NAMES[scrIdx] || 'Home';
   const subName = st.subTab === 1 ? 'Movies' : 'TV Shows';
+  const topLbl = document.getElementById('topScreenLabel');
+  if (topLbl) {
+    topLbl.textContent = `· ${scrName}`;
+  }
   const subEl = document.getElementById('tvSubText');
   if (subEl) {
     subEl.textContent =
       scrIdx === 1
-        ? `On TV: Home · ${subName}${st.sideShelfOpen ? ' · Shelf Open' : ''}`
+        ? `Home · ${subName}${st.sideShelfOpen ? ' · Shelf Open' : ''}`
         : `On TV: ${scrName}`;
   }
 
@@ -1775,7 +1841,7 @@ function renderStatus(st: TvStatus | null): void {
       favGrid.innerHTML = st.shelfApps
         .map(
           (a) => `
-        <button class="btn" onclick="launchApp('${escapeAttr(a.pkg)}')">
+        <button class="app-tile lg-sm" onclick="launchApp('${escapeAttr(a.pkg)}')">
           <span>${escapeHtml(a.label)}</span>
         </button>
       `
@@ -1804,10 +1870,10 @@ function renderStatus(st: TvStatus | null): void {
         reelsList.innerHTML = st.sharedReels
           .map(
             (r) => `
-          <div class="glass reel-item">
+          <div class="lg-sm reel-item">
             <div style="overflow:hidden;">
               <div style="font-weight:700; font-size:13px;">${escapeHtml(r.title || 'Shared Reel')}</div>
-              <div class="tv-sub">From ${escapeHtml(r.sender || 'Family')} · ${escapeHtml(r.platform || 'video')}</div>
+              <div class="tv-row-sub">From ${escapeHtml(r.sender || 'Family')} · ${escapeHtml(r.platform || 'video')}</div>
             </div>
             <button class="btn pill-focus btn-chip" onclick="quickCastUrl('${escapeAttr(r.url)}', '${escapeAttr(r.title || 'Shared Reel')}')">Play</button>
           </div>
@@ -1958,6 +2024,12 @@ function registerNativeCallbacksAndGlobals(): void {
     toggleFullscreen,
     dismissApkBanner,
     toggleTheme,
+    openSheet,
+    closeSheet,
+    closeAllSheets,
+    handleSheetBackdropClick,
+    openSearchSheet,
+    setPadMode,
     switchTab,
     switchTvScreen,
     switchSubTab,
@@ -2052,30 +2124,86 @@ function initOkButtonHold(): void {
 
 function initTouchpad(): void {
   const pad = document.getElementById('touchpad');
+  const glow = document.getElementById('padTouchGlow');
   if (!pad) return;
+  let startX = 0;
+  let startY = 0;
   let lastX = 0;
   let lastY = 0;
   let moved = false;
   let held = false;
+  let activePointer = false;
   let holdTimer: ReturnType<typeof setTimeout> | null = null;
-  const STEP_PX = 36;
+  const STEP_PX = 34;
+
+  const moveGlow = (clientX: number, clientY: number) => {
+    if (!glow) return;
+    const rect = pad.getBoundingClientRect();
+    glow.style.left = `${clientX - rect.left}px`;
+    glow.style.top = `${clientY - rect.top}px`;
+    glow.classList.add('visible');
+  };
+
+  const hideGlow = () => {
+    pad.classList.remove('is-pressing');
+    if (glow) glow.classList.remove('visible');
+  };
+
+  const handleStart = (clientX: number, clientY: number) => {
+    activePointer = true;
+    startX = clientX;
+    startY = clientY;
+    lastX = clientX;
+    lastY = clientY;
+    moved = false;
+    held = false;
+    pad.classList.add('is-pressing');
+    moveGlow(clientX, clientY);
+    if (holdTimer) clearTimeout(holdTimer);
+    holdTimer = setTimeout(() => {
+      if (!moved && activePointer) {
+        held = true;
+        void sendKey('hold_ok');
+        showToast('Context Menu');
+      }
+    }, 430);
+  };
+
+  const handleMove = (clientX: number, clientY: number) => {
+    if (!activePointer) return;
+    moveGlow(clientX, clientY);
+    const dx = clientX - lastX;
+    const dy = clientY - lastY;
+    if (Math.abs(dx) >= STEP_PX || Math.abs(dy) >= STEP_PX) {
+      moved = true;
+      if (holdTimer) clearTimeout(holdTimer);
+      const stepX = Math.trunc(dx / STEP_PX);
+      const stepY = Math.trunc(dy / STEP_PX);
+      lastX += stepX * STEP_PX;
+      lastY += stepY * STEP_PX;
+      void remoteService.sendScroll(stepX, stepY);
+    }
+  };
+
+  const handleEnd = () => {
+    if (!activePointer) return;
+    activePointer = false;
+    if (holdTimer) clearTimeout(holdTimer);
+    hideGlow();
+    if (!moved && !held) {
+      const rect = pad.getBoundingClientRect();
+      const relX = rect.width > 0 ? (startX - rect.left) / rect.width : 0.5;
+      const relY = rect.height > 0 ? (startY - rect.top) / rect.height : 0.5;
+      const action = resolveTouchpadTapAction(relX, relY);
+      void sendKey(action);
+    }
+  };
 
   pad.addEventListener(
     'touchstart',
     (e) => {
       if (e.touches.length === 1) {
-        lastX = e.touches[0].clientX;
-        lastY = e.touches[0].clientY;
-        moved = false;
-        held = false;
-        if (holdTimer) clearTimeout(holdTimer);
-        holdTimer = setTimeout(() => {
-          if (!moved) {
-            held = true;
-            void sendKey('hold_ok');
-            showToast('Hold OK: TV Context Menu');
-          }
-        }, 450);
+        handleStart(e.touches[0].clientX, e.touches[0].clientY);
       }
     },
     { passive: true }
@@ -2084,25 +2212,54 @@ function initTouchpad(): void {
   pad.addEventListener(
     'touchmove',
     (e) => {
-      if (e.touches.length !== 1) return;
-      const dx = e.touches[0].clientX - lastX;
-      const dy = e.touches[0].clientY - lastY;
-      if (Math.abs(dx) >= STEP_PX || Math.abs(dy) >= STEP_PX) {
-        moved = true;
-        if (holdTimer) clearTimeout(holdTimer);
-        const stepX = Math.trunc(dx / STEP_PX);
-        const stepY = Math.trunc(dy / STEP_PX);
-        lastX += stepX * STEP_PX;
-        lastY += stepY * STEP_PX;
-        void remoteService.sendScroll(stepX, stepY);
+      if (e.touches.length === 1) {
+        handleMove(e.touches[0].clientX, e.touches[0].clientY);
       }
     },
     { passive: true }
   );
 
-  pad.addEventListener('touchend', () => {
+  pad.addEventListener('touchend', handleEnd);
+  pad.addEventListener('touchcancel', () => {
+    activePointer = false;
     if (holdTimer) clearTimeout(holdTimer);
-    if (!moved && !held) void sendKey('ok');
+    hideGlow();
+  });
+
+  // Mouse support for desktop testing & foldables
+  pad.addEventListener('mousedown', (e) => {
+    if (e.button === 0) handleStart(e.clientX, e.clientY);
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (activePointer) handleMove(e.clientX, e.clientY);
+  });
+  window.addEventListener('mouseup', () => {
+    if (activePointer) handleEnd();
+  });
+
+  // Restore persisted Clickpad vs D-Pad preference
+  const savedMode = readStorage(STORAGE_PAD_MODE);
+  if (savedMode === 'keys' || savedMode === 'pad') {
+    setPadMode(savedMode);
+  }
+
+  // Enter key submits TV search or pairing code naturally from mobile keyboard
+  document.getElementById('remoteTextInput')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      void submitText(true);
+    }
+  });
+  document.getElementById('pairCodeInput')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      void submitSixDigitPairCode();
+    }
+  });
+
+  // Escape key closes open sheets cleanly
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeAllSheets();
   });
 }
 

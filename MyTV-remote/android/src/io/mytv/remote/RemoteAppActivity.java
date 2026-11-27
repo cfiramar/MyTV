@@ -97,10 +97,10 @@ public final class RemoteAppActivity extends Activity {
     private PermissionRequest pendingWebPermissionRequest = null;
     private CancellationSignal activeBiometricSignal;
 
-    private static final int DARK_STATUS_BAR_COLOR = Color.parseColor("#1E1A3B");
-    private static final int DARK_NAV_BAR_COLOR = Color.parseColor("#152536");
-    private static final int LIGHT_STATUS_BAR_COLOR = Color.parseColor("#F6F8FE");
-    private static final int LIGHT_NAV_BAR_COLOR = Color.parseColor("#F3F6FD");
+    private static final int DARK_STATUS_BAR_COLOR = Color.parseColor("#0E1024");
+    private static final int DARK_NAV_BAR_COLOR = Color.parseColor("#0A1522");
+    private static final int LIGHT_STATUS_BAR_COLOR = Color.parseColor("#F7F9FF");
+    private static final int LIGHT_NAV_BAR_COLOR = Color.parseColor("#EEF3FC");
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override
