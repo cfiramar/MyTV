@@ -1,4 +1,4 @@
-name: Build & Publish MyTV Release
+name: Build & Publish SoarTV Release
 
 on:
   push:
@@ -44,43 +44,43 @@ jobs:
           echo "ANDROID_HOME=$RUNNER_TEMP/sdk" >> "$GITHUB_ENV"
 
       - name: Build Companion Remote Bundle
-        working-directory: MyTV-remote
+        working-directory: SoarTV-remote
         run: |
           npm ci
           npm run build
           npm test
 
       - name: Restore Signing Keystore (if configured in GitHub Secrets)
-        if: env.MYTV_KEYSTORE_BASE64 != ''
+        if: env.SOARTV_KEYSTORE_BASE64 != ''
         env:
-          MYTV_KEYSTORE_BASE64: ${{ secrets.MYTV_KEYSTORE_BASE64 }}
+          SOARTV_KEYSTORE_BASE64: ${{ secrets.SOARTV_KEYSTORE_BASE64 }}
         run: |
-          echo "$MYTV_KEYSTORE_BASE64" | base64 -d > MyTV-launcher/mytv.keystore
+          echo "$SOARTV_KEYSTORE_BASE64" | base64 -d > SoarTV-launcher/soartv.keystore
 
       - name: Update versionCode and versionName in AndroidManifest.xml
         run: |
           TAG="${{ github.event.inputs.version_tag || github.ref_name }}"
           VER="${TAG#v}"
           VCODE="$(python3 -c "p=[int(x) for x in '$VER'.split('-')[0].split('.') if x.isdigit()]; p=(p+[0,0,0])[:3]; print(p[0]*10000+p[1]*100+p[2])")"
-          sed -i "s/android:versionCode=\"[^\"]*\"/android:versionCode=\"$VCODE\"/" MyTV-launcher/app/AndroidManifest.xml
-          sed -i "s/android:versionName=\"[^\"]*\"/android:versionName=\"$VER\"/" MyTV-launcher/app/AndroidManifest.xml
+          sed -i "s/android:versionCode=\"[^\"]*\"/android:versionCode=\"$VCODE\"/" SoarTV-launcher/app/AndroidManifest.xml
+          sed -i "s/android:versionName=\"[^\"]*\"/android:versionName=\"$VER\"/" SoarTV-launcher/app/AndroidManifest.xml
           echo "Set AndroidManifest.xml versionName=$VER versionCode=$VCODE"
 
-      - name: Build MyTV Packages & Setup Studio Archive
+      - name: Build SoarTV Packages & Setup Studio Archive
         env:
-          MYTV_RELEASE_REPO: ${{ github.repository }}
+          SOARTV_RELEASE_REPO: ${{ github.repository }}
         run: |
-          (cd MyTV-launcher && bash ./build.sh --generic && python3 webos/build.py --generic && python3 tizen/build.py --generic)
+          (cd SoarTV-launcher && bash ./build.sh --generic && python3 webos/build.py --generic && python3 tizen/build.py --generic)
           python3 -c '
           import glob, zipfile, os
           items = [
               "setup_wizard.py", "README.md", "AGENTS.md", "CLAUDE.md",
-              ".env.example", "MyTV-launcher/config.example.properties",
-              "MyTV-launcher/tools/setup_gui/wizard_app.py",
-              "MyTV-launcher/tools/setup_gui/static/index.html",
+              ".env.example", "SoarTV-launcher/config.example.properties",
+              "SoarTV-launcher/tools/setup_gui/wizard_app.py",
+              "SoarTV-launcher/tools/setup_gui/static/index.html",
               "docs/supabase-schema.sql", "docs/agents/install-playbook.md", "docs/agents/tv-brand-adaptation.md",
-          ] + sorted(glob.glob("MyTV-launcher/tools/setup_gui/static/guides/*"))
-          with zipfile.ZipFile("MyTV-Setup-Studio.zip", "w", zipfile.ZIP_DEFLATED) as zf:
+          ] + sorted(glob.glob("SoarTV-launcher/tools/setup_gui/static/guides/*"))
+          with zipfile.ZipFile("SoarTV-Setup-Studio.zip", "w", zipfile.ZIP_DEFLATED) as zf:
               for p in items:
                   if os.path.isfile(p):
                       zf.write(p, p)
@@ -90,11 +90,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.version_tag || github.ref_name }}
-          name: MyTV ${{ github.event.inputs.version_tag || github.ref_name }}
+          name: SoarTV ${{ github.event.inputs.version_tag || github.ref_name }}
           files: |
-            MyTV-launcher/MyTV.apk
-            MyTV-launcher/MyTV-Remote.apk
-            MyTV-launcher/MyTV-webos.ipk
-            MyTV-launcher/MyTV-tizen.wgt
-            MyTV-Setup-Studio.zip
+            SoarTV-launcher/SoarTV.apk
+            SoarTV-launcher/SoarTV-Remote.apk
+            SoarTV-launcher/SoarTV-webos.ipk
+            SoarTV-launcher/SoarTV-tizen.wgt
+            SoarTV-Setup-Studio.zip
           generate_release_notes: true

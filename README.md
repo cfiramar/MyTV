@@ -1,8 +1,8 @@
-# MyTV
+# SoarTV
 
 **A bloat-free 4K home screen built around you — not billboards.**
 
-Modern smart TVs bury your favorite apps under rows of sponsored banners, auto-playing promos, and sluggish menus. **MyTV** replaces that clutter with a fast, calm **4K Liquid Glass** interface designed around what *you* actually watch and do in your living room. Beyond organizing your streaming apps and watchlists in one place, MyTV turns your phone into an instant Wi-Fi remote, links your Windows PC to your TV for low-latency high-res streaming, and puts your living-room **smart lights and climate controls** one click away — while automatically hiding optional tabs you don't need.
+Modern smart TVs bury your favorite apps under rows of sponsored banners, auto-playing promos, and sluggish menus. **SoarTV** replaces that clutter with a fast, calm **4K Liquid Glass** interface designed around what *you* actually watch and do in your living room. Beyond organizing your streaming apps and watchlists in one place, SoarTV turns your phone into an instant Wi-Fi remote, links your Windows PC to your TV for low-latency high-res streaming, and puts your living-room **smart lights and climate controls** one click away — while automatically hiding optional tabs you don't need.
 
 ---
 
@@ -23,11 +23,11 @@ Modern smart TVs bury your favorite apps under rows of sponsored banners, auto-p
 
 | Home & Personalized Discovery | Optional PC Gaming Zone |
 | :---: | :---: |
-| ![MyTV Home Screen](assets/screenshots/home.webp) | ![MyTV Gaming Screen](assets/screenshots/gaming.webp) |
+| ![SoarTV Home Screen](assets/screenshots/home.webp) | ![SoarTV Gaming Screen](assets/screenshots/gaming.webp) |
 | **Optional Living-Room Smart-Home Hub** | **Two-Panel Liquid Glass Settings** |
-| ![MyTV Smart Home Screen](assets/screenshots/smarthome.webp) | ![MyTV Settings Screen](assets/screenshots/settings.webp) |
+| ![SoarTV Smart Home Screen](assets/screenshots/smarthome.webp) | ![SoarTV Settings Screen](assets/screenshots/settings.webp) |
 | **True-4K Fine Art & Nature Screensaver** | **Phone Companion Remote (iPhone & Android)** |
-| ![MyTV 4K Screensaver](assets/screenshots/screensaver.webp) | ![MyTV Companion Remote](assets/screenshots/remote.webp) |
+| ![SoarTV 4K Screensaver](assets/screenshots/screensaver.webp) | ![SoarTV Companion Remote](assets/screenshots/remote.webp) |
 
 ---
 
@@ -36,9 +36,9 @@ Modern smart TVs bury your favorite apps under rows of sponsored banners, auto-p
 - **User-First, Zero-Bloat 4K Interface**: Clean Top-Bar navigation (**Search**, **Home** with *TV Shows* & *Movies* sub-tabs, **Apps**, and **Settings**), an expandable favorite-apps Side-Shelf, 60fps animations, and automatic sunrise-to-sunset Light & Dark themes.
 - **Always Works When Your Computer Is Off**: Every core TV feature — streaming discovery, AI search, smart-home controls, screensaver, and the phone remote — runs **100% natively inside the TV app** with zero dependency on a home PC.
 - **Unified Watchlists, Critic Scores & AI Search**: Syncs two-way with **Trakt** and **Stremio**, displays **IMDb**, **Rotten Tomatoes**, and **Metacritic** ratings side-by-side, and lets you search by mood or plot description using **Google Gemini AI**.
-- **Phone Companion Remote (`iPhone & Android`)**: Scan a QR code in MyTV Settings to control your TV over local Wi-Fi in matching Liquid Glass Dark & Light themes — complete with an Apple-TV-style Clickpad & D-Pad, live two-way TV text-field sync (edit or copy what's typed on TV inside Netflix, YouTube, Stremio, or MyTV), voice search, Smart-Home tiles, and temporary QR guest passes.
-- **PC-to-TV Game Streaming *(Optional Tab)***: Streams your **Steam**, **Epic Games**, **Heroic**, and standalone Windows games straight inside MyTV (resolution & frame rate adapt to your PC, TV, and network, or switches to HDMI automatically when plugged in), with Bluetooth/USB controller tagging and battery levels. *Don't game on your TV? MyTV removes the Gaming tab automatically.*
-- **Effortless Smart-Home Control *(Optional Tab)***: Dim **WiZ** smart lights, adjust **Sensibo** or **Tuya** air conditioners, set a **Switcher** boiler timer, or trigger *Movie Time* and *Good Night* routines from your couch. *Don't use smart-home appliances? MyTV removes the Smart Home tab automatically.*
+- **Phone Companion Remote (`iPhone & Android`)**: Scan a QR code in SoarTV Settings to control your TV over local Wi-Fi in matching Liquid Glass Dark & Light themes — complete with an Apple-TV-style Clickpad & D-Pad, live two-way TV text-field sync (edit or copy what's typed on TV inside Netflix, YouTube, Stremio, or SoarTV), voice search, Smart-Home tiles, and temporary QR guest passes.
+- **PC-to-TV Game Streaming *(Optional Tab)***: Streams your **Steam**, **Epic Games**, **Heroic**, and standalone Windows games straight inside SoarTV (resolution & frame rate adapt to your PC, TV, and network, or switches to HDMI automatically when plugged in), with Bluetooth/USB controller tagging and battery levels. *Don't game on your TV? SoarTV removes the Gaming tab automatically.*
+- **Effortless Smart-Home Control *(Optional Tab)***: Dim **WiZ** smart lights, adjust **Sensibo** or **Tuya** air conditioners, set a **Switcher** boiler timer, or trigger *Movie Time* and *Good Night* routines from your couch. *Don't use smart-home appliances? SoarTV removes the Smart Home tab automatically.*
 - **Easy Late Activation Anytime**: Skipped Gaming or Smart Home during setup? Turn either tab on later from **Settings -> Home & Appearance -> Interface & Units** or ask your AI agent to set it up whenever you're ready.
 - **True-4K Ambient Screensaver**: Over **1,230 curated 4K UHD** fine-art paintings and nature/space photographs with 8 clock designs and live local weather.
 - **Multi-User Household Profiles & Encrypted Vault**: Separate watchlists and history per family member, backed by hardware `AndroidKeyStore` encryption on your TV and optional zero-knowledge cloud backup.
@@ -48,10 +48,10 @@ Modern smart TVs bury your favorite apps under rows of sponsored banners, auto-p
 
 ## Supported TVs & Platforms
 
-- **Android TV & Google TV (`MyTV.apk` — Full Feature Set)**: Xiaomi, TCL, Sony BRAVIA, Philips, Hisense, Toshiba, Skyworth / JVC, Chromecast with Google TV, Google TV Streamer, Walmart `onn.`, NVIDIA Shield, and AOSP projectors (Android 8 through Android 14+). Includes every feature: Launcher, Discovery, AI Search, Companion Remote, Smart-Home Hub, PC Game Streaming, Screensaver, and Multi-User Profiles.
-- **Amazon Fire TV (`MyTV.apk`)**: Fire TV sets and Fire TV Sticks (full Android TV app with dedicated HDMI switching; opens as an app while respecting Fire OS's Home button).
-- **LG Smart TVs (`MyTV-webos.ipk` — Lightweight Web Launcher)**: Runs on LG webOS 3.0 through webOS 24+ (ad-free app shelf, TMDB Movies/Shows discovery, HDMI & Live TV switching, local weather, sunrise/sunset themes, Magic Remote pointer, and screensaver). *Note: Phone Companion Remote, Smart-Home Hub, PC Game Streaming, AI Search, and Trakt/Stremio sync are native Android TV features — for the full suite on an LG or Samsung TV, plug in any Google TV / Android TV streamer.*
-- **Samsung Smart TVs (`MyTV-tizen.wgt` — Lightweight Web Launcher)**: Runs on Samsung Tizen 2.3 through Tizen 9+ (same lightweight web launcher feature set as LG webOS; requires signing with a free Samsung Tizen certificate via Tizen Studio or TizenBrew Installer).
+- **Android TV & Google TV (`SoarTV.apk` — Full Feature Set)**: Xiaomi, TCL, Sony BRAVIA, Philips, Hisense, Toshiba, Skyworth / JVC, Chromecast with Google TV, Google TV Streamer, Walmart `onn.`, NVIDIA Shield, and AOSP projectors (Android 8 through Android 14+). Includes every feature: Launcher, Discovery, AI Search, Companion Remote, Smart-Home Hub, PC Game Streaming, Screensaver, and Multi-User Profiles.
+- **Amazon Fire TV (`SoarTV.apk`)**: Fire TV sets and Fire TV Sticks (full Android TV app with dedicated HDMI switching; opens as an app while respecting Fire OS's Home button).
+- **LG Smart TVs (`SoarTV-webos.ipk` — Lightweight Web Launcher)**: Runs on LG webOS 3.0 through webOS 24+ (ad-free app shelf, TMDB Movies/Shows discovery, HDMI & Live TV switching, local weather, sunrise/sunset themes, Magic Remote pointer, and screensaver). *Note: Phone Companion Remote, Smart-Home Hub, PC Game Streaming, AI Search, and Trakt/Stremio sync are native Android TV features — for the full suite on an LG or Samsung TV, plug in any Google TV / Android TV streamer.*
+- **Samsung Smart TVs (`SoarTV-tizen.wgt` — Lightweight Web Launcher)**: Runs on Samsung Tizen 2.3 through Tizen 9+ (same lightweight web launcher feature set as LG webOS; requires signing with a free Samsung Tizen certificate via Tizen Studio or TizenBrew Installer).
 
 ---
 
@@ -59,14 +59,14 @@ Modern smart TVs bury your favorite apps under rows of sponsored banners, auto-p
 
 You don't need to manually download files, edit configuration files, or know how to build Android apps. Just paste **one single prompt** into your AI coding agent (**Claude Code**, **Google Antigravity**, **Cursor**, **Codex**, or **Windsurf**):
 
-> Clone this MyTV GitHub repository (`<paste this page's GitHub URL>`), read `AGENTS.md` and `docs/agents/install-playbook.md`, open the visual MyTV Setup Studio (`python setup_wizard.py --wait-for-save`) so I can choose my options and free API keys comfortably, wait for me to click Save, and then install MyTV on my TV.
+> Clone this SoarTV GitHub repository (`<paste this page's GitHub URL>`), read `AGENTS.md` and `docs/agents/install-playbook.md`, open the visual SoarTV Setup Studio (`python setup_wizard.py --wait-for-save`) so I can choose my options and free API keys comfortably, wait for me to click Save, and then install SoarTV on my TV.
 
 ### What Happens Next (Zero Guesswork)
 
-1. **Your AI Agent Downloads MyTV & Opens Setup Studio**: Your agent clones the repository and automatically opens **MyTV Setup Studio** in your browser (styled just like the MyTV TV app).
+1. **Your AI Agent Downloads SoarTV & Opens Setup Studio**: Your agent clones the repository and automatically opens **SoarTV Setup Studio** in your browser (styled just like the SoarTV TV app).
 2. **Pick Your Preferences & Free Keys Visually**: Inside Setup Studio, choose your TV OS, city, optional **Smart-Home** and **PC Gaming** tabs (with a native folder picker for standalone game folders and custom Smart-Home brand support), and paste your free **TMDB** key (plus any optional keys — every key has a **`?`** icon with real screenshots showing exactly where to get it).
-3. **Click `Save` — No Prompt Copying Needed**: When you click **Save & Continue Setup**, Setup Studio saves your keys privately on your computer (never uploaded anywhere), writes a local non-secret summary (`MyTV-launcher/.setup_handoff.json`), closes automatically, and wakes your AI agent right back up.
-4. **Safe TV Install & Full Reversibility**: You turn on *Developer Debugging* on your TV once (see [Troubleshooting & Q&A](#troubleshooting--qa) below) and press **Allow** on your TV screen. Installing MyTV changes nothing on your TV until *you* open MyTV Settings and switch Launcher Mode from **Original** to **MyTV** — and switching back to **Original** restores your factory home screen anytime.
+3. **Click `Save` — No Prompt Copying Needed**: When you click **Save & Continue Setup**, Setup Studio saves your keys privately on your computer (never uploaded anywhere), writes a local non-secret summary (`SoarTV-launcher/.setup_handoff.json`), closes automatically, and wakes your AI agent right back up.
+4. **Safe TV Install & Full Reversibility**: You turn on *Developer Debugging* on your TV once (see [Troubleshooting & Q&A](#troubleshooting--qa) below) and press **Allow** on your TV screen. Installing SoarTV changes nothing on your TV until *you* open SoarTV Settings and switch Launcher Mode from **Original** to **SoarTV** — and switching back to **Original** restores your factory home screen anytime.
 
 *(Prefer to open Setup Studio manually after cloning? Run `python setup_wizard.py`.)*
 
@@ -74,14 +74,14 @@ You don't need to manually download files, edit configuration files, or know how
 
 ## Services & API Keys Reference
 
-Every service supported by MyTV offers a **free personal tier**. Click any group below to expand its table and signup links.
+Every service supported by SoarTV offers a **free personal tier**. Click any group below to expand its table and signup links.
 
 <details open>
 <summary><strong>1. Movies, TV Shows, Watchlists &amp; Critic Ratings</strong> (1 Required · 4 Optional)</summary>
 
 <br/>
 
-| Service | What It Does in MyTV | Requirement | Free-Tier Limit | Where to Get It | Config Property |
+| Service | What It Does in SoarTV | Requirement | Free-Tier Limit | Where to Get It | Config Property |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **TMDB** | 4K backdrops, posters, 38+ genre rows & *"More Like This"* picks | **Required** *(for catalogs)* | Free (~50 req/sec) | [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api) | `tmdb_key` |
 | **Trakt** | Two-way Watchlist, watch progress, episode tracking & personal ratings | **Recommended** | Free personal account | [trakt.tv/oauth/applications/new](https://trakt.tv/oauth/applications/new) *(Redirect URI: `urn:ietf:wg:oauth:2.0:oob`)* | `trakt_client_id` + QR pair on TV |
@@ -96,7 +96,7 @@ Every service supported by MyTV offers a **free personal tier**. Click any group
 
 <br/>
 
-| Service | What It Does in MyTV | Requirement | Free-Tier Limit | Where to Get It | Config Property |
+| Service | What It Does in SoarTV | Requirement | Free-Tier Limit | Where to Get It | Config Property |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Google Gemini AI** | Search movies & shows by mood, plot description, or natural voice queries | **Optional** | Free tier (`gemini-2.5-flash`) | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) | `gemini_api_key` |
 
@@ -107,9 +107,9 @@ Every service supported by MyTV offers a **free personal tier**. Click any group
 
 <br/>
 
-*If you leave all Smart-Home settings empty (or set `enable_smarthome=false`), MyTV automatically hides the Smart Home tab.*
+*If you leave all Smart-Home settings empty (or set `enable_smarthome=false`), SoarTV automatically hides the Smart Home tab.*
 
-| Service | What It Does in MyTV | Requirement | Free-Tier Limit | Where to Get It | Config Property |
+| Service | What It Does in SoarTV | Requirement | Free-Tier Limit | Where to Get It | Config Property |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **WiZ Smart Lights** | Local Wi-Fi bulb dimming (`10%–100%`), warm/daylight Kelvin & room control | **Optional** | 100% Free & Local (no key needed) | Auto-discovered over Wi-Fi UDP `38899` | `wiz_light_ips` *(or scan on TV)* |
 | **Sensibo Sky** | Living-room smart AC power, mode, target temperature & fan speed | **Optional** | Free personal API | [home.sensibo.com/me/api](https://home.sensibo.com/me/api) | `sensibo_api_key` |
@@ -123,12 +123,12 @@ Every service supported by MyTV offers a **free personal tier**. Click any group
 
 <br/>
 
-*If you don't configure a Gaming PC (or set `enable_gaming=false`), MyTV automatically hides the Gaming tab.*
+*If you don't configure a Gaming PC (or set `enable_gaming=false`), SoarTV automatically hides the Gaming tab.*
 
-| Component | What It Does in MyTV | Requirement | Cost | Where to Get It | Config / `.env` Property |
+| Component | What It Does in SoarTV | Requirement | Cost | Where to Get It | Config / `.env` Property |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Sunshine Host** | Streams your Windows PC desktop & games to MyTV's built-in player (resolution & frame rate depend on your hardware and network) | **Optional** | 100% Free & Open Source | [github.com/LizardByte/Sunshine/releases](https://github.com/LizardByte/Sunshine/releases) | Paired on TV via 6-digit code |
-| **MyTV Gaming Agent** | Auto-discovers Steam, Epic, Heroic & standalone PC games, switches HDMI/Wi-Fi & manages Sunshine power | **Optional** | Built into this repo (`tools/gaming/`) | Included in `MyTV-launcher/tools/gaming/` | `MYTV_GAMES_DIRS`, `MYTV_NON_TV_MONITORS` |
+| **Sunshine Host** | Streams your Windows PC desktop & games to SoarTV's built-in player (resolution & frame rate depend on your hardware and network) | **Optional** | 100% Free & Open Source | [github.com/LizardByte/Sunshine/releases](https://github.com/LizardByte/Sunshine/releases) | Paired on TV via 6-digit code |
+| **SoarTV Gaming Agent** | Auto-discovers Steam, Epic, Heroic & standalone PC games, switches HDMI/Wi-Fi & manages Sunshine power | **Optional** | Built into this repo (`tools/gaming/`) | Included in `SoarTV-launcher/tools/gaming/` | `SOARTV_GAMES_DIRS`, `SOARTV_NON_TV_MONITORS` |
 
 </details>
 
@@ -137,7 +137,7 @@ Every service supported by MyTV offers a **free personal tier**. Click any group
 
 <br/>
 
-| Service | What It Does in MyTV | Requirement | Free-Tier Limit | Where to Get It | Config Property |
+| Service | What It Does in SoarTV | Requirement | Free-Tier Limit | Where to Get It | Config Property |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Supabase** | Syncs family profiles, watchlists/history across devices & stores zero-knowledge `AES-256-GCM` key backups | **Optional** | Free (500 MB PostgreSQL) | [supabase.com/dashboard](https://supabase.com/dashboard) *(SQL schema in [`docs/supabase-schema.sql`](docs/supabase-schema.sql))* | `supabase_url`, `supabase_anon_key`, `household_key`, `admin_emails` |
 
@@ -157,7 +157,7 @@ Every service supported by MyTV offers a **free personal tier**. Click any group
   2. Create your free **TMDB** key (and any optional keys you choose).
   3. Press **Allow** on your TV remote when the *"Allow USB/Wireless debugging?"* prompt appears on screen.
   4. *(Optional PC Gaming only)* Install Sunshine on your Windows PC and approve one Administrator setup step.
-- **What your AI agent does automatically**: Checks or installs build tools, configures `config.properties` / `.env`, inspects your TV brand for safety, compiles and installs `MyTV.apk` (with the Phone Remote bundled inside), pushes your keys into hardware encryption, and disconnects cleanly.
+- **What your AI agent does automatically**: Checks or installs build tools, configures `config.properties` / `.env`, inspects your TV brand for safety, compiles and installs `SoarTV.apk` (with the Phone Remote bundled inside), pushes your keys into hardware encryption, and disconnects cleanly.
 
 </details>
 
@@ -185,9 +185,9 @@ Every service supported by MyTV offers a **free personal tier**. Click any group
 <br/>
 
 You have three simple fallback options:
-1. **Right on your TV screen**: Open **MyTV -> Settings -> Get Started (Initial Setup & Cloud)** to pair Trakt with a QR code, sign in to Stremio, scan Wi-Fi for WiZ bulbs, and enter API keys directly.
-2. **Using MyTV Setup Studio on your computer**: Run `python setup_wizard.py`, enter your keys under **Media & Ratings** / **Optional Extras**, and click **Save & Continue Setup**.
-3. **Editing `config.properties` directly**: Copy `MyTV-launcher/config.example.properties` to `MyTV-launcher/config.properties`, paste your key after `=`, and re-run the build.
+1. **Right on your TV screen**: Open **SoarTV -> Settings -> Get Started (Initial Setup & Cloud)** to pair Trakt with a QR code, sign in to Stremio, scan Wi-Fi for WiZ bulbs, and enter API keys directly.
+2. **Using SoarTV Setup Studio on your computer**: Run `python setup_wizard.py`, enter your keys under **Media & Ratings** / **Optional Extras**, and click **Save & Continue Setup**.
+3. **Editing `config.properties` directly**: Copy `SoarTV-launcher/config.example.properties` to `SoarTV-launcher/config.properties`, paste your key after `=`, and re-run the build.
 
 </details>
 
@@ -198,7 +198,7 @@ You have three simple fallback options:
 
 Both features remain built in and ready whenever you want them:
 - **From your TV remote**: Go to **Settings -> Home & Appearance -> Interface & Units** and set **Gaming Tab Visibility** or **Smart Home Tab Visibility** to *Always Show* or *Automatic*.
-- **With your AI agent**: Tell your agent *"Enable the Gaming tab (or Smart Home tab) in MyTV and help me connect my PC / smart devices"* — the agent simply sets `enable_gaming=true` or `enable_smarthome=true` and syncs your new keys or PC folders.
+- **With your AI agent**: Tell your agent *"Enable the Gaming tab (or Smart Home tab) in SoarTV and help me connect my PC / smart devices"* — the agent simply sets `enable_gaming=true` or `enable_smarthome=true` and syncs your new keys or PC folders.
 
 </details>
 
@@ -216,7 +216,7 @@ Android 14 TVs display this one-time prompt when installing sideloaded apps that
 
 <br/>
 
-Some TCL Google TV models block background jobs until **Auto-Start** is enabled for MyTV in TCL's **Safety Guard** app (your AI agent also runs the matching `appops` permission command automatically during install). Once allowed, wait up to a minute and press the **Home** button.
+Some TCL Google TV models block background jobs until **Auto-Start** is enabled for SoarTV in TCL's **Safety Guard** app (your AI agent also runs the matching `appops` permission command automatically during install). Once allowed, wait up to a minute and press the **Home** button.
 
 </details>
 
@@ -225,7 +225,7 @@ Some TCL Google TV models block background jobs until **Auto-Start** is enabled 
 
 <br/>
 
-MyTV never deletes or modifies system apps. Open **MyTV -> Settings -> System -> Launcher Mode** and choose **Original TV Home** — your factory launcher returns right away. Always switch back to **Original** before uninstalling MyTV.
+SoarTV never deletes or modifies system apps. Open **SoarTV -> Settings -> System -> Launcher Mode** and choose **Original TV Home** — your factory launcher returns right away. Always switch back to **Original** before uninstalling SoarTV.
 
 </details>
 
@@ -233,7 +233,7 @@ MyTV never deletes or modifies system apps. Open **MyTV -> Settings -> System ->
 
 ## For AI Setup Agents
 
-If you are an AI coding assistant (like **Claude Code**, **Google Antigravity**, **Cursor**, **Codex**, **Windsurf**) helping a user install, customize, or adapt MyTV, start here:
+If you are an AI coding assistant (like **Claude Code**, **Google Antigravity**, **Cursor**, **Codex**, **Windsurf**) helping a user install, customize, or adapt SoarTV, start here:
 
 - **[`AGENTS.md`](AGENTS.md)** & **[`CLAUDE.md`](CLAUDE.md)** — Agent entry points, human-intake checklist, Smart TV safety protocol, and common local adjustments.
 - **[`docs/agents/install-playbook.md`](docs/agents/install-playbook.md)** — Complete step-by-step build, install, secret-sync, LG/Samsung packaging, and PC gaming commands.
@@ -245,14 +245,14 @@ If you are an AI coding assistant (like **Claude Code**, **Google Antigravity**,
 ## Repository Structure
 
 ```text
-MyTV/
+SoarTV/
 ├── setup_wizard.py             # Visual TV-styled Setup Studio (auto-launched by your AI agent)
 ├── setup_wizard.py                 # Cross-platform Python entry point for Setup Studio
 ├── assets/screenshots/             # 4K TV & Phone Companion Remote preview images
 ├── docs/
 │   ├── agents/                     # Step-by-step AI agent installation & TV-brand adaptation guides
 │   └── supabase-schema.sql         # Optional Supabase Dual-Path RLS & Encrypted Vault SQL schema
-├── MyTV-launcher/                  # Native Android TV / Google TV / Fire OS Launcher (io.mytv)
+├── SoarTV-launcher/                  # Native Android TV / Google TV / Fire OS Launcher (io.soartv)
 │   ├── app/                        # Pure Java 4K Liquid Glass UI, Moonlight core, Smart Home & Secrets
 │   ├── web/                        # Shared ES5 web launcher for LG webOS & Samsung Tizen TVs
 │   ├── webos/ & tizen/             # Zero-SDK .ipk (LG) and .wgt (Samsung) packagers & installers
@@ -264,8 +264,8 @@ MyTV/
 │   │   ├── send_key.py             # Hardware-encrypted AndroidKeyStore secret sync over ADB
 │   │   └── translate.py            # 26-language localization validator
 │   ├── config.example.properties   # Clean template for local build settings & optional tab flags
-│   └── build.sh                    # Fast zero-Gradle APK builder (MyTV.apk + bundled MyTV-Remote.apk)
-├── MyTV-remote/                    # Phone Companion Remote PWA & Native Android App (io.mytv.remote)
+│   └── build.sh                    # Fast zero-Gradle APK builder (SoarTV.apk + bundled SoarTV-Remote.apk)
+├── SoarTV-remote/                    # Phone Companion Remote PWA & Native Android App (io.soartv.remote)
 ├── .env.example                    # Environment variable template
 ├── AGENTS.md & CLAUDE.md           # Instructions & Smart TV safety rules for AI coding assistants
 └── LICENSE                         # MIT License

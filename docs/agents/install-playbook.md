@@ -1,19 +1,19 @@
-# MyTV — Automated Installation & User-Onboarding Playbook (For AI Agents)
+# SoarTV — Automated Installation & User-Onboarding Playbook (For AI Agents)
 
-Follow this structured runbook when helping a human user install, configure, or update **MyTV**. Read [`../../AGENTS.md`](../../AGENTS.md) first for the mandatory **Smart TV Safety Protocol**.
+Follow this structured runbook when helping a human user install, configure, or update **SoarTV**. Read [`../../AGENTS.md`](../../AGENTS.md) first for the mandatory **Smart TV Safety Protocol**.
 
 ---
 
 ## 1. Pre-Flight Human Intake (Launch Setup Studio Automatically!)
 
-1. **Open MyTV Setup Studio for the User**:
-   - If `MyTV-launcher/.setup_handoff.json` does not exist yet (or the user wants to change choices), launch:
+1. **Open SoarTV Setup Studio for the User**:
+   - If `SoarTV-launcher/.setup_handoff.json` does not exist yet (or the user wants to change choices), launch:
      ```bash
      python setup_wizard.py --wait-for-save
      ```
    - This opens the TV-styled GUI in the user's browser so they can select their TV OS, TV IP, city, optional **Smart Home** & **PC Gaming** tabs, standalone game folders (via native OS folder explorer), custom Smart-Home brands, and free API keys (with built-in `?` real screenshot guides).
-   - Wait for the user to click **Save & Continue Setup**. The server saves secrets privately to git-ignored `MyTV-launcher/config.properties` & `.env`, writes the non-secret summary **`MyTV-launcher/.setup_handoff.json`**, and exits cleanly (`0`).
-2. **Read `MyTV-launcher/.setup_handoff.json`**:
+   - Wait for the user to click **Save & Continue Setup**. The server saves secrets privately to git-ignored `SoarTV-launcher/config.properties` & `.env`, writes the non-secret summary **`SoarTV-launcher/.setup_handoff.json`**, and exits cleanly (`0`).
+2. **Read `SoarTV-launcher/.setup_handoff.json`**:
    - Inspect `tv_platform`, `values` (`tv_ip`, `city`, `enable_smarthome`, `enable_gaming`, `games_dirs`), `configured_keys` booleans, and `custom_smarthome`.
    - Ask the user in chat **only** for anything still missing.
    - If `custom_smarthome` contains custom brands (e.g. `Philips Hue`, `Home Assistant`, `Govee`, `SwitchBot`), inspect `SmartHomeManager.java` and add modular support for them using any saved `custom_smarthome_key_<slug>` secret (never print secrets in chat).
@@ -23,7 +23,7 @@ Follow this structured runbook when helping a human user install, configure, or 
 ## 2. Guiding the Human User Through Free API Keys
 
 - **Never print, echo, or commit secret values** (`config.properties`, `.env`, `keys.txt`, and `*.keystore` are git-ignored).
-- Launch the visual **MyTV Setup Studio** (`python setup_wizard.py --wait-for-save`) so the user can paste keys directly into local files without exposing them in chat — or write values directly into `MyTV-launcher/config.properties` if the user provides them.
+- Launch the visual **SoarTV Setup Studio** (`python setup_wizard.py --wait-for-save`) so the user can paste keys directly into local files without exposing them in chat — or write values directly into `SoarTV-launcher/config.properties` if the user provides them.
 - **Key Priority Guide**:
   - **TMDB (`tmdb_key`) — Required for catalogs**: Free at `https://www.themoviedb.org/settings/api`.
   - **Trakt (`trakt_client_id`) & Stremio (`stremio_email`) — Recommended**: Trakt app Redirect URI must be `urn:ietf:wg:oauth:2.0:oob`; user pairs via QR code on the TV after install.
@@ -39,7 +39,7 @@ Follow this structured runbook when helping a human user install, configure, or 
 - Check `java -version`, `$ANDROID_HOME`, `adb version`, `node -v` first and install only missing tools.
 
 ### 3b. Configure `config.properties` & Optional Tabs
-1. Copy `MyTV-launcher/config.example.properties` to `MyTV-launcher/config.properties` and `.env.example` to `.env` if absent.
+1. Copy `SoarTV-launcher/config.example.properties` to `SoarTV-launcher/config.properties` and `.env.example` to `.env` if absent.
 2. Set `enable_gaming=true` or `enable_gaming=false` and `enable_smarthome=true` or `enable_smarthome=false` explicitly to match the user's answer in Step 1.
 3. Fill in `city`, `latitude`, `longitude`, `tmdb_region`, and `temperature` for the user's city.
 
@@ -47,33 +47,33 @@ Follow this structured runbook when helping a human user install, configure, or 
 1. Connect over ADB (`adb connect <TV_IP>:5555` — on Chromecast Android 14, pair via *Wireless debugging* `adb pair <ip:port> <code>` then `adb tcpip 5555`). Tell the user to accept *Allow debugging* on the TV screen.
 2. Run read-only brand checks (see [`tv-brand-adaptation.md`](tv-brand-adaptation.md)) and immediately run `adb disconnect`.
 3. Build (or download the signed GitHub Release APK for automatic OTA updates):
-   - **Automatic OTA Self-Updates (Recommended when no custom Java/Smart-Home edits are needed)**: If the user has no custom Smart-Home brands or Java edits to compile in and a signed `MyTV.apk` is published on GitHub Releases, you may install that release `MyTV.apk` directly and push all private keys & tab flags with `send_key.py --sync-config` so the TV automatically receives future OTA releases (`Settings -> System -> Updates`).
+   - **Automatic OTA Self-Updates (Recommended when no custom Java/Smart-Home edits are needed)**: If the user has no custom Smart-Home brands or Java edits to compile in and a signed `SoarTV.apk` is published on GitHub Releases, you may install that release `SoarTV.apk` directly and push all private keys & tab flags with `send_key.py --sync-config` so the TV automatically receives future OTA releases (`Settings -> System -> Updates`).
    - **Local Build (Required if adding custom Smart-Home brands or local Java adjustments)**:
    ```bash
-   cd MyTV-remote && npm ci && npm run build && npm test
-   cd ../MyTV-launcher && bash ./build.sh
+   cd SoarTV-remote && npm ci && npm run build && npm test
+   cd ../SoarTV-launcher && bash ./build.sh
    ```
 4. Install and push hardware-encrypted secrets:
    ```bash
    adb connect <TV_IP>:5555
-   adb install -r MyTV-launcher/MyTV.apk
-   python3 MyTV-launcher/tools/send_key.py <TV_IP> --sync-config
+   adb install -r SoarTV-launcher/SoarTV.apk
+   python3 SoarTV-launcher/tools/send_key.py <TV_IP> --sync-config
    ```
    - **Play Protect prompt on Android 14**: Tell the user to choose *More details -> Install anyway*.
-   - **TCL Google TV**: Also run `adb shell "appops set io.mytv AUTO_START allow || appops set io.mytv APP_AUTO_START allow"` so TCL's `TclAppBoot` allows `ModeJob`.
+   - **TCL Google TV**: Also run `adb shell "appops set io.soartv AUTO_START allow || appops set io.soartv APP_AUTO_START allow"` so TCL's `TclAppBoot` allows `ModeJob`.
 5. **CRITICAL**: Run `adb disconnect` and verify `adb devices` is empty **before** the user switches Launcher Mode on the TV (so Android 8–10 TVs do not route local `127.0.0.1:5555` loopback ADB to the computer).
-6. Guide the user on the TV: open **MyTV -> Settings** to switch Launcher Mode (`Original -> MyTV`), pair **Trakt / Stremio**, and scan the **Companion Remote** QR code (`http://<TV_IP>:8484`).
+6. Guide the user on the TV: open **SoarTV -> Settings** to switch Launcher Mode (`Original -> SoarTV`), pair **Trakt / Stremio**, and scan the **Companion Remote** QR code (`http://<TV_IP>:8484`).
 
 ### 3d. LG webOS & Samsung Tizen TVs
-- *Platform scope*: LG webOS and Samsung Tizen run the lightweight ES5 web launcher (`MyTV-launcher/web/`: App Shelf, TMDB Movies/Shows/Explore picks, HDMI & Live TV switching, Open-Meteo weather, sunrise/sunset themes, and screensaver). Companion Remote (`port 8484`), Smart-Home Hub, PC Game Streaming, Gemini AI Search, and Trakt/Stremio sync are native Android TV (`MyTV.apk`) features only.
+- *Platform scope*: LG webOS and Samsung Tizen run the lightweight ES5 web launcher (`SoarTV-launcher/web/`: App Shelf, TMDB Movies/Shows/Explore picks, HDMI & Live TV switching, Open-Meteo weather, sunrise/sunset themes, and screensaver). Companion Remote (`port 8484`), Smart-Home Hub, PC Game Streaming, Gemini AI Search, and Trakt/Stremio sync are native Android TV (`SoarTV.apk`) features only.
 - **LG webOS** (webOS 3.0–24+; Python 3 + OpenSSH only, no LG CLI needed):
   ```bash
-  cd MyTV-launcher && python3 webos/build.py
+  cd SoarTV-launcher && python3 webos/build.py
   ```
   Have the user run `python3 webos/install.py <LG_TV_IP>` in their own terminal the first time to enter the LG Developer Mode passphrase (the script auto-scales to `1280x720` on non-4K LG sets). On older **webOS 3** sets (or if the TV blocks in-app `listLaunchPoints`), run `python3 webos/apps.py <LG_TV_IP>` first to pull installed apps & icons from the TV, then re-run `python3 webos/build.py && python3 webos/install.py <LG_TV_IP>`.
 - **Samsung Tizen** (Tizen 2.3–9+):
   ```bash
-  cd MyTV-launcher && python3 tizen/build.py --sign <TIZEN_CERT_PROFILE>
+  cd SoarTV-launcher && python3 tizen/build.py --sign <TIZEN_CERT_PROFILE>
   python3 tizen/install.py <SAMSUNG_TV_IP>
   ```
 
@@ -85,26 +85,26 @@ Skip this entire section if the user opted out of PC Gaming (`enable_gaming=fals
 
 1. **Install Sunshine**: Guide the user to install [Sunshine](https://github.com/LizardByte/Sunshine/releases) on their Windows PC and set local Web UI credentials at `https://localhost:47990` (stored in git-ignored `keys.txt`).
 2. **Configure Game Folders & Non-TV Desk Monitors (`.env`)**:
-   - Set `MYTV_GAMES_DIRS=<semicolon-separated standalone game folders>` in `.env`.
-   - Run `python MyTV-launcher/tools/gaming/laptop_gaming_agent.py --list-monitors` on the Windows PC. Ask which listed external displays are desk monitors (not the TV) and set `MYTV_NON_TV_MONITORS=<comma-separated monitor names/EDIDs>` in `.env`.
+   - Set `SOARTV_GAMES_DIRS=<semicolon-separated standalone game folders>` in `.env`.
+   - Run `python SoarTV-launcher/tools/gaming/laptop_gaming_agent.py --list-monitors` on the Windows PC. Ask which listed external displays are desk monitors (not the TV) and set `SOARTV_NON_TV_MONITORS=<comma-separated monitor names/EDIDs>` in `.env`.
 3. **One-Time Administrator Power & Firewall Setup (`[HUMAN]`)**:
    Have the user run once in an elevated **Administrator PowerShell**:
    ```powershell
-   python "MyTV-launcher\tools\gaming\laptop_gaming_agent.py" --enable-sunshine-power-control --manual-start
+   python "SoarTV-launcher\tools\gaming\laptop_gaming_agent.py" --enable-sunshine-power-control --manual-start
    ```
    *(Optional flags: `--enable-wifi-wake` and `--install-unlock-helper`.)*
-4. **Start & Pair**: Run `python MyTV-launcher/tools/gaming/laptop_gaming_agent.py` (port `8485`) and pair once on the TV via **Gaming -> Pair Gaming PC (6-Digit Code)** (`~/.mytv_gaming_agent_pair_code.txt`).
+4. **Start & Pair**: Run `python SoarTV-launcher/tools/gaming/laptop_gaming_agent.py` (port `8485`) and pair once on the TV via **Gaming -> Pair Gaming PC (6-Digit Code)** (`~/.soartv_gaming_agent_pair_code.txt`).
 
 ---
 
 ## 5. Late Addition: Enabling Gaming or Smart Home Later
 
-Because optional tabs are modularly controlled by [`FeatureTabs.java`](../../MyTV-launcher/app/src/io/mytv/FeatureTabs.java), enabling **Gaming** or **Smart Home** later requires **zero refactoring**:
+Because optional tabs are modularly controlled by [`FeatureTabs.java`](../../SoarTV-launcher/app/src/io/soartv/FeatureTabs.java), enabling **Gaming** or **Smart Home** later requires **zero refactoring**:
 
-1. Set `enable_gaming=true` and/or `enable_smarthome=true` in `MyTV-launcher/config.properties` (and `.env`), plus any newly added Smart-Home keys or `MYTV_GAMES_DIRS` / `MYTV_NON_TV_MONITORS`.
+1. Set `enable_gaming=true` and/or `enable_smarthome=true` in `SoarTV-launcher/config.properties` (and `.env`), plus any newly added Smart-Home keys or `SOARTV_GAMES_DIRS` / `SOARTV_NON_TV_MONITORS`.
 2. Push the updated flags & encrypted keys live to the TV over ADB (even without rebuilding the APK!):
    ```bash
-   python3 MyTV-launcher/tools/send_key.py <TV_IP> --sync-config
+   python3 SoarTV-launcher/tools/send_key.py <TV_IP> --sync-config
    ```
-   *(Or rebuild and install with `cd MyTV-launcher && ./build.sh && adb install -r MyTV.apk && adb disconnect` if build-time properties like `gaming_pc_hdmi` were also updated.)*
+   *(Or rebuild and install with `cd SoarTV-launcher && ./build.sh && adb install -r SoarTV.apk && adb disconnect` if build-time properties like `gaming_pc_hdmi` were also updated.)*
 3. Both the TV Top-Bar, TV Settings categories, and the Phone Companion Remote automatically surface the newly enabled tab immediately.

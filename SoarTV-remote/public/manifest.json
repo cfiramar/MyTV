@@ -1,0 +1,10 @@
+{
+  "name": "SoarTV Companion Remote",
+  "short_name": "SoarTV Remote",
+  "description": "Native-style Twilight Aurora & Pearl Glass Companion Remote for SoarTV — TV Top-Bar, Side-Shelf, D-Pad, Trackpad, Unified Search, Gaming, Smart Home & Shared Reels",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0E1024",
+  "theme_color": "#0E1024"
+}

@@ -1,5 +1,5 @@
 -- ============================================================================
--- MyTV Optional Cloud Sync & Zero-Knowledge Encrypted Vault Schema (Supabase)
+-- SoarTV Optional Cloud Sync & Zero-Knowledge Encrypted Vault Schema (Supabase)
 -- Run once in the Supabase SQL Editor (idempotent).
 -- ============================================================================
 
@@ -77,7 +77,7 @@ BEGIN
         hdr_json := '{}'::jsonb;
     END;
 
-    supplied_key := coalesce(hdr_json ->> 'x-mytv-household-key', '');
+    supplied_key := coalesce(hdr_json ->> 'x-soartv-household-key', '');
     IF char_length(supplied_key) >= 32 AND coalesce(cfg.household_key_sha256, '') <> '' THEN
         supplied_hash := encode(extensions.digest(convert_to(supplied_key, 'UTF8'), 'sha256'), 'hex');
         IF supplied_hash = lower(cfg.household_key_sha256) THEN
@@ -93,12 +93,12 @@ REVOKE ALL ON FUNCTION private.check_household_authorization() FROM PUBLIC;
 GRANT USAGE ON SCHEMA private TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION private.check_household_authorization() TO anon, authenticated, service_role;
 
-CREATE OR REPLACE FUNCTION public.is_authorized_mytv_request()
+CREATE OR REPLACE FUNCTION public.is_authorized_soartv_request()
 RETURNS boolean LANGUAGE sql STABLE SECURITY INVOKER SET search_path = '' AS $$
     SELECT private.check_household_authorization();
 $$;
 
-GRANT EXECUTE ON FUNCTION public.is_authorized_mytv_request() TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_authorized_soartv_request() TO anon, authenticated, service_role;
 
 -- 3. Household tables & Zero-Knowledge Encrypted Key Vault
 CREATE TABLE IF NOT EXISTS public.user_profiles (
@@ -298,28 +298,28 @@ ALTER TABLE public.encrypted_vault ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS household_profiles_all ON public.user_profiles;
 CREATE POLICY household_profiles_all ON public.user_profiles FOR ALL TO anon, authenticated
-    USING ((SELECT public.is_authorized_mytv_request())) WITH CHECK ((SELECT public.is_authorized_mytv_request()));
+    USING ((SELECT public.is_authorized_soartv_request())) WITH CHECK ((SELECT public.is_authorized_soartv_request()));
 
 DROP POLICY IF EXISTS household_watchlist_all ON public.watchlist_items;
 CREATE POLICY household_watchlist_all ON public.watchlist_items FOR ALL TO anon, authenticated
-    USING ((SELECT public.is_authorized_mytv_request())) WITH CHECK ((SELECT public.is_authorized_mytv_request()));
+    USING ((SELECT public.is_authorized_soartv_request())) WITH CHECK ((SELECT public.is_authorized_soartv_request()));
 
 DROP POLICY IF EXISTS household_history_all ON public.watch_history;
 CREATE POLICY household_history_all ON public.watch_history FOR ALL TO anon, authenticated
-    USING ((SELECT public.is_authorized_mytv_request())) WITH CHECK ((SELECT public.is_authorized_mytv_request()));
+    USING ((SELECT public.is_authorized_soartv_request())) WITH CHECK ((SELECT public.is_authorized_soartv_request()));
 
 DROP POLICY IF EXISTS household_votes_all ON public.media_votes;
 CREATE POLICY household_votes_all ON public.media_votes FOR ALL TO anon, authenticated
-    USING ((SELECT public.is_authorized_mytv_request())) WITH CHECK ((SELECT public.is_authorized_mytv_request()));
+    USING ((SELECT public.is_authorized_soartv_request())) WITH CHECK ((SELECT public.is_authorized_soartv_request()));
 
 DROP POLICY IF EXISTS household_reels_all ON public.shared_reels;
 CREATE POLICY household_reels_all ON public.shared_reels FOR ALL TO anon, authenticated
-    USING ((SELECT public.is_authorized_mytv_request())) WITH CHECK ((SELECT public.is_authorized_mytv_request()));
+    USING ((SELECT public.is_authorized_soartv_request())) WITH CHECK ((SELECT public.is_authorized_soartv_request()));
 
 DROP POLICY IF EXISTS household_tv_devices_all ON public.tv_devices;
 CREATE POLICY household_tv_devices_all ON public.tv_devices FOR ALL TO anon, authenticated
-    USING ((SELECT public.is_authorized_mytv_request())) WITH CHECK ((SELECT public.is_authorized_mytv_request()));
+    USING ((SELECT public.is_authorized_soartv_request())) WITH CHECK ((SELECT public.is_authorized_soartv_request()));
 
 DROP POLICY IF EXISTS household_encrypted_vault_all ON public.encrypted_vault;
 CREATE POLICY household_encrypted_vault_all ON public.encrypted_vault FOR ALL TO anon, authenticated
-    USING ((SELECT public.is_authorized_mytv_request())) WITH CHECK ((SELECT public.is_authorized_mytv_request()));
+    USING ((SELECT public.is_authorized_soartv_request())) WITH CHECK ((SELECT public.is_authorized_soartv_request()));
