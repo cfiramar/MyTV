@@ -21,7 +21,7 @@ Modern smart TVs bury your favorite apps under rows of sponsored banners, auto-p
 
 ## Visual Tour
 
-| Home & Personalized Discovery | Optional 4K PC Gaming Zone |
+| Home & Personalized Discovery | Optional PC Gaming Zone |
 | :---: | :---: |
 | ![MyTV Home Screen](assets/screenshots/home.webp) | ![MyTV Gaming Screen](assets/screenshots/gaming.webp) |
 | **Optional Living-Room Smart-Home Hub** | **Two-Panel Liquid Glass Settings** |
@@ -37,7 +37,7 @@ Modern smart TVs bury your favorite apps under rows of sponsored banners, auto-p
 - **Always Works When Your Computer Is Off**: Every core TV feature — streaming discovery, AI search, smart-home controls, screensaver, and the phone remote — runs **100% natively inside the TV app** with zero dependency on a home PC.
 - **Unified Watchlists, Critic Scores & AI Search**: Syncs two-way with **Trakt** and **Stremio**, displays **IMDb**, **Rotten Tomatoes**, and **Metacritic** ratings side-by-side, and lets you search by mood or plot description using **Google Gemini AI**.
 - **Phone Companion Remote (`iPhone & Android`)**: Scan a QR code in MyTV Settings to control your TV over local Wi-Fi — complete with D-Pad, swipe trackpad, instant phone keyboard paste, voice search, Smart-Home sliders, and temporary QR guest passes.
-- **4K PC-to-TV Game Streaming *(Optional Tab)***: Streams your **Steam**, **Epic Games**, **Heroic**, and standalone Windows games at **4K 60fps** straight inside MyTV (or switches to HDMI automatically when plugged in), with Bluetooth/USB controller tagging and battery levels. *Don't game on your TV? MyTV removes the Gaming tab automatically.*
+- **PC-to-TV Game Streaming *(Optional Tab)***: Streams your **Steam**, **Epic Games**, **Heroic**, and standalone Windows games straight inside MyTV (resolution & frame rate adapt to your PC, TV, and network, or switches to HDMI automatically when plugged in), with Bluetooth/USB controller tagging and battery levels. *Don't game on your TV? MyTV removes the Gaming tab automatically.*
 - **Effortless Smart-Home Control *(Optional Tab)***: Dim **WiZ** smart lights, adjust **Sensibo** or **Tuya** air conditioners, set a **Switcher** boiler timer, or trigger *Movie Time* and *Good Night* routines from your couch. *Don't use smart-home appliances? MyTV removes the Smart Home tab automatically.*
 - **Easy Late Activation Anytime**: Skipped Gaming or Smart Home during setup? Turn either tab on later from **Settings -> Home & Appearance -> Interface & Units** or ask your AI agent to set it up whenever you're ready.
 - **True-4K Ambient Screensaver**: Over **1,230 curated 4K UHD** fine-art paintings and nature/space photographs with 8 clock designs and live local weather.
@@ -66,7 +66,7 @@ After downloading or cloning this repository onto your computer, you can open th
 - **Windows**: Double-click **`Setup-MyTV.bat`** (or run `python setup_wizard.py`)
 - **macOS / Linux**: Run **`./setup-mytv.sh`**
 
-Inside Setup Studio, you can toggle whether you want the optional **Smart Home** and **PC Gaming** tabs, auto-fill your city, test and save your free API keys locally, view visual instructions for your TV brand, and copy a customized prompt for your AI agent.
+Inside Setup Studio, you can toggle whether you want the optional **Smart Home** and **PC Gaming** tabs, pick standalone game folders with your native OS explorer, auto-fill your city, follow built-in `?` visual guides to create and save free API keys locally, list any extra Smart-Home brand you want your AI agent to add support for, and click **Finish: Save & Copy AI Prompt** once you are done.
 
 ### Step 2 — Install Using an AI Coding Agent (Recommended)
 
@@ -130,7 +130,7 @@ Every service supported by MyTV offers a **free personal tier**. Click any group
 </details>
 
 <details>
-<summary><strong>4. 4K PC-to-TV Game Streaming</strong> (Optional · Enables Gaming Tab)</summary>
+<summary><strong>4. PC-to-TV Game Streaming</strong> (Optional · Enables Gaming Tab)</summary>
 
 <br/>
 
@@ -138,7 +138,7 @@ Every service supported by MyTV offers a **free personal tier**. Click any group
 
 | Component | What It Does in MyTV | Requirement | Cost | Where to Get It | Config / `.env` Property |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Sunshine Host** | Encodes your Windows PC desktop & games at 4K 60fps for MyTV's built-in player | **Optional** | 100% Free & Open Source | [github.com/LizardByte/Sunshine/releases](https://github.com/LizardByte/Sunshine/releases) | Paired on TV via 6-digit code |
+| **Sunshine Host** | Streams your Windows PC desktop & games to MyTV's built-in player (resolution & frame rate depend on your hardware and network) | **Optional** | 100% Free & Open Source | [github.com/LizardByte/Sunshine/releases](https://github.com/LizardByte/Sunshine/releases) | Paired on TV via 6-digit code |
 | **MyTV Gaming Agent** | Auto-discovers Steam, Epic, Heroic & standalone PC games, switches HDMI/Wi-Fi & manages Sunshine power | **Optional** | Built into this repo (`tools/gaming/`) | Included in `MyTV-launcher/tools/gaming/` | `MYTV_GAMES_DIRS`, `MYTV_NON_TV_MONITORS` |
 
 </details>

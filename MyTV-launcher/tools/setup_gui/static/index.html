@@ -17,19 +17,12 @@
       --panel-border-soft: rgba(255, 255, 255, 0.13);
       --row-focus-bg: rgba(255, 255, 255, 0.105);
       --row-focus-border: rgba(255, 255, 255, 0.29);
-      --pill-active-bg: rgba(255, 255, 255, 0.19);
       --selected-bg: #ffffff;
       --selected-ink: #121622;
       --selected-sub: #475569;
-      --tile-off: #2c2d31;
-      --tile-blue: #2563eb;
-      --tile-indigo: #3b40d4;
-      --tile-cerulean: #027db8;
-      --tile-amber: #c2640a;
-      --tile-crimson: #cb1e1e;
-      --tile-violet: #7835e6;
       --emerald: #34d399;
       --amber-dot: #fbbf24;
+      --blue-active: #2563eb;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -38,13 +31,14 @@
       height: 100%;
       width: 100%;
       overflow: hidden;
+      color-scheme: dark;
       font-family: "Inter", "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
       color: var(--ink);
       -webkit-font-smoothing: antialiased;
       user-select: none;
     }
 
-    /* Exact MyTV Android TV ambient twilight aurora backdrop (settings.webp / smarthome.webp) */
+    /* Authentic MyTV Android TV ambient twilight aurora backdrop */
     body {
       background:
         radial-gradient(ellipse 60% 74% at 4% 34%, rgba(86, 36, 134, 0.86) 0%, rgba(62, 30, 102, 0.62) 42%, transparent 74%),
@@ -57,10 +51,10 @@
     }
 
     /* =====================================================================
-       TOP BAR — Floating directly over the TV ambient backdrop (no capsule)
+       CLEAN TV TOP BAR (Zero redundant tabs — title + workflow hint + clock)
        ===================================================================== */
     .tv-topbar {
-      height: 76px;
+      height: 70px;
       flex-shrink: 0;
       padding: 12px 44px 4px;
       display: flex;
@@ -69,42 +63,34 @@
       gap: 16px;
     }
 
-    .tv-nav {
+    .tv-topbar-left {
       display: flex;
       align-items: center;
-      gap: 8px;
-      flex-wrap: nowrap;
-      overflow-x: auto;
+      gap: 16px;
+      min-width: 0;
     }
 
-    .tv-nav-item {
+    .tv-brand-pill {
       display: inline-flex;
       align-items: center;
-      gap: 9px;
-      padding: 9px 18px;
+      gap: 10px;
+      padding: 8px 18px;
       border-radius: 999px;
-      border: none;
-      background: transparent;
-      color: var(--ink-72);
-      font-family: inherit;
-      font-size: 16px;
-      font-weight: 500;
-      letter-spacing: -0.01em;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: background 0.16s ease, color 0.16s ease;
-    }
-
-    .tv-nav-item:hover {
-      color: var(--ink);
-      background: rgba(255, 255, 255, 0.08);
-    }
-
-    .tv-nav-item.active {
-      background: var(--pill-active-bg);
-      color: var(--ink);
-      font-weight: 600;
+      background: rgba(255, 255, 255, 0.16);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+      color: var(--ink);
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+    }
+
+    .tv-flow-hint {
+      font-size: 13.5px;
+      color: var(--ink-72);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .tv-topbar-right {
@@ -147,11 +133,10 @@
       stroke-linejoin: round;
       flex-shrink: 0;
     }
-    .icon-sm { width: 15px; height: 15px; }
-    .icon-lg { width: 38px; height: 38px; stroke-width: 1.75; }
+    .icon-sm { width: 14px; height: 14px; }
 
     /* =====================================================================
-       MAIN STAGE
+       MAIN STAGE — SIGNATURE 38% / 62% TV TWO-PANEL LAYOUT (settings.webp)
        ===================================================================== */
     .tv-stage {
       flex: 1;
@@ -161,26 +146,6 @@
       flex-direction: column;
     }
 
-    .view-screen {
-      display: none;
-      flex: 1;
-      min-height: 0;
-      animation: fadeScreen 0.16s ease;
-    }
-
-    .view-screen.active {
-      display: flex;
-      flex-direction: column;
-    }
-
-    @keyframes fadeScreen {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
-    /* =====================================================================
-       VIEW 1: SIGNATURE TWO-PANEL 38% / 62% TV SETTINGS LAYOUT (settings.webp)
-       ===================================================================== */
     .tv-split {
       flex: 1;
       min-height: 0;
@@ -202,7 +167,7 @@
     .tv-panel-left {
       background: var(--panel-left);
       border: 1px solid var(--panel-border);
-      padding: 22px 16px 16px;
+      padding: 20px 16px 16px;
     }
 
     .tv-panel-right {
@@ -216,7 +181,7 @@
       font-weight: 600;
       letter-spacing: -0.015em;
       color: var(--ink);
-      padding: 0 10px 10px;
+      padding: 0 10px 8px;
       flex-shrink: 0;
     }
 
@@ -236,12 +201,6 @@
       color: var(--ink);
     }
 
-    .right-header-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
     .rail-scroll, .right-scroll {
       flex: 1;
       min-height: 0;
@@ -250,21 +209,11 @@
     }
 
     .rail-scroll::-webkit-scrollbar,
-    .right-scroll::-webkit-scrollbar,
-    .tiles-scroll::-webkit-scrollbar {
-      width: 5px;
-    }
+    .right-scroll::-webkit-scrollbar { width: 5px; }
     .rail-scroll::-webkit-scrollbar-thumb,
-    .right-scroll::-webkit-scrollbar-thumb,
-    .tiles-scroll::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.18);
-      border-radius: 999px;
-    }
+    .right-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 999px; }
     .rail-scroll::-webkit-scrollbar-track,
-    .right-scroll::-webkit-scrollbar-track,
-    .tiles-scroll::-webkit-scrollbar-track {
-      background: transparent;
-    }
+    .right-scroll::-webkit-scrollbar-track { background: transparent; }
 
     .rail-group {
       font-size: 11px;
@@ -272,38 +221,36 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--ink-42);
-      padding: 14px 12px 6px;
+      padding: 13px 12px 5px;
     }
-    .rail-group:first-child { padding-top: 4px; }
+    .rail-group:first-child { padding-top: 2px; }
 
     .rail-item {
       width: 100%;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
-      padding: 10.5px 14px;
+      gap: 10px;
+      padding: 9.5px 14px;
       margin-bottom: 2px;
       border-radius: 13px;
       border: none;
       background: transparent;
       color: var(--ink-90);
       font-family: inherit;
-      font-size: 14.5px;
+      font-size: 14px;
       font-weight: 500;
       cursor: pointer;
       text-align: left;
       transition: background 0.13s ease, color 0.13s ease;
     }
 
-    .rail-item:hover {
-      background: rgba(255, 255, 255, 0.075);
-    }
+    .rail-item:hover { background: rgba(255, 255, 255, 0.075); }
 
     .rail-item-left {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 11px;
       min-width: 0;
     }
 
@@ -317,7 +264,7 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      font-size: 12.5px;
+      font-size: 12px;
       font-weight: 500;
       color: var(--ink-55);
       white-space: nowrap;
@@ -337,6 +284,45 @@
       font-weight: 600;
     }
 
+    /* Single unmistakable primary finish action anchored at bottom of Left Rail */
+    .rail-finish-box {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .rail-finish-note {
+      font-size: 11.8px;
+      color: var(--ink-72);
+      line-height: 1.4;
+      padding: 0 4px;
+    }
+
+    .rail-finish-btn {
+      width: 100%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 16px;
+      border-radius: 13px;
+      border: none;
+      background: #ffffff;
+      color: #121622;
+      font-family: inherit;
+      font-size: 13.8px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.26);
+      transition: background 0.14s ease, transform 0.12s ease;
+    }
+    .rail-finish-btn:hover { background: #edf2f7; }
+    .rail-finish-btn:active { transform: scale(0.99); }
+
     .dot {
       width: 7px;
       height: 7px;
@@ -346,8 +332,6 @@
     }
     .dot-green { background: var(--emerald); }
     .dot-amber { background: var(--amber-dot); }
-    .dot-muted { background: rgba(255, 255, 255, 0.35); }
-    .rail-item.active .dot-muted { background: #94a3b8; }
 
     /* =====================================================================
        RIGHT PANE CATEGORIES & SIGNATURE TV LIST ROWS (settings.webp)
@@ -364,17 +348,16 @@
       transition: background 0.14s ease, border-color 0.14s ease;
     }
 
-    /* Exact white left focus bar + translucent glass highlight from settings.webp */
     .tv-row:hover,
     .tv-row:focus-within,
-    .tv-row.is-primary {
+    .cat-pane:not(:hover):not(:focus-within) .tv-row.is-primary {
       background: var(--row-focus-bg);
       border-color: var(--row-focus-border);
     }
 
     .tv-row:hover::before,
     .tv-row:focus-within::before,
-    .tv-row.is-primary::before {
+    .cat-pane:not(:hover):not(:focus-within) .tv-row.is-primary::before {
       content: "";
       position: absolute;
       left: 5px;
@@ -420,7 +403,7 @@
       font-size: 13px;
       color: var(--ink-72);
       margin-top: 2px;
-      line-height: 1.45;
+      line-height: 1.48;
     }
 
     .tv-row-controls {
@@ -444,7 +427,30 @@
       width: 100%;
     }
 
-    /* Clean recessed TV inputs — zero neon cyan */
+    /* Circular '?' API Help Button */
+    .help-q-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 21px;
+      height: 21px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.34);
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+    }
+    .help-q-btn:hover {
+      background: #ffffff;
+      color: #121622;
+      border-color: #ffffff;
+    }
+
+    /* Recessed TV inputs */
     input[type="text"],
     input[type="password"],
     select,
@@ -464,15 +470,8 @@
       transition: border-color 0.15s ease, background 0.15s ease;
     }
 
-    select option {
-      background: #1b2234;
-      color: #ffffff;
-    }
-
-    input::placeholder, textarea::placeholder {
-      color: rgba(255, 255, 255, 0.40);
-    }
-
+    select option { background: #1b2234; color: #ffffff; }
+    input::placeholder, textarea::placeholder { color: rgba(255, 255, 255, 0.40); }
     input:focus, select:focus, textarea:focus {
       border-color: rgba(255, 255, 255, 0.78);
       background: rgba(10, 14, 24, 0.62);
@@ -480,13 +479,12 @@
 
     textarea {
       font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
-      font-size: 12.8px;
+      font-size: 12.6px;
       line-height: 1.55;
       resize: vertical;
-      min-height: 140px;
+      min-height: 155px;
     }
 
-    /* TV-native buttons */
     .tv-btn {
       display: inline-flex;
       align-items: center;
@@ -505,11 +503,7 @@
       text-decoration: none;
       transition: background 0.14s ease, border-color 0.14s ease, transform 0.12s ease;
     }
-
-    .tv-btn:hover {
-      background: rgba(255, 255, 255, 0.20);
-      border-color: rgba(255, 255, 255, 0.44);
-    }
+    .tv-btn:hover { background: rgba(255, 255, 255, 0.20); border-color: rgba(255, 255, 255, 0.44); }
     .tv-btn:active { transform: scale(0.98); }
 
     .tv-btn-white {
@@ -517,10 +511,7 @@
       color: #121622;
       border-color: #ffffff;
     }
-    .tv-btn-white:hover {
-      background: #eef2f7;
-      border-color: #eef2f7;
-    }
+    .tv-btn-white:hover { background: #eef2f7; border-color: #eef2f7; }
 
     .tv-link-action {
       display: inline-flex;
@@ -537,10 +528,7 @@
       white-space: nowrap;
       transition: background 0.14s ease, border-color 0.14s ease;
     }
-    .tv-link-action:hover {
-      background: rgba(255, 255, 255, 0.18);
-      border-color: rgba(255, 255, 255, 0.36);
-    }
+    .tv-link-action:hover { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.36); }
 
     .tag {
       display: inline-flex;
@@ -553,14 +541,8 @@
       background: rgba(255, 255, 255, 0.12);
       color: var(--ink-90);
     }
-    .tag-saved {
-      background: rgba(52, 211, 153, 0.22);
-      color: #a7f3d0;
-    }
-    .tag-req {
-      background: rgba(255, 255, 255, 0.92);
-      color: #121622;
-    }
+    .tag-saved { background: rgba(52, 211, 153, 0.22); color: #a7f3d0; }
+    .tag-req { background: rgba(255, 255, 255, 0.92); color: #121622; }
 
     .row-status {
       margin-top: 8px;
@@ -583,7 +565,15 @@
       height: 24px;
       flex-shrink: 0;
     }
-    .tv-switch input { opacity: 0; width: 0; height: 0; }
+    .tv-switch input {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+      z-index: 2;
+    }
     .tv-slider {
       position: absolute;
       inset: 0;
@@ -603,10 +593,74 @@
       background: #ffffff;
       transition: transform 0.18s ease;
     }
-    .tv-switch input:checked + .tv-slider { background: #2563eb; }
+    .tv-switch input:checked + .tv-slider { background: var(--blue-active); }
     .tv-switch input:checked + .tv-slider::before { transform: translateX(20px); }
 
-    /* Ordered instructions inside Prepare TV / Q&A */
+    /* Multi-folder & Custom Smart-Home removable chips */
+    .chip-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .item-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 11px 6px 13px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      font-size: 12.8px;
+      color: #ffffff;
+      max-width: 100%;
+    }
+    .item-chip-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      user-select: text;
+    }
+    .item-chip-rm {
+      border: none;
+      background: rgba(255, 255, 255, 0.16);
+      color: #ffffff;
+      width: 19px;
+      height: 19px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 13px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .item-chip-rm:hover { background: rgba(255, 255, 255, 0.34); }
+
+    /* Compact TV Top-Bar Preview inside Optional Tabs */
+    .preview-bar {
+      margin-top: 10px;
+      margin-left: 32px;
+      padding: 10px 16px;
+      border-radius: 13px;
+      background: rgba(10, 14, 24, 0.38);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .preview-tab {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ink-72);
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+    .preview-tab.active-home { background: rgba(255, 255, 255, 0.18); color: #ffffff; font-weight: 600; }
+    .preview-tab.hidden-tab { display: none; }
+
     .tv-steps-list {
       margin-top: 8px;
       margin-left: 48px;
@@ -638,149 +692,86 @@
       background: rgba(255, 255, 255, 0.065);
       border: 1px solid rgba(255, 255, 255, 0.12);
     }
-    .mini-step-title {
-      font-size: 13.2px;
-      font-weight: 600;
-      color: var(--ink);
-      margin-bottom: 3px;
-    }
-    .mini-step p {
-      font-size: 12.2px;
-      color: var(--ink-72);
-      line-height: 1.42;
-    }
+    .mini-step-title { font-size: 13.2px; font-weight: 600; color: var(--ink); margin-bottom: 3px; }
+    .mini-step p { font-size: 12.2px; color: var(--ink-72); line-height: 1.45; }
 
     /* =====================================================================
-       VIEW 2: SIGNATURE SMARTHOME.WEBP WIDE TILE GRID (Optional Tabs Screen)
+       API KEY GUIDE MODAL (TV Liquid Glass Dialog + Annotated Portal Visual)
        ===================================================================== */
-    .tiles-scroll {
-      flex: 1;
-      min-height: 0;
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: rgba(7, 10, 18, 0.72);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .modal-backdrop.open { display: flex; }
+
+    .modal-dialog {
+      width: 100%;
+      max-width: 720px;
+      max-height: 88vh;
       overflow-y: auto;
-      padding: 4px 6px 14px 0;
+      border-radius: 24px;
+      background: linear-gradient(145deg, rgba(36, 30, 62, 0.94), rgba(18, 38, 58, 0.95));
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.62);
+      padding: 24px 26px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
     }
 
-    .shelf-heading {
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--ink);
-      letter-spacing: -0.01em;
-      margin: 8px 0 14px;
+    .modal-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    .modal-head h2 { font-size: 20px; font-weight: 600; color: #ffffff; }
+    .modal-sub { font-size: 13px; color: var(--ink-72); margin-top: 3px; }
+
+    .modal-visual {
+      width: 100%;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: #0f172a;
+    }
+    .modal-visual svg { display: block; width: 100%; height: auto; }
+
+    .modal-steps {
+      padding-left: 20px;
+      display: grid;
+      gap: 8px;
+      font-size: 13.6px;
+      color: var(--ink-90);
+      line-height: 1.5;
+    }
+    .modal-tip {
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      font-size: 12.8px;
+      color: var(--ink-72);
+    }
+    .modal-foot {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
+      padding-top: 4px;
     }
 
-    .shelf-sub {
-      font-size: 13px;
-      font-weight: 400;
-      color: var(--ink-72);
-    }
-
-    .tile-row {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(190px, 1fr));
-      gap: 18px;
-      margin-bottom: 24px;
-    }
-
-    .tile-item {
-      cursor: pointer;
-      display: flex;
-      flex-direction: column;
-      gap: 9px;
-      outline: none;
-    }
-
-    .tile-card {
-      aspect-ratio: 16 / 9.2;
-      border-radius: 16px;
-      background: var(--tile-off);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #ffffff;
-      border: 2.5px solid transparent;
-      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.24);
-      transition: transform 0.15s ease, border-color 0.15s ease, background 0.18s ease;
-    }
-
-    .tile-item:hover .tile-card,
-    .tile-item:focus-visible .tile-card {
-      border-color: #ffffff;
-      transform: translateY(-2px);
-    }
-
-    .tile-item.is-on .tile-card { background: var(--tile-blue); }
-    .tile-item.color-indigo.is-on .tile-card { background: var(--tile-indigo); }
-    .tile-item.color-cerulean.is-on .tile-card { background: var(--tile-cerulean); }
-    .tile-item.color-amber.is-on .tile-card { background: var(--tile-amber); }
-    .tile-item.color-crimson.is-on .tile-card { background: var(--tile-crimson); }
-    .tile-item.color-violet .tile-card { background: var(--tile-violet); }
-    .tile-item.is-disabled { cursor: default; opacity: 0.62; }
-    .tile-item.is-disabled:hover .tile-card { border-color: rgba(255,255,255,0.28); transform: none; }
-
-    .tile-label {
-      font-size: 14.5px;
-      font-weight: 600;
-      color: var(--ink);
-      padding-left: 2px;
-    }
-
-    .tile-meta {
-      font-size: 12.5px;
-      color: var(--ink-72);
-      padding-left: 2px;
-      margin-top: -5px;
-    }
-
-    /* Live TV Top-Bar Preview strip */
-    .preview-strip {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      padding: 13px 22px;
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      margin-bottom: 22px;
-      flex-wrap: wrap;
-    }
-
-    .preview-tabs {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      flex-wrap: wrap;
-    }
-
-    .preview-tab {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--ink-72);
-      padding: 5px 12px;
-      border-radius: 999px;
-      transition: opacity 0.18s ease, transform 0.18s ease;
-    }
-    .preview-tab.active-home {
-      background: rgba(255, 255, 255, 0.18);
-      color: #ffffff;
-      font-weight: 600;
-    }
-    .preview-tab.hidden-tab {
-      display: none;
-    }
-
-    /* =====================================================================
-       BOTTOM NAVIGATION HINT BAR (Exact settings.webp footer)
-       ===================================================================== */
+    /* Footer */
     .tv-footer {
-      height: 44px;
+      height: 42px;
       flex-shrink: 0;
       padding: 0 46px 8px;
       display: flex;
@@ -790,12 +781,11 @@
       color: var(--ink-72);
     }
 
-    /* Toast */
     .toast {
       position: fixed;
-      bottom: 52px;
+      bottom: 50px;
       right: 44px;
-      z-index: 999;
+      z-index: 1200;
       padding: 11px 20px;
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.96);
@@ -814,42 +804,23 @@
       html, body { overflow: auto; height: auto; min-height: 100%; }
       .tv-topbar, .tv-stage, .tv-footer { padding-left: 18px; padding-right: 18px; }
       .tv-split { grid-template-columns: 1fr; }
-      .tile-row { grid-template-columns: repeat(2, 1fr); }
       .inline-2, .mini-grid { grid-template-columns: 1fr; }
+      .tv-flow-hint { display: none; }
     }
   </style>
 </head>
 <body>
   <!-- =====================================================================
-       TV TOP BAR (Matches MyTV settings.webp & smarthome.webp)
+       CLEAN TV TOP BAR (No redundant navigation tabs)
        ===================================================================== -->
   <header class="tv-topbar">
-    <nav class="tv-nav" role="tablist">
-      <button class="tv-nav-item active" data-screen="screen-setup" data-jump="cat-tv" onclick="openTopTab('screen-setup', 'cat-tv', this)">
-        <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        <span>Setup</span>
-      </button>
-      <button class="tv-nav-item" data-screen="screen-tabs" onclick="openTopTab('screen-tabs', null, this)">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>
-        <span>Optional Tabs</span>
-      </button>
-      <button class="tv-nav-item" data-screen="screen-setup" data-jump="cat-media" onclick="openTopTab('screen-setup', 'cat-media', this)">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-        <span>API Keys</span>
-      </button>
-      <button class="tv-nav-item" data-screen="screen-setup" data-jump="cat-prompt" onclick="openTopTab('screen-setup', 'cat-prompt', this)">
-        <svg class="icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-        <span>AI Prompt</span>
-      </button>
-      <button class="tv-nav-item" data-screen="screen-setup" data-jump="cat-prep" onclick="openTopTab('screen-setup', 'cat-prep', this)">
-        <svg class="icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
-        <span>Prepare TV</span>
-      </button>
-      <button class="tv-nav-item" data-screen="screen-setup" data-jump="cat-qa" onclick="openTopTab('screen-setup', 'cat-qa', this)">
-        <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        <span>Help</span>
-      </button>
-    </nav>
+    <div class="tv-topbar-left">
+      <div class="tv-brand-pill">
+        <svg class="icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <span>MyTV Setup Studio</span>
+      </div>
+      <div class="tv-flow-hint">1. Pick your options &amp; free keys &nbsp;&middot;&nbsp; 2. Click Save &amp; Copy AI Prompt &nbsp;&middot;&nbsp; 3. Paste into your AI agent</div>
+    </div>
 
     <div class="tv-topbar-right">
       <div id="sandboxBadge" class="sandbox-pill">
@@ -861,696 +832,719 @@
   </header>
 
   <main class="tv-stage">
-    <!-- ===================================================================
-         SCREEN 1: TWO-PANEL TV SETTINGS WORKSPACE (38% Left / 62% Right)
-         =================================================================== -->
-    <section id="screen-setup" class="view-screen active">
-      <div class="tv-split">
-        <!-- LEFT NAVIGATION RAIL -->
-        <aside class="tv-panel tv-panel-left">
-          <div class="panel-title">Setup Studio</div>
-          <div class="rail-scroll" id="railList">
-            <div class="rail-group">TV &amp; Setup</div>
+    <div class="tv-split">
+      <!-- =================================================================
+           LEFT NAVIGATION RAIL (38%)
+           ================================================================= -->
+      <aside class="tv-panel tv-panel-left">
+        <div class="panel-title">Setup</div>
+        <div class="rail-scroll" id="railList">
+          <div class="rail-group">Get Started</div>
 
-            <button class="rail-item active" data-cat="cat-tv" data-title="TV &amp; Location" onclick="selectCategory('cat-tv')">
-              <span class="rail-item-left">
-                <svg class="icon" viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
-                <span>TV &amp; Location</span>
-              </span>
-              <span class="rail-item-val" id="val-tv"><span class="dot dot-green"></span>Android TV</span>
-            </button>
+          <button class="rail-item active" data-cat="cat-tv" data-title="Your TV" onclick="selectCategory('cat-tv')">
+            <span class="rail-item-left">
+              <svg class="icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
+              <span>Your TV</span>
+            </span>
+            <span class="rail-item-val" id="val-tv"><span class="dot dot-green"></span>Android TV</span>
+          </button>
 
-            <button class="rail-item" data-cat="cat-tabs" data-title="Optional Tabs" onclick="selectCategory('cat-tabs')">
-              <span class="rail-item-left">
-                <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-                <span>Optional Tabs</span>
-              </span>
-              <span class="rail-item-val" id="val-tabs">Core Only</span>
-            </button>
+          <button class="rail-item" data-cat="cat-location" data-title="Location &amp; Weather" onclick="selectCategory('cat-location')">
+            <span class="rail-item-left">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg>
+              <span>Location &amp; Weather</span>
+            </span>
+            <span class="rail-item-val" id="val-loc">Not Set</span>
+          </button>
 
-            <button class="rail-item" data-cat="cat-prompt" data-title="AI Agent Prompt" onclick="selectCategory('cat-prompt')">
-              <span class="rail-item-left">
-                <svg class="icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                <span>AI Agent Prompt</span>
-              </span>
-              <span class="rail-item-val"><span class="dot dot-green"></span>Ready</span>
-            </button>
+          <button class="rail-item" data-cat="cat-tabs" data-title="Optional Tabs" onclick="selectCategory('cat-tabs')">
+            <span class="rail-item-left">
+              <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+              <span>Optional Tabs</span>
+            </span>
+            <span class="rail-item-val" id="val-tabs">Core Only</span>
+          </button>
 
-            <div class="rail-group">Services &amp; API Keys</div>
+          <div class="rail-group">Services &amp; API Keys</div>
 
-            <button class="rail-item" data-cat="cat-media" data-title="Media &amp; Ratings" onclick="selectCategory('cat-media')">
-              <span class="rail-item-left">
-                <svg class="icon" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="3"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
-                <span>Media &amp; Ratings</span>
-              </span>
-              <span class="rail-item-val" id="val-media"><span class="dot dot-amber"></span>TMDB Needed</span>
-            </button>
+          <button class="rail-item" data-cat="cat-media" data-title="Media &amp; Ratings" onclick="selectCategory('cat-media')">
+            <span class="rail-item-left">
+              <svg class="icon" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="3"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+              <span>Media &amp; Ratings</span>
+            </span>
+            <span class="rail-item-val" id="val-media"><span class="dot dot-amber"></span>TMDB Needed</span>
+          </button>
 
-            <button class="rail-item" data-cat="cat-ai" data-title="AI Voice Search" onclick="selectCategory('cat-ai')">
-              <span class="rail-item-left">
-                <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <span>AI Voice Search</span>
-              </span>
-              <span class="rail-item-val" id="val-ai">Optional</span>
-            </button>
+          <button class="rail-item" data-cat="cat-ai" data-title="AI Voice Search" onclick="selectCategory('cat-ai')">
+            <span class="rail-item-left">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <span>AI Voice Search</span>
+            </span>
+            <span class="rail-item-val" id="val-ai">Optional</span>
+          </button>
 
-            <button class="rail-item" data-cat="cat-smarthome" data-title="Smart-Home Keys" onclick="selectCategory('cat-smarthome')">
-              <span class="rail-item-left">
-                <svg class="icon" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>
-                <span>Smart-Home Keys</span>
-              </span>
-              <span class="rail-item-val" id="val-shkeys">Optional</span>
-            </button>
+          <button class="rail-item" data-cat="cat-smarthome" data-title="Smart-Home Keys" onclick="selectCategory('cat-smarthome')">
+            <span class="rail-item-left">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>
+              <span>Smart-Home Keys</span>
+            </span>
+            <span class="rail-item-val" id="val-shkeys">Optional</span>
+          </button>
 
-            <button class="rail-item" data-cat="cat-cloud" data-title="Cloud &amp; Profiles" onclick="selectCategory('cat-cloud')">
-              <span class="rail-item-left">
-                <svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                <span>Cloud &amp; Profiles</span>
-              </span>
-              <span class="rail-item-val" id="val-cloud">Optional</span>
-            </button>
+          <button class="rail-item" data-cat="cat-cloud" data-title="Cloud &amp; Profiles" onclick="selectCategory('cat-cloud')">
+            <span class="rail-item-left">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <span>Cloud &amp; Profiles</span>
+            </span>
+            <span class="rail-item-val" id="val-cloud">Optional</span>
+          </button>
 
-            <div class="rail-group">Install &amp; Support</div>
+          <div class="rail-group">Install &amp; Finish</div>
 
-            <button class="rail-item" data-cat="cat-prep" data-title="Prepare Your TV" onclick="selectCategory('cat-prep')">
-              <span class="rail-item-left">
-                <svg class="icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
-                <span>Prepare Your TV</span>
-              </span>
-              <span class="rail-item-val">4 Platforms</span>
-            </button>
+          <button class="rail-item" data-cat="cat-prep" data-title="Prepare Your TV" onclick="selectCategory('cat-prep')">
+            <span class="rail-item-left">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+              <span>Prepare Your TV</span>
+            </span>
+            <span class="rail-item-val">Debugging</span>
+          </button>
 
-            <button class="rail-item" data-cat="cat-tools" data-title="Computer Readiness" onclick="selectCategory('cat-tools')">
-              <span class="rail-item-left">
-                <svg class="icon" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-                <span>Computer Readiness</span>
-              </span>
-              <span class="rail-item-val" id="val-tools">Checking...</span>
-            </button>
+          <button class="rail-item" data-cat="cat-tools" data-title="Computer Readiness" onclick="selectCategory('cat-tools')">
+            <span class="rail-item-left">
+              <svg class="icon" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              <span>Computer Readiness</span>
+            </span>
+            <span class="rail-item-val" id="val-tools">Checking...</span>
+          </button>
 
-            <button class="rail-item" data-cat="cat-qa" data-title="Troubleshooting &amp; Q&amp;A" onclick="selectCategory('cat-qa')">
-              <span class="rail-item-left">
-                <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                <span>Troubleshooting &amp; Q&amp;A</span>
-              </span>
-              <span class="rail-item-val">5 Guides</span>
-            </button>
-          </div>
-        </aside>
+          <button class="rail-item" data-cat="cat-qa" data-title="Troubleshooting &amp; Q&amp;A" onclick="selectCategory('cat-qa')">
+            <span class="rail-item-left">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <span>Troubleshooting &amp; Q&amp;A</span>
+            </span>
+            <span class="rail-item-val">5 Guides</span>
+          </button>
 
-        <!-- RIGHT ACTIVE PANE -->
-        <section class="tv-panel tv-panel-right">
-          <div class="right-header">
-            <h1 id="rightTitle">TV &amp; Location</h1>
-            <div class="right-header-actions">
-              <button class="tv-btn" onclick="saveChoicesAndCopyPrompt()">Copy AI Prompt</button>
-              <button class="tv-btn tv-btn-white" onclick="saveAllKeys()">Save Locally</button>
-            </div>
-          </div>
+          <button class="rail-item" data-cat="cat-finish" data-title="Finish &amp; Hand Off to AI" onclick="selectCategory('cat-finish')">
+            <span class="rail-item-left">
+              <svg class="icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <span>Finish &amp; Hand Off to AI</span>
+            </span>
+            <span class="rail-item-val"><span class="dot dot-green"></span>Next Step</span>
+          </button>
+        </div>
 
-          <form class="right-scroll" autocomplete="off" onsubmit="event.preventDefault()">
-            <!-- CATEGORY 1: TV & LOCATION -->
-            <div id="cat-tv" class="cat-pane active">
-              <div class="tv-row is-primary">
-                <div class="tv-row-head">
-                  <div class="tv-row-main">
-                    <svg class="icon tv-row-icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
-                    <div>
-                      <div class="tv-row-title">TV Operating System</div>
-                      <div class="tv-row-sub">Select your TV platform so your AI agent applies the right brand safety protocol.</div>
-                    </div>
-                  </div>
-                </div>
-                <div class="tv-row-controls">
-                  <select id="tvPlatform" onchange="onPlatformChange()">
-                    <option value="android_tv">Android TV / Google TV (Sony, TCL, Xiaomi, Philips, Hisense, Chromecast, onn...)</option>
-                    <option value="fire_tv">Amazon Fire TV / Fire TV Stick</option>
-                    <option value="lg_webos">LG Smart TV (webOS)</option>
-                    <option value="samsung_tizen">Samsung Smart TV (Tizen)</option>
-                  </select>
-                </div>
-              </div>
+        <!-- Single unmistakable action at bottom of Left Rail -->
+        <div class="rail-finish-box">
+          <div class="rail-finish-note">Done configuring? Click once to save your settings &amp; keys privately on this PC and copy the prompt for your AI agent.</div>
+          <button type="button" class="rail-finish-btn" onclick="saveEverythingAndCopyPrompt()">
+            <svg class="icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span>Finish: Save &amp; Copy AI Prompt</span>
+          </button>
+        </div>
+      </aside>
 
-              <div class="tv-row">
-                <div class="tv-row-head">
-                  <div class="tv-row-main">
-                    <svg class="icon tv-row-icon" viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
-                    <div>
-                      <div class="tv-row-title">TV Wi-Fi IP Address</div>
-                      <div class="tv-row-sub">Optional right now — your AI agent can ask later, or test connectivity safely here.</div>
-                    </div>
-                  </div>
-                </div>
-                <div class="tv-row-controls">
-                  <input id="tvIp" type="text" placeholder="e.g. 192.168.1.50" oninput="refreshPrompt()" />
-                  <button class="tv-btn" onclick="probeTvConnection()">Test TV Connection</button>
-                </div>
-                <div id="tvProbeResult" class="row-status"></div>
-              </div>
+      <!-- =================================================================
+           RIGHT ACTIVE PANE (62%)
+           ================================================================= -->
+      <section class="tv-panel tv-panel-right">
+        <div class="right-header">
+          <h1 id="rightTitle">Your TV</h1>
+        </div>
 
-              <div class="tv-row">
-                <div class="tv-row-head">
-                  <div class="tv-row-main">
-                    <svg class="icon tv-row-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg>
-                    <div>
-                      <div class="tv-row-title">City, Weather &amp; Adaptive Theme</div>
-                      <div class="tv-row-sub">Auto-fills coordinates for free Open-Meteo weather and sunrise/sunset daylight themes.</div>
-                    </div>
-                  </div>
-                </div>
-                <div class="tv-row-controls">
-                  <input id="cityInput" type="text" placeholder="e.g. New York, London, Tel Aviv" oninput="onCityTyped()" />
-                  <button class="tv-btn" onclick="lookupCity()">Auto-Fill Coordinates</button>
-                </div>
-                <div id="cityResult" class="row-status"></div>
-              </div>
-            </div>
-
-            <!-- CATEGORY 2: OPTIONAL TABS (inline summary + button to full tile view) -->
-            <div id="cat-tabs" class="cat-pane">
-              <div class="tv-row is-primary">
-                <div class="tv-row-head">
-                  <div class="tv-row-main">
-                    <svg class="icon tv-row-icon" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>
-                    <div>
-                      <div class="tv-row-title">Smart-Home Tab</div>
-                      <div class="tv-row-sub">Control WiZ lights, Sensibo/Tuya AC, and Switcher boiler directly from the TV. Turn off to remove the tab completely.</div>
-                    </div>
-                  </div>
-                  <label class="tv-switch">
-                    <input id="toggleSmartHome" type="checkbox" onchange="onToggleOptionalTabs()" />
-                    <span class="tv-slider"></span>
-                  </label>
-                </div>
-              </div>
-
-              <div class="tv-row">
-                <div class="tv-row-head">
-                  <div class="tv-row-main">
-                    <svg class="icon tv-row-icon" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="4"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="15.5" cy="11" r="1"/><circle cx="17.5" cy="13" r="1"/></svg>
-                    <div>
-                      <div class="tv-row-title">PC Gaming Tab (4K Streaming)</div>
-                      <div class="tv-row-sub">Stream Steam, Epic, Heroic &amp; standalone Windows games at 4K 60fps. Turn off if you don't play PC games on your TV.</div>
-                    </div>
-                  </div>
-                  <label class="tv-switch">
-                    <input id="toggleGaming" type="checkbox" onchange="onToggleOptionalTabs()" />
-                    <span class="tv-slider"></span>
-                  </label>
-                </div>
-                <div id="gamingOptsWrap" style="display:none;">
-                  <div class="tv-row-controls">
-                    <input id="gamesDirsInput" type="text" placeholder="Standalone game folders (e.g. C:\Games;D:\PCGames)" oninput="refreshPrompt()" />
-                    <button class="tv-btn" onclick="detectMonitors()">Detect Desk Monitors</button>
-                  </div>
-                  <div id="monitorsResult" class="row-status"></div>
-                </div>
-              </div>
-
-              <div class="tv-row">
-                <div class="tv-row-head">
-                  <div class="tv-row-main">
-                    <svg class="icon tv-row-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-                    <div>
-                      <div class="tv-row-title">Visual Tile Picker &amp; Top-Bar Preview</div>
-                      <div class="tv-row-sub">Preview how your TV top bar looks and pick specific Smart-Home devices visually.</div>
-                    </div>
-                  </div>
-                  <button class="tv-btn" onclick="openTopTab('screen-tabs', null, document.querySelector('[data-screen=screen-tabs]'))">Open Visual Tiles</button>
-                </div>
-              </div>
-            </div>
-
-            <!-- CATEGORY 3: AI AGENT PROMPT -->
-            <div id="cat-prompt" class="cat-pane">
-              <div class="tv-row is-primary">
-                <div class="tv-row-head">
-                  <div class="tv-row-main">
-                    <svg class="icon tv-row-icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                    <div>
-                      <div class="tv-row-title">Tailored AI Agent Setup Prompt</div>
-                      <div class="tv-row-sub">Paste into Claude Code, Google Antigravity, Cursor, Codex, or Windsurf opened inside this folder.</div>
-                    </div>
-                  </div>
-                  <button class="tv-btn tv-btn-white" onclick="saveChoicesAndCopyPrompt()">Save &amp; Copy Prompt</button>
-                </div>
-                <div class="tv-row-controls stack">
-                  <textarea id="agentPromptBox" readonly></textarea>
-                </div>
-              </div>
-
-              <div class="mini-grid">
-                <div class="mini-step">
-                  <div class="mini-step-title">1 · Quick Intake</div>
-                  <p>Your AI agent reads your saved choices and confirms any missing basics (TV IP, city, optional tabs).</p>
-                </div>
-                <div class="mini-step">
-                  <div class="mini-step-title">2 · Personal Free Keys</div>
-                  <p>Checks keys saved in git-ignored config files (never printing secrets) and guides you if anything is missing.</p>
-                </div>
-                <div class="mini-step">
-                  <div class="mini-step-title">3 · Safe TV Install</div>
-                  <p>You approve "Allow Debugging" once on your TV while the agent verifies brand safety and installs MyTV.</p>
-                </div>
-                <div class="mini-step">
-                  <div class="mini-step-title">4 · Reversible Control</div>
-                  <p>Nothing changes until you switch Launcher Mode inside MyTV Settings — and Original restores stock anytime.</p>
-                </div>
-              </div>
-            </div>
-
-            <!-- CATEGORY 4: MEDIA & RATINGS -->
-            <div id="cat-media" class="cat-pane">
-              <div class="tv-row is-primary">
-                <div class="tv-row-head">
-                  <div class="tv-row-main">
-                    <svg class="icon tv-row-icon" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="3"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/></svg>
-                    <div>
-                      <div class="tv-row-title">
-                        <span>TMDB API Key</span>
-                        <span class="tag tag-req">Required</span>
-                        <span id="saved-tmdb_key" class="tag tag-saved" style="display:none;">Saved</span>
-                      </div>
-                      <div class="tv-row-sub">4K backdrops, posters, 38+ genre rows &amp; recommendations. Free tier (~50 req/sec).</div>
-                    </div>
-                  </div>
-                  <a class="tv-link-action" href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">
-                    <span>Get Key</span>
-                    <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                  </a>
-                </div>
-                <div class="tv-row-controls">
-                  <input id="key-tmdb_key" type="password" placeholder="Paste TMDB API Key (v3) or Read Access Token..." />
-                  <button class="tv-btn" onclick="verifyTmdbKey()">Verify Key</button>
-                </div>
-                <div id="tmdbVerifyBanner" class="row-status"></div>
-              </div>
-
-              <div class="tv-row">
-                <div class="tv-row-head">
-                  <div class="tv-row-main">
-                    <svg class="icon tv-row-icon" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-                    <div>
-                      <div class="tv-row-title">
-                        <span>Trakt Client ID</span>
-                        <span class="tag">Recommended</span>
-                        <span id="saved-trakt_client_id" class="tag tag-saved" style="display:none;">Saved</span>
-                      </div>
-                      <div class="tv-row-sub">2-way Watchlist, episode progress &amp; ratings. Set Redirect URI to <code>urn:ietf:wg:oauth:2.0:oob</code>.</div>
-                    </div>
-                  </div>
-                  <a class="tv-link-action" href="https://trakt.tv/oauth/applications/new" target="_blank" rel="noopener">
-                    <span>Create App</span>
-                    <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                  </a>
-                </div>
-                <div class="tv-row-controls">
-                  <input id="key-trakt_client_id" type="password" placeholder="Paste Trakt Client ID..." />
-                </div>
-              </div>
-
-              <div class="tv-row">
-                <div class="tv-row-head">
-                  <div class="tv-row-main">
-                    <svg class="icon tv-row-icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                    <div>
-                      <div class="tv-row-title">
-                        <span>OMDb &amp; MDBList Keys</span>
-                        <span class="tag">Optional</span>
-                      </div>
-                      <div class="tv-row-sub">Adds Rotten Tomatoes &amp; Metacritic scores alongside IMDb (1,000/day free each; cached permanently).</div>
-                    </div>
-                  </div>
-                  <div style="display:flex; gap:6px;">
-                    <a class="tv-link-action" href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noopener">OMDb</a>
-                    <a class="tv-link-action" href="https://mdblist.com/preferences/" target="_blank" rel="noopener">MDBList</a>
-                  </div>
-                </div>
-                <div class="tv-row-controls">
-                  <div class="inline-2">
-                    <input id="key-omdb_key" type="password" placeholder="OMDb API Key (optional)..." />
-                    <input id="key-mdblist_key" type="password" placeholder="MDBList API Key (optional)..." />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- CATEGORY 5: AI VOICE SEARCH -->
-            <div id="cat-ai" class="cat-pane">
-              <div class="tv-row is-primary">
-                <div class="tv-row-head">
-                  <div class="tv-row-main">
-                    <svg class="icon tv-row-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                    <div>
-                      <div class="tv-row-title">
-                        <span>Google Gemini API Key</span>
-                        <span class="tag">Optional</span>
-                        <span id="saved-gemini_api_key" class="tag tag-saved" style="display:none;">Saved</span>
-                      </div>
-                      <div class="tv-row-sub">Natural-language search by mood or plot ("90s sci-fi thriller with a twist"). Uses Gemini Flash free tier.</div>
-                    </div>
-                  </div>
-                  <a class="tv-link-action" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">
-                    <span>AI Studio</span>
-                    <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                  </a>
-                </div>
-                <div class="tv-row-controls">
-                  <input id="key-gemini_api_key" type="password" placeholder="Paste Gemini API Key (optional)..." />
-                </div>
-              </div>
-            </div>
-
-            <!-- CATEGORY 6: SMART-HOME KEYS -->
-            <div id="cat-smarthome" class="cat-pane">
-              <div class="tv-row is-primary">
-                <div class="tv-row-head">
-                  <div class="tv-row-main">
-                    <svg class="icon tv-row-icon" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>
-                    <div>
-                      <div class="tv-row-title"><span>WiZ Smart Bulbs</span><span class="tag">Zero API Key · Local Wi-Fi</span></div>
-                      <div class="tv-row-sub">Discovered automatically over Wi-Fi UDP on your TV, or enter comma-separated bulb IPs below.</div>
-                    </div>
-                  </div>
-                </div>
-                <div class="tv-row-controls">
-                  <input id="key-wiz_light_ips" type="text" placeholder="Optional comma-separated WiZ bulb IPs..." />
-                </div>
-              </div>
-
-              <div class="tv-row">
-                <div class="tv-row-head">
-                  <div class="tv-row-main">
-                    <svg class="icon tv-row-icon" viewBox="0 0 24 24"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
-                    <div>
-                      <div class="tv-row-title"><span>Sensibo Sky AC</span><span class="tag">Optional</span></div>
-                      <div class="tv-row-sub">Controls Sensibo AC power, mode, fan speed, and target temperature directly from your couch.</div>
-                    </div>
-                  </div>
-                  <a class="tv-link-action" href="https://home.sensibo.com/me/api" target="_blank" rel="noopener">
-                    <span>Sensibo Portal</span>
-                    <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                  </a>
-                </div>
-                <div class="tv-row-controls">
-                  <input id="key-sensibo_api_key" type="password" placeholder="Sensibo API Key (optional)..." />
-                </div>
-              </div>
-
-              <div class="tv-row">
-                <div class="tv-row-head">
-                  <div class="tv-row-main">
-                    <svg class="icon tv-row-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="10" rx="2"/><path d="M7 18c0-2 2-2 2-4"/><path d="M12 18c0-2 2-2 2-4"/><path d="M17 18c0-2 2-2 2-4"/></svg>
-                    <div>
-                      <div class="tv-row-title"><span>Tuya / Smart Life AC</span><span class="tag">Optional</span></div>
-                      <div class="tv-row-sub">Create a free IoT Core trial project on Tuya Cloud and paste your Access ID &amp; Secret.</div>
-                    </div>
-                  </div>
-                  <a class="tv-link-action" href="https://iot.tuya.com" target="_blank" rel="noopener">
-                    <span>Tuya Cloud</span>
-                    <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                  </a>
-                </div>
-                <div class="tv-row-controls">
-                  <div class="inline-2">
-                    <input id="key-tuya_access_id" type="text" placeholder="Tuya Access ID..." />
-                    <input id="key-tuya_access_secret" type="password" placeholder="Tuya Access Secret..." />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- CATEGORY 7: CLOUD & PROFILES -->
-            <div id="cat-cloud" class="cat-pane">
-              <div class="tv-row is-primary">
-                <div class="tv-row-head">
-                  <div class="tv-row-main">
-                    <svg class="icon tv-row-icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                    <div>
-                      <div class="tv-row-title"><span>Supabase Multi-User Profiles &amp; Cloud Vault</span><span class="tag">Optional · Free 500 MB</span></div>
-                      <div class="tv-row-sub">Syncs household profiles, watch history &amp; zero-knowledge AES-256-GCM key backups. Run <code>docs/supabase-schema.sql</code> once in SQL Editor.</div>
-                    </div>
-                  </div>
-                  <div style="display:flex; gap:6px;">
-                    <a class="tv-link-action" href="https://supabase.com/dashboard" target="_blank" rel="noopener">Supabase</a>
-                    <button class="tv-btn" onclick="generateHouseholdKey()">Generate Key &amp; SQL</button>
-                  </div>
-                </div>
-                <div class="tv-row-controls stack">
-                  <div class="inline-2">
-                    <input id="key-supabase_url" type="text" placeholder="Supabase URL (https://xyz.supabase.co)..." />
-                    <input id="key-supabase_anon_key" type="password" placeholder="Supabase anon public key..." />
-                  </div>
-                  <div class="inline-2">
-                    <input id="key-admin_emails" type="text" placeholder="Admin Google email (you@gmail.com)..." />
-                    <input id="key-household_key" type="password" placeholder="64-char Household Key (or click Generate)" />
-                  </div>
-                  <textarea id="householdSqlBox" style="display:none; min-height:96px;" readonly></textarea>
-                </div>
-              </div>
-            </div>
-
-            <!-- CATEGORY 8: PREPARE YOUR TV -->
-            <div id="cat-prep" class="cat-pane">
-              <div class="tv-row is-primary">
+        <form class="right-scroll" autocomplete="off" onsubmit="event.preventDefault()">
+          <!-- CATEGORY 1: YOUR TV -->
+          <div id="cat-tv" class="cat-pane active">
+            <div class="tv-row is-primary">
+              <div class="tv-row-head">
                 <div class="tv-row-main">
                   <svg class="icon tv-row-icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
                   <div>
-                    <div class="tv-row-title">Google TV &amp; Android TV (Sony, TCL, Xiaomi, Philips, Hisense, onn)</div>
-                    <div class="tv-row-sub">One-time 60-second debugging setup before your AI agent connects over Wi-Fi.</div>
+                    <div class="tv-row-title">TV Operating System</div>
+                    <div class="tv-row-sub">Select your TV platform so your AI agent applies the right brand safety protocol and package format.</div>
                   </div>
                 </div>
-                <ol class="tv-steps-list">
-                  <li>Open TV <strong>Settings &rarr; System &rarr; About</strong>.</li>
-                  <li>Scroll to <strong>Android TV OS Build</strong> and press <strong>OK 7 times</strong> until <em>"You are now a developer!"</em> appears.</li>
-                  <li>Open <strong>System &rarr; Developer options</strong> and turn ON <strong>USB debugging</strong> (and <strong>Network debugging</strong> if shown).</li>
-                  <li>Read your TV's IP under <strong>Settings &rarr; Network &amp; Internet &rarr; your Wi-Fi name</strong>.</li>
-                </ol>
               </div>
+              <div class="tv-row-controls">
+                <select id="tvPlatform" onchange="onPlatformChange()">
+                  <option value="android_tv">Android TV / Google TV (Sony, TCL, Xiaomi, Philips, Hisense, Chromecast, onn...)</option>
+                  <option value="fire_tv">Amazon Fire TV / Fire TV Stick</option>
+                  <option value="lg_webos">LG Smart TV (webOS)</option>
+                  <option value="samsung_tizen">Samsung Smart TV (Tizen)</option>
+                </select>
+              </div>
+            </div>
 
-              <div class="tv-row">
+            <div class="tv-row">
+              <div class="tv-row-head">
                 <div class="tv-row-main">
-                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
                   <div>
-                    <div class="tv-row-title">Chromecast with Google TV / Android 14 Streamers</div>
-                    <div class="tv-row-sub">Uses Wireless Debugging pairing code before opening ADB port 5555.</div>
+                    <div class="tv-row-title">TV Wi-Fi IP Address</div>
+                    <div class="tv-row-sub">Found in your TV's Network settings. Optional right now — your AI agent can also ask you later.</div>
                   </div>
                 </div>
-                <ol class="tv-steps-list">
-                  <li>Enable <strong>Developer options</strong> as above, then open <strong>Wireless debugging</strong> and turn it ON.</li>
-                  <li>Select <strong>Pair device with pairing code</strong> and share the 6-digit code and IP:port with your AI agent.</li>
-                </ol>
               </div>
+              <div class="tv-row-controls">
+                <input id="tvIp" type="text" placeholder="e.g. 192.168.1.50" oninput="refreshPrompt()" />
+                <button type="button" class="tv-btn" onclick="probeTvConnection()">Test TV Connection</button>
+              </div>
+              <div id="tvProbeResult" class="row-status"></div>
+            </div>
+          </div>
 
-              <div class="tv-row">
+          <!-- CATEGORY 2: LOCATION & WEATHER (Separated cleanly from TV OS/IP) -->
+          <div id="cat-location" class="cat-pane">
+            <div class="tv-row is-primary">
+              <div class="tv-row-head">
                 <div class="tv-row-main">
-                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg>
                   <div>
-                    <div class="tv-row-title">LG webOS, Samsung Tizen &amp; Amazon Fire TV</div>
-                    <div class="tv-row-sub">Quick platform-specific Developer Mode entry points.</div>
+                    <div class="tv-row-title">City, Weather &amp; Adaptive Daylight Theme</div>
+                    <div class="tv-row-sub">Auto-fills latitude, longitude, and regional TMDB catalog for free Open-Meteo weather and sunrise/sunset themes.</div>
                   </div>
                 </div>
-                <ul class="tv-steps-list">
-                  <li><strong>LG webOS</strong>: Install <strong>Developer Mode</strong> from LG Content Store, enable <strong>Dev Mode Status</strong> + <strong>Key Server</strong>.</li>
-                  <li><strong>Samsung Tizen</strong>: Open <strong>Apps</strong>, press <code>1 2 3 4 5</code> on your remote, turn <strong>Developer mode</strong> ON with your PC IP, and reboot.</li>
-                  <li><strong>Amazon Fire TV</strong>: <strong>Settings &rarr; My Fire TV &rarr; About</strong> (click 7 times) &rarr; enable <strong>ADB Debugging</strong>.</li>
-                </ul>
               </div>
+              <div class="tv-row-controls">
+                <input id="cityInput" type="text" placeholder="e.g. New York, London, Tel Aviv" oninput="onCityTyped()" />
+                <button type="button" class="tv-btn" onclick="lookupCity()">Auto-Fill Coordinates</button>
+              </div>
+              <div id="cityResult" class="row-status"></div>
             </div>
 
-            <!-- CATEGORY 9: COMPUTER READINESS -->
-            <div id="cat-tools" class="cat-pane">
-              <div class="tv-row is-primary">
+            <div class="tv-row">
+              <div class="tv-row-head">
                 <div class="tv-row-main">
-                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
                   <div>
-                    <div class="tv-row-title">Local Build Toolchain Inspection</div>
-                    <div class="tv-row-sub">If anything shows "Agent Will Install", your AI agent can install JDK 17 or Android platform-tools automatically.</div>
+                    <div class="tv-row-title">Temperature Units</div>
+                    <div class="tv-row-sub">Choose Celsius, Fahrenheit, or Automatic based on your country.</div>
                   </div>
                 </div>
               </div>
-              <div id="toolsRows"></div>
+              <div class="tv-row-controls">
+                <select id="tempUnit">
+                  <option value="auto">Automatic (based on country)</option>
+                  <option value="c">Celsius (&deg;C)</option>
+                  <option value="f">Fahrenheit (&deg;F)</option>
+                </select>
+              </div>
             </div>
+          </div>
 
-            <!-- CATEGORY 10: TROUBLESHOOTING & Q&A -->
-            <div id="cat-qa" class="cat-pane">
-              <div class="tv-row is-primary">
+          <!-- CATEGORY 3: OPTIONAL TABS (Simple clean toggles + native multi-folder game picker) -->
+          <div id="cat-tabs" class="cat-pane">
+            <div class="tv-row is-primary">
+              <div class="tv-row-head">
                 <div class="tv-row-main">
-                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>
                   <div>
-                    <div class="tv-row-title">What do I do manually vs. what does the AI agent handle?</div>
-                    <div class="tv-row-sub"><strong>You do manually:</strong> enable Developer Debugging on your TV once, create your free TMDB key, tap <em>"Allow Debugging"</em> on your TV screen, and (if using PC Gaming) install Sunshine. <strong>Your AI agent handles:</strong> build tools, TV brand safety checks, compiling, installing over Wi-Fi, and encrypting keys into Android KeyStore.</div>
+                    <div class="tv-row-title">Smart-Home Tab</div>
+                    <div class="tv-row-sub">Turn off to remove the Smart-Home tab completely from your TV and Phone Remote. When enabled, MyTV automatically displays only devices found on Wi-Fi or configured with keys.</div>
                   </div>
                 </div>
+                <label class="tv-switch">
+                  <input id="toggleSmartHome" type="checkbox" onchange="onToggleOptionalTabs()" />
+                  <span class="tv-slider"></span>
+                </label>
               </div>
+            </div>
 
-              <div class="tv-row">
+            <div class="tv-row">
+              <div class="tv-row-head">
                 <div class="tv-row-main">
-                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777z"/></svg>
+                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="4"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="15.5" cy="11" r="1"/><circle cx="17.5" cy="13" r="1"/></svg>
                   <div>
-                    <div class="tv-row-title">What if my AI agent fails to set an API key?</div>
-                    <div class="tv-row-sub">You can enter keys anytime directly on your TV inside <strong>MyTV &rarr; Settings &rarr; Get Started</strong> (including QR Trakt pairing &amp; WiZ Wi-Fi scan), or save them in the <strong>API Keys</strong> tab here and run <code>python MyTV-launcher/tools/send_key.py &lt;TV_IP&gt; --sync-config</code>.</div>
+                    <div class="tv-row-title">PC Gaming Tab</div>
+                    <div class="tv-row-sub">Stream Steam, Epic, Heroic &amp; standalone Windows PC games to your TV (resolution &amp; frame rate adapt to your PC, TV, and network). Turn off to hide the Gaming tab. Your AI agent handles desk-monitor detection automatically during install.</div>
                   </div>
                 </div>
+                <label class="tv-switch">
+                  <input id="toggleGaming" type="checkbox" onchange="onToggleOptionalTabs()" />
+                  <span class="tv-slider"></span>
+                </label>
               </div>
+            </div>
 
-              <div class="tv-row">
+            <!-- Dedicated Standalone Game Folders Row (visible when PC Gaming is ON) -->
+            <div id="gamingFoldersRow" class="tv-row" style="display:none;">
+              <div class="tv-row-head">
                 <div class="tv-row-main">
-                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                   <div>
-                    <div class="tv-row-title">Can I add Gaming or Smart-Home tabs later?</div>
-                    <div class="tv-row-sub">Yes! Both features stay built in and cleanly hidden until needed. Turn them on anytime inside <strong>MyTV &rarr; Settings &rarr; Home &amp; Appearance &rarr; Interface &amp; Units</strong>, or ask your AI agent to flip <code>enable_gaming=true</code> / <code>enable_smarthome=true</code> and sync keys.</div>
+                    <div class="tv-row-title">Standalone Game Folders</div>
+                    <div class="tv-row-sub">Steam &amp; Epic libraries are detected automatically. Add one or more folders containing standalone PC games using your OS folder browser.</div>
                   </div>
                 </div>
+                <button type="button" class="tv-btn tv-btn-white" onclick="browseGameFolder()">+ Browse Folder</button>
               </div>
+              <div class="tv-row-controls stack">
+                <div id="gameFoldersChips" class="chip-list"></div>
+                <div style="display:flex; gap:8px;">
+                  <input id="manualGameDirInput" type="text" placeholder="Or type/paste a folder path (e.g. D:\PCGames) and click Add..." onkeydown="if(event.key==='Enter'){event.preventDefault();addManualGameFolder();}" />
+                  <button type="button" class="tv-btn" onclick="addManualGameFolder()">Add Path</button>
+                </div>
+              </div>
+              <div id="browseFolderStatus" class="row-status"></div>
+            </div>
 
-              <div class="tv-row">
+            <!-- Compact Live TV Top-Bar Preview -->
+            <div class="tv-row">
+              <div class="tv-row-main">
+                <svg class="icon tv-row-icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
+                <div>
+                  <div class="tv-row-title">Your TV Top-Bar Preview</div>
+                  <div class="tv-row-sub">Shared Reels is Work in Progress and disabled in public builds.</div>
+                </div>
+              </div>
+              <div class="preview-bar">
+                <span class="preview-tab">Search</span>
+                <span class="preview-tab active-home">Home</span>
+                <span class="preview-tab">Apps</span>
+                <span id="prevTabGaming" class="preview-tab hidden-tab">Gaming</span>
+                <span id="prevTabSmartHome" class="preview-tab hidden-tab">Smart-Home</span>
+                <span class="preview-tab">Settings</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- CATEGORY 4: MEDIA & RATINGS -->
+          <div id="cat-media" class="cat-pane">
+            <div class="tv-row is-primary">
+              <div class="tv-row-head">
                 <div class="tv-row-main">
-                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="3"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/></svg>
                   <div>
-                    <div class="tv-row-title">Play Protect showed "Risky app blocked" on Android 14</div>
-                    <div class="tv-row-sub">Expected once for apps with a remote-button accessibility helper. Select <strong>More details &rarr; Install anyway</strong> on your TV remote. Always install over ADB rather than a TV file manager.</div>
+                    <div class="tv-row-title">
+                      <span>TMDB API Key</span>
+                      <button type="button" class="help-q-btn" title="How to get a free TMDB key" onclick="openGuide('tmdb')">?</button>
+                      <span class="tag tag-req">Required</span>
+                      <span id="saved-tmdb_key" class="tag tag-saved" style="display:none;">Saved</span>
+                    </div>
+                    <div class="tv-row-sub">Powers high-resolution backdrops, posters, 38+ genre rows &amp; recommendations. Free tier (~50 req/sec).</div>
                   </div>
                 </div>
+                <a class="tv-link-action" href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">
+                  <span>Get Key</span>
+                  <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
               </div>
+              <div class="tv-row-controls">
+                <input id="key-tmdb_key" type="password" placeholder="Paste TMDB API Key (v3) or Read Access Token..." />
+                <button type="button" class="tv-btn" onclick="verifyTmdbKey()">Verify Key</button>
+              </div>
+              <div id="tmdbVerifyBanner" class="row-status"></div>
+            </div>
 
-              <div class="tv-row">
+            <div class="tv-row">
+              <div class="tv-row-head">
                 <div class="tv-row-main">
-                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
                   <div>
-                    <div class="tv-row-title">How do I return to my TV's original factory home screen?</div>
-                    <div class="tv-row-sub">MyTV never deletes your stock launcher. Open <strong>MyTV &rarr; Settings &rarr; System &rarr; Launcher Mode</strong> and select <strong>Original TV Home</strong> — your factory home returns immediately.</div>
+                    <div class="tv-row-title">
+                      <span>Trakt Client ID</span>
+                      <button type="button" class="help-q-btn" title="How to create a free Trakt app" onclick="openGuide('trakt')">?</button>
+                      <span class="tag">Recommended</span>
+                      <span id="saved-trakt_client_id" class="tag tag-saved" style="display:none;">Saved</span>
+                    </div>
+                    <div class="tv-row-sub">2-way Watchlist, episode progress &amp; personal ratings. Set Redirect URI to <code>urn:ietf:wg:oauth:2.0:oob</code>.</div>
                   </div>
+                </div>
+                <a class="tv-link-action" href="https://trakt.tv/oauth/applications/new" target="_blank" rel="noopener">
+                  <span>Create App</span>
+                  <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+              </div>
+              <div class="tv-row-controls">
+                <input id="key-trakt_client_id" type="password" placeholder="Paste Trakt Client ID..." />
+              </div>
+            </div>
+
+            <div class="tv-row">
+              <div class="tv-row-head">
+                <div class="tv-row-main">
+                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  <div>
+                    <div class="tv-row-title">
+                      <span>OMDb &amp; MDBList Keys</span>
+                      <button type="button" class="help-q-btn" title="How to get OMDb and MDBList keys" onclick="openGuide('omdb')">?</button>
+                      <span class="tag">Optional</span>
+                    </div>
+                    <div class="tv-row-sub">Adds Rotten Tomatoes &amp; Metacritic scores alongside IMDb (1,000/day free each; cached permanently).</div>
+                  </div>
+                </div>
+                <div style="display:flex; gap:6px;">
+                  <a class="tv-link-action" href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noopener">OMDb</a>
+                  <a class="tv-link-action" href="https://mdblist.com/preferences/" target="_blank" rel="noopener">MDBList</a>
+                </div>
+              </div>
+              <div class="tv-row-controls">
+                <div class="inline-2">
+                  <input id="key-omdb_key" type="password" placeholder="OMDb API Key (optional)..." />
+                  <input id="key-mdblist_key" type="password" placeholder="MDBList API Key (optional)..." />
                 </div>
               </div>
             </div>
-          </form>
-        </section>
-      </div>
-    </section>
-
-    <!-- ===================================================================
-         SCREEN 2: VISUAL OPTIONAL TABS (Matches MyTV smarthome.webp Tiles!)
-         =================================================================== -->
-    <section id="screen-tabs" class="view-screen">
-      <div class="tiles-scroll">
-        <div class="shelf-heading">
-          <span>Your TV Top-Bar Preview</span>
-          <span class="shelf-sub">Tabs turned off below are cleanly removed from both your TV and Phone Remote</span>
-        </div>
-
-        <div class="preview-strip">
-          <div class="preview-tabs">
-            <span class="preview-tab">Search</span>
-            <span class="preview-tab active-home">Home</span>
-            <span class="preview-tab">Apps</span>
-            <span id="prevTabGaming" class="preview-tab hidden-tab">Gaming</span>
-            <span id="prevTabSmartHome" class="preview-tab hidden-tab">Smart-Home</span>
-            <span class="preview-tab">Settings</span>
           </div>
-          <button class="tv-btn tv-btn-white" onclick="saveChoicesAndCopyPrompt()">Save &amp; Copy AI Prompt</button>
-        </div>
 
-        <div class="shelf-heading">
-          <span>Optional TV Tabs</span>
-          <span class="shelf-sub">Click any tile to turn it On (Blue) or Off (Hidden)</span>
-        </div>
-
-        <div class="tile-row">
-          <div id="tileSmartHome" class="tile-item" tabindex="0" onclick="toggleTileSmartHome()">
-            <div class="tile-card">
-              <svg class="icon icon-lg" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>
+          <!-- CATEGORY 5: AI VOICE SEARCH -->
+          <div id="cat-ai" class="cat-pane">
+            <div class="tv-row is-primary">
+              <div class="tv-row-head">
+                <div class="tv-row-main">
+                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <div>
+                    <div class="tv-row-title">
+                      <span>Google Gemini API Key</span>
+                      <button type="button" class="help-q-btn" title="How to get a free Gemini API key" onclick="openGuide('gemini')">?</button>
+                      <span class="tag">Optional</span>
+                      <span id="saved-gemini_api_key" class="tag tag-saved" style="display:none;">Saved</span>
+                    </div>
+                    <div class="tv-row-sub">Natural-language search by mood or plot ("90s sci-fi thriller with a twist"). Uses Gemini Flash free tier.</div>
+                  </div>
+                </div>
+                <a class="tv-link-action" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">
+                  <span>AI Studio</span>
+                  <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+              </div>
+              <div class="tv-row-controls">
+                <input id="key-gemini_api_key" type="password" placeholder="Paste Gemini API Key (optional)..." />
+              </div>
             </div>
-            <div class="tile-label">Smart-Home Tab</div>
-            <div id="tileSmartHomeMeta" class="tile-meta">Off · Hidden from TV</div>
           </div>
 
-          <div id="tileGaming" class="tile-item" tabindex="0" onclick="toggleTileGaming()">
-            <div class="tile-card">
-              <svg class="icon icon-lg" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="4"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="15.5" cy="11" r="1"/><circle cx="17.5" cy="13" r="1"/></svg>
+          <!-- CATEGORY 6: SMART-HOME KEYS (Built-in + Custom "Other" Brands) -->
+          <div id="cat-smarthome" class="cat-pane">
+            <div class="tv-row is-primary">
+              <div class="tv-row-head">
+                <div class="tv-row-main">
+                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>
+                  <div>
+                    <div class="tv-row-title">
+                      <span>WiZ Smart Bulbs</span>
+                      <button type="button" class="help-q-btn" title="How WiZ local Wi-Fi setup works" onclick="openGuide('wiz')">?</button>
+                      <span class="tag">Zero API Key · Local Wi-Fi</span>
+                    </div>
+                    <div class="tv-row-sub">Discovered automatically over Wi-Fi UDP on your TV, or enter comma-separated bulb IPs below.</div>
+                  </div>
+                </div>
+              </div>
+              <div class="tv-row-controls">
+                <input id="key-wiz_light_ips" type="text" placeholder="Optional comma-separated WiZ bulb IPs..." />
+              </div>
             </div>
-            <div class="tile-label">PC Gaming (4K)</div>
-            <div id="tileGamingMeta" class="tile-meta">Off · Hidden from TV</div>
-          </div>
 
-          <div class="tile-item is-disabled">
-            <div class="tile-card">
-              <svg class="icon icon-lg" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            <div class="tv-row">
+              <div class="tv-row-head">
+                <div class="tv-row-main">
+                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+                  <div>
+                    <div class="tv-row-title">
+                      <span>Sensibo Sky AC</span>
+                      <button type="button" class="help-q-btn" title="How to get a Sensibo API key" onclick="openGuide('sensibo')">?</button>
+                      <span class="tag">Optional</span>
+                    </div>
+                    <div class="tv-row-sub">Controls Sensibo AC power, mode, fan speed, and target temperature directly from your couch.</div>
+                  </div>
+                </div>
+                <a class="tv-link-action" href="https://home.sensibo.com/me/api" target="_blank" rel="noopener">
+                  <span>Sensibo Portal</span>
+                  <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+              </div>
+              <div class="tv-row-controls">
+                <input id="key-sensibo_api_key" type="password" placeholder="Sensibo API Key (optional)..." />
+              </div>
             </div>
-            <div class="tile-label">Shared Reels</div>
-            <div class="tile-meta">Work in Progress · Disabled</div>
-          </div>
 
-          <div class="tile-item color-violet" tabindex="0" onclick="openTopTab('screen-setup', 'cat-media', document.querySelector('[data-jump=cat-media]'))">
-            <div class="tile-card">
-              <svg class="icon icon-lg" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+            <div class="tv-row">
+              <div class="tv-row-head">
+                <div class="tv-row-main">
+                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="10" rx="2"/><path d="M7 18c0-2 2-2 2-4"/><path d="M12 18c0-2 2-2 2-4"/><path d="M17 18c0-2 2-2 2-4"/></svg>
+                  <div>
+                    <div class="tv-row-title">
+                      <span>Tuya / Smart Life AC</span>
+                      <button type="button" class="help-q-btn" title="How to get Tuya Cloud credentials" onclick="openGuide('tuya')">?</button>
+                      <span class="tag">Optional</span>
+                    </div>
+                    <div class="tv-row-sub">Create a free IoT Core trial project on Tuya Cloud and paste your Access ID &amp; Secret.</div>
+                  </div>
+                </div>
+                <a class="tv-link-action" href="https://iot.tuya.com" target="_blank" rel="noopener">
+                  <span>Tuya Cloud</span>
+                  <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+              </div>
+              <div class="tv-row-controls">
+                <div class="inline-2">
+                  <input id="key-tuya_access_id" type="text" placeholder="Tuya Access ID..." />
+                  <input id="key-tuya_access_secret" type="password" placeholder="Tuya Access Secret..." />
+                </div>
+              </div>
             </div>
-            <div class="tile-label">Configure API Keys</div>
-            <div class="tile-meta">TMDB, Trakt, Gemini &amp; Devices</div>
-          </div>
-        </div>
 
-        <div class="shelf-heading">
-          <span>Smart-Home Devices Included in AI Prompt</span>
-          <span class="shelf-sub">Click the appliances you own (automatically enables the Smart-Home tab)</span>
-        </div>
-
-        <div class="tile-row">
-          <div class="tile-item color-indigo" data-sh-dev="WiZ Smart Lights" tabindex="0" onclick="toggleDeviceTile(this)">
-            <div class="tile-card">
-              <svg class="icon icon-lg" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>
+            <!-- Custom "Other" Smart-Home Brand Row -->
+            <div class="tv-row">
+              <div class="tv-row-head">
+                <div class="tv-row-main">
+                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                  <div>
+                    <div class="tv-row-title">
+                      <span>Other Smart-Home Brand (AI-Added Support)</span>
+                      <span class="tag">Custom</span>
+                    </div>
+                    <div class="tv-row-sub">Own Philips Hue, Home Assistant, Govee, SwitchBot, or another smart device? Enter the company name (and optional API key) — your installing AI agent will automatically add support for it before building MyTV.</div>
+                  </div>
+                </div>
+              </div>
+              <div class="tv-row-controls stack">
+                <div id="customBrandsChips" class="chip-list"></div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr auto; gap:8px;">
+                  <input id="otherBrandName" type="text" placeholder="Company / Brand (e.g. Philips Hue, Home Assistant)..." onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomBrand();}" />
+                  <input id="otherBrandKey" type="password" placeholder="API Key / Token (optional)..." onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomBrand();}" />
+                  <button type="button" class="tv-btn tv-btn-white" onclick="addCustomBrand()">+ Add Brand</button>
+                </div>
+              </div>
             </div>
-            <div class="tile-label">WiZ Smart Lights</div>
-            <div class="tile-meta">Local Wi-Fi · Zero Cloud Key</div>
           </div>
 
-          <div class="tile-item color-cerulean" data-sh-dev="Sensibo AC" tabindex="0" onclick="toggleDeviceTile(this)">
-            <div class="tile-card">
-              <svg class="icon icon-lg" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="9" rx="2"/><path d="M8 18c0-2 1.5-2 1.5-4"/><path d="M12 18c0-2 1.5-2 1.5-4"/><path d="M16 18c0-2 1.5-2 1.5-4"/></svg>
+          <!-- CATEGORY 7: CLOUD & PROFILES -->
+          <div id="cat-cloud" class="cat-pane">
+            <div class="tv-row is-primary">
+              <div class="tv-row-head">
+                <div class="tv-row-main">
+                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  <div>
+                    <div class="tv-row-title">
+                      <span>Supabase Multi-User Profiles &amp; Cloud Vault</span>
+                      <button type="button" class="help-q-btn" title="How to set up a free Supabase project" onclick="openGuide('supabase')">?</button>
+                      <span class="tag">Optional · Free 500 MB</span>
+                    </div>
+                    <div class="tv-row-sub">Syncs household profiles, watch history &amp; zero-knowledge AES-256-GCM key backups. Run <code>docs/supabase-schema.sql</code> once in SQL Editor.</div>
+                  </div>
+                </div>
+                <div style="display:flex; gap:6px;">
+                  <a class="tv-link-action" href="https://supabase.com/dashboard" target="_blank" rel="noopener">Supabase</a>
+                  <button type="button" class="tv-btn" onclick="generateHouseholdKey()">Generate Key &amp; SQL</button>
+                </div>
+              </div>
+              <div class="tv-row-controls stack">
+                <div class="inline-2">
+                  <input id="key-supabase_url" type="text" placeholder="Supabase URL (https://xyz.supabase.co)..." />
+                  <input id="key-supabase_anon_key" type="password" placeholder="Supabase anon public key..." />
+                </div>
+                <div class="inline-2">
+                  <input id="key-admin_emails" type="text" placeholder="Admin Google email (you@gmail.com)..." />
+                  <input id="key-household_key" type="password" placeholder="64-char Household Key (or click Generate)" />
+                </div>
+                <textarea id="householdSqlBox" style="display:none; min-height:96px;" readonly></textarea>
+              </div>
             </div>
-            <div class="tile-label">Sensibo Sky AC</div>
-            <div class="tile-meta">Mode · Temp · Fan Speed</div>
           </div>
 
-          <div class="tile-item color-amber" data-sh-dev="Tuya Smart AC" tabindex="0" onclick="toggleDeviceTile(this)">
-            <div class="tile-card">
-              <svg class="icon icon-lg" viewBox="0 0 24 24"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+          <!-- CATEGORY 8: PREPARE YOUR TV -->
+          <div id="cat-prep" class="cat-pane">
+            <div class="tv-row is-primary">
+              <div class="tv-row-main">
+                <svg class="icon tv-row-icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
+                <div>
+                  <div class="tv-row-title">Google TV &amp; Android TV (Sony, TCL, Xiaomi, Philips, Hisense, onn)</div>
+                  <div class="tv-row-sub">One-time 60-second debugging setup before your AI agent connects over Wi-Fi.</div>
+                </div>
+              </div>
+              <ol class="tv-steps-list">
+                <li>Open TV <strong>Settings &rarr; System &rarr; About</strong>.</li>
+                <li>Scroll to <strong>Android TV OS Build</strong> and press <strong>OK 7 times</strong> until <em>"You are now a developer!"</em> appears.</li>
+                <li>Open <strong>System &rarr; Developer options</strong> and turn ON <strong>USB debugging</strong> (and <strong>Network debugging</strong> if shown).</li>
+                <li>Read your TV's IP under <strong>Settings &rarr; Network &amp; Internet &rarr; your Wi-Fi name</strong>.</li>
+              </ol>
             </div>
-            <div class="tile-label">Tuya / Smart Life AC</div>
-            <div class="tile-meta">Tuya IoT Core · Free Tier</div>
+
+            <div class="tv-row">
+              <div class="tv-row-main">
+                <svg class="icon tv-row-icon" viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+                <div>
+                  <div class="tv-row-title">Chromecast with Google TV / Android 14 Streamers</div>
+                  <div class="tv-row-sub">Uses Wireless Debugging pairing code before opening ADB port 5555.</div>
+                </div>
+              </div>
+              <ol class="tv-steps-list">
+                <li>Enable <strong>Developer options</strong> as above, then open <strong>Wireless debugging</strong> and turn it ON.</li>
+                <li>Select <strong>Pair device with pairing code</strong> and share the 6-digit code and IP:port with your AI agent.</li>
+              </ol>
+            </div>
+
+            <div class="tv-row">
+              <div class="tv-row-main">
+                <svg class="icon tv-row-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                <div>
+                  <div class="tv-row-title">LG webOS, Samsung Tizen &amp; Amazon Fire TV</div>
+                  <div class="tv-row-sub">Quick platform-specific Developer Mode entry points.</div>
+                </div>
+              </div>
+              <ul class="tv-steps-list">
+                <li><strong>LG webOS</strong>: Install <strong>Developer Mode</strong> from LG Content Store, enable <strong>Dev Mode Status</strong> + <strong>Key Server</strong>.</li>
+                <li><strong>Samsung Tizen</strong>: Open <strong>Apps</strong>, press <code>1 2 3 4 5</code> on your remote, turn <strong>Developer mode</strong> ON with your PC IP, and reboot.</li>
+                <li><strong>Amazon Fire TV</strong>: <strong>Settings &rarr; My Fire TV &rarr; About</strong> (click 7 times) &rarr; enable <strong>ADB Debugging</strong>.</li>
+              </ul>
+            </div>
           </div>
 
-          <div class="tile-item color-crimson" data-sh-dev="Switcher Boiler" tabindex="0" onclick="toggleDeviceTile(this)">
-            <div class="tile-card">
-              <svg class="icon icon-lg" viewBox="0 0 24 24"><path d="M4 4h6a4 4 0 0 1 4 4v2H8V8a4 4 0 0 1 4-4"/><line x1="6" y1="10" x2="18" y2="10"/><line x1="8" y1="14" x2="7.5" y2="16.5"/><line x1="12" y1="14" x2="12" y2="17"/><line x1="16" y1="14" x2="16.5" y2="16.5"/><line x1="9.5" y1="19" x2="9" y2="21"/><line x1="14.5" y1="19" x2="15" y2="21"/></svg>
+          <!-- CATEGORY 9: COMPUTER READINESS -->
+          <div id="cat-tools" class="cat-pane">
+            <div class="tv-row is-primary">
+              <div class="tv-row-main">
+                <svg class="icon tv-row-icon" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                <div>
+                  <div class="tv-row-title">Local Build Toolchain Inspection</div>
+                  <div class="tv-row-sub">If anything shows "Agent Will Install", your AI agent can install JDK 17 or Android platform-tools automatically.</div>
+                </div>
+              </div>
             </div>
-            <div class="tile-label">Switcher Water Boiler</div>
-            <div class="tile-meta">15m / 30m / 45m / 60m Timer</div>
+            <div id="toolsRows"></div>
           </div>
-        </div>
-      </div>
-    </section>
+
+          <!-- CATEGORY 10: TROUBLESHOOTING & Q&A -->
+          <div id="cat-qa" class="cat-pane">
+            <div class="tv-row is-primary">
+              <div class="tv-row-main">
+                <svg class="icon tv-row-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <div>
+                  <div class="tv-row-title">What do I do manually vs. what does the AI agent handle?</div>
+                  <div class="tv-row-sub"><strong>You do manually:</strong> enable Developer Debugging on your TV once, create your free TMDB key, tap <em>"Allow Debugging"</em> on your TV screen, and (if using PC Gaming) install Sunshine. <strong>Your AI agent handles:</strong> build tools, desk-monitor detection, TV brand safety checks, compiling, installing over Wi-Fi, and encrypting keys into Android KeyStore.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tv-row">
+              <div class="tv-row-main">
+                <svg class="icon tv-row-icon" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777z"/></svg>
+                <div>
+                  <div class="tv-row-title">What if my AI agent fails to set an API key?</div>
+                  <div class="tv-row-sub">You can enter keys anytime directly on your TV inside <strong>MyTV &rarr; Settings &rarr; Get Started</strong> (including QR Trakt pairing &amp; WiZ Wi-Fi scan), or save them here and run <code>python MyTV-launcher/tools/send_key.py &lt;TV_IP&gt; --sync-config</code>.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tv-row">
+              <div class="tv-row-main">
+                <svg class="icon tv-row-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+                <div>
+                  <div class="tv-row-title">Can I add Gaming or Smart-Home tabs later?</div>
+                  <div class="tv-row-sub">Yes! Both features stay built in and cleanly hidden until needed. Turn them on anytime inside <strong>MyTV &rarr; Settings &rarr; Home &amp; Appearance &rarr; Interface &amp; Units</strong>, or ask your AI agent to flip <code>enable_gaming=true</code> / <code>enable_smarthome=true</code> and sync keys.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tv-row">
+              <div class="tv-row-main">
+                <svg class="icon tv-row-icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <div>
+                  <div class="tv-row-title">Play Protect showed "Risky app blocked" on Android 14</div>
+                  <div class="tv-row-sub">Expected once for apps with a remote-button accessibility helper. Select <strong>More details &rarr; Install anyway</strong> on your TV remote. Always install over ADB rather than a TV file manager.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tv-row">
+              <div class="tv-row-main">
+                <svg class="icon tv-row-icon" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                <div>
+                  <div class="tv-row-title">How do I return to my TV's original factory home screen?</div>
+                  <div class="tv-row-sub">MyTV never deletes your stock launcher. Open <strong>MyTV &rarr; Settings &rarr; System &rarr; Launcher Mode</strong> and select <strong>Original TV Home</strong> — your factory home returns immediately.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- CATEGORY 11: FINISH & HAND OFF TO AI -->
+          <div id="cat-finish" class="cat-pane">
+            <div class="tv-row is-primary">
+              <div class="tv-row-head">
+                <div class="tv-row-main">
+                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  <div>
+                    <div class="tv-row-title">Ready to Install? Hand Off to Your AI Agent</div>
+                    <div class="tv-row-sub">Clicking <strong>Save &amp; Copy AI Prompt</strong> does two things in one step: (1) saves every choice &amp; API key privately into git-ignored local files on this PC (<code>config.properties</code> &amp; <code>.env</code>), and (2) copies the prompt below so you can paste it into Claude Code, Google Antigravity, Cursor, or Codex opened inside this folder.</div>
+                  </div>
+                </div>
+              </div>
+              <div class="tv-row-controls stack">
+                <textarea id="agentPromptBox" readonly></textarea>
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                  <button type="button" class="tv-btn tv-btn-white" onclick="saveEverythingAndCopyPrompt()">Save Everything &amp; Copy Prompt</button>
+                  <button type="button" class="tv-btn" onclick="saveEverythingOnly()">Save Settings Only (Manual / No AI Agent)</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="mini-grid">
+              <div class="mini-step">
+                <div class="mini-step-title">1 &middot; Open Folder in AI Agent</div>
+                <p>Open the MyTV folder in Claude Code, Antigravity, Cursor, or Codex, paste the copied prompt, and press Enter.</p>
+              </div>
+              <div class="mini-step">
+                <div class="mini-step-title">2 &middot; Reads Your Saved Keys Safely</div>
+                <p>The agent reads your saved local config files (never printing secrets in chat) and helps with any missing key.</p>
+              </div>
+              <div class="mini-step">
+                <div class="mini-step-title">3 &middot; Safe Brand Check &amp; Install</div>
+                <p>You approve "Allow Debugging" once on your TV while the agent verifies brand safety, builds, and installs MyTV.</p>
+              </div>
+              <div class="mini-step">
+                <div class="mini-step-title">4 &middot; Nothing Changes Until You Switch</div>
+                <p>Installing MyTV leaves your stock TV untouched until you choose MyTV inside Settings — and Original restores stock anytime.</p>
+              </div>
+            </div>
+          </div>
+        </form>
+      </section>
+    </div>
   </main>
 
-  <!-- =====================================================================
-       BOTTOM NAVIGATION HINT BAR (Exact settings.webp footer)
-       ===================================================================== -->
   <footer class="tv-footer">
-    <span>Up / Down Browse Categories &nbsp;&middot;&nbsp; Click Any Row to Edit &nbsp;&middot;&nbsp; Ctrl+S Save Locally</span>
-    <span>Keys stay private in git-ignored local config files</span>
+    <span>Up / Down Browse Categories &nbsp;&middot;&nbsp; Click ? Next to Any Key for Step-by-Step Guide &nbsp;&middot;&nbsp; Ctrl+S Save</span>
+    <span>All API keys remain private on this computer (never uploaded)</span>
   </footer>
+
+  <!-- =====================================================================
+       API KEY STEP-BY-STEP VISUAL GUIDE MODAL
+       ===================================================================== -->
+  <div id="guideModal" class="modal-backdrop" onclick="if(event.target===this)closeGuide()">
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
+      <div class="modal-head">
+        <div>
+          <h2 id="guideTitle">API Guide</h2>
+          <div id="guideSub" class="modal-sub"></div>
+        </div>
+        <button type="button" class="tv-btn" onclick="closeGuide()">Close</button>
+      </div>
+      <div id="guideVisual" class="modal-visual"></div>
+      <ol id="guideSteps" class="modal-steps"></ol>
+      <div id="guideTip" class="modal-tip"></div>
+      <div class="modal-foot">
+        <a id="guideLink" class="tv-link-action" href="#" target="_blank" rel="noopener">
+          <span>Open Portal</span>
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
+        <button type="button" class="tv-btn tv-btn-white" onclick="closeGuide()">Done</button>
+      </div>
+    </div>
+  </div>
 
   <div id="toast" class="toast"></div>
 
   <script>
     const TOKEN = "__MYTV_SETUP_TOKEN__";
+    let gameFolders = [];
+    let customSmartHome = []; // [{ brand, slug, has_key, api_key }]
 
-    /* Live TV Clock (24h HH:mm matching settings.webp) */
+    /* Live TV Clock (24h HH:mm) */
     function updateClock() {
       const now = new Date();
-      const hh = String(now.getHours()).padStart(2, '0');
-      const mm = String(now.getMinutes()).padStart(2, '0');
-      document.getElementById('tvClock').textContent = `${hh}:${mm}`;
+      document.getElementById('tvClock').textContent =
+        `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     }
     updateClock();
     setInterval(updateClock, 15000);
@@ -1560,15 +1554,11 @@
       el.textContent = msg;
       el.classList.add('show');
       clearTimeout(window._toastTimer);
-      window._toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+      window._toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
     }
 
-    function openTopTab(screenId, jumpCat, btn) {
-      document.querySelectorAll('.view-screen').forEach(s => s.classList.toggle('active', s.id === screenId));
-      document.querySelectorAll('.tv-nav-item').forEach(b => b.classList.toggle('active', b === btn));
-      if (screenId === 'screen-setup' && jumpCat) {
-        selectCategory(jumpCat);
-      }
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
 
     function selectCategory(catId) {
@@ -1581,36 +1571,22 @@
         }
       });
       document.querySelectorAll('.cat-pane').forEach(p => p.classList.toggle('active', p.id === catId));
-
-      // Keep top-bar active pill synchronized when jumping to key sections
-      const map = {
-        'cat-media': 'cat-media',
-        'cat-ai': 'cat-media',
-        'cat-smarthome': 'cat-media',
-        'cat-cloud': 'cat-media',
-        'cat-prompt': 'cat-prompt',
-        'cat-prep': 'cat-prep',
-        'cat-tools': 'cat-prep',
-        'cat-qa': 'cat-qa'
-      };
-      const targetJump = map[catId] || 'cat-tv';
-      if (document.getElementById('screen-setup').classList.contains('active')) {
-        document.querySelectorAll('.tv-nav-item').forEach(b => {
-          b.classList.toggle('active', b.dataset.screen === 'screen-setup' && b.dataset.jump === targetJump);
-        });
-      }
     }
 
-    /* TV-style Up / Down keyboard browsing on the Left Rail + Ctrl+S save */
+    /* Keyboard navigation: Up/Down rail browsing, Esc closes modal, Ctrl+S saves */
     document.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        saveAllKeys();
+      if (e.key === 'Escape') {
+        closeGuide();
         return;
       }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        saveEverythingOnly();
+        return;
+      }
+      if (document.getElementById('guideModal').classList.contains('open')) return;
       const tag = (document.activeElement && document.activeElement.tagName || '').toLowerCase();
       if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-      if (!document.getElementById('screen-setup').classList.contains('active')) return;
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
         const items = Array.from(document.querySelectorAll('.rail-item'));
@@ -1632,40 +1608,139 @@
       return res.json();
     }
 
-    function getSelectedSmartHomeDevices() {
-      return Array.from(document.querySelectorAll('[data-sh-dev].is-on')).map(el => el.dataset.shDev);
-    }
-
-    function toggleTileSmartHome() {
-      const cb = document.getElementById('toggleSmartHome');
-      cb.checked = !cb.checked;
-      onToggleOptionalTabs();
-    }
-
-    function toggleTileGaming() {
-      const cb = document.getElementById('toggleGaming');
-      cb.checked = !cb.checked;
-      onToggleOptionalTabs();
-    }
-
-    function toggleDeviceTile(el) {
-      el.classList.toggle('is-on');
-      if (el.classList.contains('is-on') && !document.getElementById('toggleSmartHome').checked) {
-        document.getElementById('toggleSmartHome').checked = true;
+    /* =====================================================================
+       MULTI-FOLDER GAME PICKER (Native OS Explorer / Finder / Linux Dialog)
+       ===================================================================== */
+    function renderGameFolders() {
+      const wrap = document.getElementById('gameFoldersChips');
+      if (!gameFolders.length) {
+        wrap.innerHTML = '<span style="font-size:12.5px; color:rgba(255,255,255,0.52);">No standalone folders added yet (Steam &amp; Epic games are found automatically).</span>';
+        return;
       }
-      onToggleOptionalTabs();
+      wrap.innerHTML = gameFolders.map((dir, i) => `
+        <span class="item-chip">
+          <span class="item-chip-text">${escapeHtml(dir)}</span>
+          <button type="button" class="item-chip-rm" title="Remove folder" onclick="removeGameFolder(${i})">&times;</button>
+        </span>
+      `).join('');
     }
 
-    function syncVisualTabTiles() {
+    function addGameFolderPath(rawPath) {
+      const clean = String(rawPath || '').trim();
+      if (!clean) return;
+      if (!gameFolders.some(p => p.toLowerCase() === clean.toLowerCase())) {
+        gameFolders.push(clean);
+        renderGameFolders();
+        refreshPrompt();
+      }
+    }
+
+    function removeGameFolder(index) {
+      gameFolders.splice(index, 1);
+      renderGameFolders();
+      refreshPrompt();
+    }
+
+    function addManualGameFolder() {
+      const inp = document.getElementById('manualGameDirInput');
+      if (!inp.value.trim()) return;
+      inp.value.split(';').forEach(p => addGameFolderPath(p));
+      inp.value = '';
+    }
+
+    async function browseGameFolder() {
+      const status = document.getElementById('browseFolderStatus');
+      status.textContent = 'Opening your computer\'s native folder browser...';
+      status.classList.add('show');
+      const res = await api('/api/browse-folder', 'POST', {});
+      if (res.ok && res.path) {
+        addGameFolderPath(res.path);
+        status.textContent = `Added folder: ${res.path}`;
+      } else if (res.cancelled) {
+        status.classList.remove('show');
+      } else {
+        status.textContent = res.error || 'Could not open folder picker — paste the path below instead.';
+      }
+    }
+
+    /* =====================================================================
+       CUSTOM "OTHER" SMART-HOME BRANDS (Company Name + Optional API Key)
+       ===================================================================== */
+    function renderCustomBrands() {
+      const wrap = document.getElementById('customBrandsChips');
+      if (!customSmartHome.length) {
+        wrap.innerHTML = '<span style="font-size:12.5px; color:rgba(255,255,255,0.52);">No custom brands added yet.</span>';
+        return;
+      }
+      wrap.innerHTML = customSmartHome.map((item, i) => {
+        const keyBadge = (item.api_key || item.has_key) ? ' · Key Saved' : ' · No Key Yet';
+        return `
+          <span class="item-chip">
+            <span class="item-chip-text"><strong>${escapeHtml(item.brand)}</strong>${keyBadge}</span>
+            <button type="button" class="item-chip-rm" title="Remove brand" onclick="removeCustomBrand(${i})">&times;</button>
+          </span>
+        `;
+      }).join('');
+    }
+
+    function addCustomBrand() {
+      const nameEl = document.getElementById('otherBrandName');
+      const keyEl = document.getElementById('otherBrandKey');
+      const brand = nameEl.value.trim();
+      const apiKey = keyEl.value.trim();
+      if (!brand) {
+        showToast('Enter a smart-home company or brand name first');
+        return;
+      }
+      const existing = customSmartHome.find(b => b.brand.toLowerCase() === brand.toLowerCase());
+      if (existing) {
+        if (apiKey) { existing.api_key = apiKey; existing.has_key = true; }
+      } else {
+        customSmartHome.push({ brand, api_key: apiKey, has_key: Boolean(apiKey) });
+      }
+      nameEl.value = '';
+      keyEl.value = '';
+      // Adding a custom smart-home brand automatically turns on the Smart-Home tab
+      if (!document.getElementById('toggleSmartHome').checked) {
+        document.getElementById('toggleSmartHome').checked = true;
+        onToggleOptionalTabs();
+      }
+      renderCustomBrands();
+      updateSmartHomeRailBadge();
+      refreshPrompt();
+      showToast(`Added ${brand} — your AI agent will add support for it`);
+    }
+
+    function removeCustomBrand(index) {
+      customSmartHome.splice(index, 1);
+      renderCustomBrands();
+      updateSmartHomeRailBadge();
+      refreshPrompt();
+    }
+
+    function updateSmartHomeRailBadge() {
+      const hasBuiltIn = Boolean(
+        document.getElementById('key-wiz_light_ips').value.trim() ||
+        document.getElementById('key-tuya_access_id').value.trim() ||
+        window._hasSensiboKey
+      );
+      const count = customSmartHome.length;
+      if (count > 0) {
+        document.getElementById('val-shkeys').innerHTML = `<span class="dot dot-green"></span>${count} Custom`;
+      } else if (hasBuiltIn) {
+        document.getElementById('val-shkeys').innerHTML = '<span class="dot dot-green"></span>Configured';
+      } else {
+        document.getElementById('val-shkeys').textContent = 'Optional';
+      }
+    }
+
+    /* =====================================================================
+       STATE SYNC & PROMPT GENERATION
+       ===================================================================== */
+    function onToggleOptionalTabs() {
       const sh = document.getElementById('toggleSmartHome').checked;
       const gm = document.getElementById('toggleGaming').checked;
-
-      document.getElementById('tileSmartHome').classList.toggle('is-on', sh);
-      document.getElementById('tileSmartHomeMeta').textContent = sh ? 'On · Shown on TV & Remote' : 'Off · Hidden from TV';
-
-      document.getElementById('tileGaming').classList.toggle('is-on', gm);
-      document.getElementById('tileGamingMeta').textContent = gm ? 'On · 4K 60fps Streaming' : 'Off · Hidden from TV';
-
+      document.getElementById('gamingFoldersRow').style.display = gm ? 'block' : 'none';
       document.getElementById('prevTabSmartHome').classList.toggle('hidden-tab', !sh);
       document.getElementById('prevTabGaming').classList.toggle('hidden-tab', !gm);
 
@@ -1673,12 +1748,6 @@
       document.getElementById('val-tabs').innerHTML = activeCount > 0
         ? `<span class="dot dot-green"></span>${activeCount} Active`
         : 'Core Only';
-    }
-
-    function onToggleOptionalTabs() {
-      const gm = document.getElementById('toggleGaming').checked;
-      document.getElementById('gamingOptsWrap').style.display = gm ? 'block' : 'none';
-      syncVisualTabTiles();
       refreshPrompt();
     }
 
@@ -1690,13 +1759,41 @@
         samsung_tizen: 'Tizen'
       };
       const val = document.getElementById('tvPlatform').value;
-      const city = document.getElementById('cityInput').value.trim();
-      document.getElementById('val-tv').innerHTML = `<span class="dot dot-green"></span>${city || labels[val] || 'TV'}`;
+      document.getElementById('val-tv').innerHTML = `<span class="dot dot-green"></span>${labels[val] || 'TV'}`;
       refreshPrompt();
     }
 
     function onCityTyped() {
-      onPlatformChange();
+      const city = document.getElementById('cityInput').value.trim();
+      document.getElementById('val-loc').innerHTML = city
+        ? `<span class="dot dot-green"></span>${escapeHtml(city)}`
+        : 'Not Set';
+      refreshPrompt();
+    }
+
+    function collectAllSettings() {
+      const ids = [
+        'tmdb_key', 'trakt_client_id', 'omdb_key', 'mdblist_key', 'gemini_api_key',
+        'wiz_light_ips', 'sensibo_api_key', 'tuya_access_id', 'tuya_access_secret',
+        'supabase_url', 'supabase_anon_key', 'admin_emails', 'household_key'
+      ];
+      const settings = {
+        tv_ip: document.getElementById('tvIp').value,
+        city: document.getElementById('cityInput').value,
+        temperature: document.getElementById('tempUnit').value,
+        enable_smarthome: document.getElementById('toggleSmartHome').checked ? 'true' : 'false',
+        enable_gaming: document.getElementById('toggleGaming').checked ? 'true' : 'false',
+        games_dirs: gameFolders.join(';'),
+        custom_smarthome: customSmartHome.map(item => ({
+          brand: item.brand,
+          api_key: item.api_key || ''
+        }))
+      };
+      ids.forEach(k => {
+        const el = document.getElementById('key-' + k);
+        if (el && el.value.trim() !== '') settings[k] = el.value.trim();
+      });
+      return settings;
     }
 
     async function refreshPrompt() {
@@ -1705,34 +1802,39 @@
         tv_ip: document.getElementById('tvIp').value,
         city: document.getElementById('cityInput').value,
         enable_smarthome: document.getElementById('toggleSmartHome').checked,
-        smarthome_devices: getSelectedSmartHomeDevices(),
+        smarthome_devices: [],
         enable_gaming: document.getElementById('toggleGaming').checked,
-        games_dirs: document.getElementById('gamesDirsInput').value
+        games_dirs: gameFolders.join(';'),
+        custom_smarthome: customSmartHome.map(item => ({
+          brand: item.brand,
+          has_key: Boolean(item.api_key || item.has_key)
+        }))
       });
       if (data.ok) {
         document.getElementById('agentPromptBox').value = data.prompt;
       }
     }
 
-    async function saveChoicesAndCopyPrompt() {
-      const sh = document.getElementById('toggleSmartHome').checked;
-      const gm = document.getElementById('toggleGaming').checked;
-      await api('/api/save', 'POST', {
-        settings: {
-          tv_ip: document.getElementById('tvIp').value,
-          city: document.getElementById('cityInput').value,
-          enable_smarthome: sh ? 'true' : 'false',
-          enable_gaming: gm ? 'true' : 'false',
-          games_dirs: document.getElementById('gamesDirsInput').value
-        }
-      });
+    async function saveEverythingOnly() {
+      const res = await api('/api/save', 'POST', { settings: collectAllSettings() });
+      if (res.ok) {
+        applyLoadedState(res.state);
+        showToast('Saved all settings & keys privately to local config.properties & .env');
+      }
+      return res;
+    }
+
+    async function saveEverythingAndCopyPrompt() {
+      await saveEverythingOnly();
+      await refreshPrompt();
       const box = document.getElementById('agentPromptBox');
       try {
         await navigator.clipboard.writeText(box.value);
-        showToast('Saved preferences & copied AI prompt');
+        showToast('Saved locally & copied AI prompt — paste into your AI agent!');
       } catch (_) {
+        selectCategory('cat-finish');
         box.select();
-        showToast('Saved preferences — press Ctrl+C to copy prompt');
+        showToast('Saved locally — press Ctrl+C to copy the prompt');
       }
     }
 
@@ -1752,7 +1854,7 @@
           }
         });
         banner.textContent = `Saved ${res.city} (${res.latitude}, ${res.longitude} · Region ${res.country_code})`;
-        onPlatformChange();
+        onCityTyped();
       } else {
         banner.textContent = res.error || 'Lookup failed';
       }
@@ -1766,14 +1868,6 @@
       banner.textContent = res.ok
         ? `Connected to ${res.brand} ${res.model} (ADB disconnected safely)`
         : res.error;
-    }
-
-    async function detectMonitors() {
-      const banner = document.getElementById('monitorsResult');
-      banner.textContent = 'Inspecting connected Windows displays...';
-      banner.classList.add('show');
-      const res = await api('/api/list-monitors', 'POST', {});
-      banner.textContent = res.ok ? (res.output || 'Displays inspected.') : (res.error || 'Could not list monitors.');
     }
 
     async function verifyTmdbKey() {
@@ -1796,47 +1890,36 @@
       }
     }
 
-    async function saveAllKeys() {
-      const ids = [
-        'tmdb_key', 'trakt_client_id', 'omdb_key', 'mdblist_key', 'gemini_api_key',
-        'wiz_light_ips', 'sensibo_api_key', 'tuya_access_id', 'tuya_access_secret',
-        'supabase_url', 'supabase_anon_key', 'admin_emails', 'household_key'
-      ];
-      const settings = {
-        tv_ip: document.getElementById('tvIp').value,
-        city: document.getElementById('cityInput').value,
-        enable_smarthome: document.getElementById('toggleSmartHome').checked ? 'true' : 'false',
-        enable_gaming: document.getElementById('toggleGaming').checked ? 'true' : 'false',
-        games_dirs: document.getElementById('gamesDirsInput').value
-      };
-      ids.forEach(k => {
-        const el = document.getElementById('key-' + k);
-        if (el && el.value.trim() !== '') settings[k] = el.value.trim();
-      });
-      const res = await api('/api/save', 'POST', { settings });
-      if (res.ok) {
-        applyLoadedState(res.state);
-        showToast('Saved locally to config.properties & .env');
-      }
-    }
-
     function applyLoadedState(state) {
       if (!state) return;
       const v = state.values || {};
       if (v.tv_ip) document.getElementById('tvIp').value = v.tv_ip;
       if (v.city) document.getElementById('cityInput').value = v.city;
-      if (v.games_dirs) document.getElementById('gamesDirsInput').value = v.games_dirs;
+      if (v.temperature) document.getElementById('tempUnit').value = v.temperature;
       if (v.wiz_light_ips) document.getElementById('key-wiz_light_ips').value = v.wiz_light_ips;
       if (v.tuya_access_id) document.getElementById('key-tuya_access_id').value = v.tuya_access_id;
       if (v.supabase_url) document.getElementById('key-supabase_url').value = v.supabase_url;
       if (v.admin_emails) document.getElementById('key-admin_emails').value = v.admin_emails;
 
+      gameFolders = (v.games_dirs || '').split(';').map(s => s.trim()).filter(Boolean);
+      renderGameFolders();
+
+      customSmartHome = (state.custom_smarthome || []).map(item => ({
+        brand: item.brand,
+        slug: item.slug,
+        has_key: Boolean(item.has_key),
+        api_key: ''
+      }));
+      renderCustomBrands();
+
       document.getElementById('toggleSmartHome').checked = (v.enable_smarthome === 'true');
       document.getElementById('toggleGaming').checked = (v.enable_gaming === 'true');
       onToggleOptionalTabs();
       onPlatformChange();
+      onCityTyped();
 
       const ck = state.configured_keys || {};
+      window._hasSensiboKey = Boolean(ck.sensibo_api_key);
       ['tmdb_key', 'trakt_client_id', 'gemini_api_key'].forEach(k => {
         const b = document.getElementById('saved-' + k);
         if (b) b.style.display = ck[k] ? 'inline-flex' : 'none';
@@ -1850,15 +1933,245 @@
         ? '<span class="dot dot-green"></span>Configured'
         : 'Optional';
 
-      const hasShKey = !!(v.wiz_light_ips || ck.sensibo_api_key || v.tuya_access_id);
-      document.getElementById('val-shkeys').innerHTML = hasShKey
-        ? '<span class="dot dot-green"></span>Configured'
-        : 'Optional';
+      updateSmartHomeRailBadge();
 
-      const hasCloud = !!(v.supabase_url && ck.supabase_anon_key);
+      const hasCloud = Boolean(v.supabase_url && ck.supabase_anon_key);
       document.getElementById('val-cloud').innerHTML = hasCloud
         ? '<span class="dot dot-green"></span>Configured'
         : 'Optional';
+    }
+
+    /* =====================================================================
+       API KEY VISUAL GUIDES (Clean Annotated Portal Mockups — Zero PII!)
+       ===================================================================== */
+    function portalMockSvg(urlText, sidebarItems, activeIdx, cardTitle, fields, callout) {
+      const sideRows = sidebarItems.map((label, i) => `
+        <rect x="16" y="${54 + i * 28}" width="136" height="22" rx="6" fill="${i === activeIdx ? '#2563eb' : 'transparent'}"/>
+        <text x="26" y="${69 + i * 28}" fill="${i === activeIdx ? '#ffffff' : '#94a3b8'}" font-size="11.5" font-weight="${i === activeIdx ? '700' : '500'}" font-family="Inter,Segoe UI,sans-serif">${label}</text>
+      `).join('');
+
+      const fieldRows = fields.map((f, i) => `
+        <text x="176" y="${96 + i * 50}" fill="#94a3b8" font-size="11" font-weight="600" font-family="Inter,Segoe UI,sans-serif">${f.label}</text>
+        <rect x="176" y="${103 + i * 50}" width="420" height="28" rx="7" fill="#0b1220" stroke="${f.highlight ? '#34d399' : '#334155'}" stroke-width="${f.highlight ? '1.8' : '1'}"/>
+        <text x="188" y="${121 + i * 50}" fill="${f.highlight ? '#a7f3d0' : '#e2e8f0'}" font-size="12" font-family="Consolas,monospace">${f.value}</text>
+        ${f.badge ? `<circle cx="614" cy="${117 + i * 50}" r="11" fill="#ffffff"/><text x="614" y="${121 + i * 50}" text-anchor="middle" fill="#0f172a" font-size="11" font-weight="800" font-family="Inter,sans-serif">${f.badge}</text>` : ''}
+      `).join('');
+
+      return `
+        <svg viewBox="0 0 650 225" xmlns="http://www.w3.org/2000/svg">
+          <rect width="650" height="225" fill="#0f172a"/>
+          <rect width="650" height="36" fill="#1e293b"/>
+          <circle cx="18" cy="18" r="5" fill="#ef4444" opacity="0.75"/>
+          <circle cx="34" cy="18" r="5" fill="#f59e0b" opacity="0.75"/>
+          <circle cx="50" cy="18" r="5" fill="#22c55e" opacity="0.75"/>
+          <rect x="74" y="8" width="430" height="20" rx="10" fill="#0f172a"/>
+          <text x="88" y="21.5" fill="#94a3b8" font-size="11" font-family="Inter,Segoe UI,sans-serif">${urlText}</text>
+          <rect x="0" y="36" width="162" height="189" fill="#111b2e"/>
+          <line x1="162" y1="36" x2="162" y2="225" stroke="#1e293b" stroke-width="1"/>
+          ${sideRows}
+          <text x="176" y="66" fill="#ffffff" font-size="15" font-weight="700" font-family="Inter,Segoe UI,sans-serif">${cardTitle}</text>
+          ${fieldRows}
+          <rect x="176" y="196" width="458" height="21" rx="6" fill="rgba(52,211,153,0.14)"/>
+          <text x="186" y="210" fill="#a7f3d0" font-size="10.2" font-weight="600" font-family="Inter,Segoe UI,sans-serif">${callout}</text>
+        </svg>
+      `;
+    }
+
+    const API_GUIDES = {
+      tmdb: {
+        title: 'How to Get Your Free TMDB API Key',
+        sub: 'Required for movies, shows, posters, backdrops, and recommendations (~50 requests/sec free)',
+        url: 'https://www.themoviedb.org/settings/api',
+        visual: portalMockSvg(
+          'themoviedb.org/settings/api',
+          ['Profile', 'Account', 'API', 'Sessions'],
+          2,
+          'API — Developer Key (Personal / Non-Commercial)',
+          [
+            { label: 'API Key (v3 auth) — Copy this value', value: 'a1b2c3d4e5f60718293a4b5c6d7e8f90', highlight: true, badge: '4' },
+            { label: 'API Read Access Token (v4) — Also supported', value: 'eyJhbGciOiJIUzI1NiJ9.example_token...', highlight: false, badge: '' }
+          ],
+          'Tip: Pick "Developer" (not Commercial) and enter "MyTV" as the app name.'
+        ),
+        steps: [
+          'Create a free account at <strong>themoviedb.org</strong> and confirm your email.',
+          'Open your Profile avatar &rarr; <strong>Settings &rarr; API</strong>, click <strong>Create</strong>, and choose <strong>Developer</strong> (Personal / Non-Commercial).',
+          'For application name enter <code>MyTV</code>, URL <code>http://localhost</code>, and a brief summary like <em>"Personal home TV catalog"</em>.',
+          'Copy the <strong>API Key (v3 auth)</strong> (highlighted above), paste it in Setup Studio, and click <strong>Verify Key</strong>.'
+        ],
+        tip: 'Both the 32-character v3 API Key and the longer v4 Read Access Token work seamlessly with MyTV.'
+      },
+      trakt: {
+        title: 'How to Create a Free Trakt Client ID',
+        sub: 'Recommended for 2-way Watchlist, episode progress, and personal ratings',
+        url: 'https://trakt.tv/oauth/applications/new',
+        visual: portalMockSvg(
+          'trakt.tv/oauth/applications/new',
+          ['Profile', 'Settings', 'Your API Apps', 'Connected'],
+          2,
+          'New Trakt API Application',
+          [
+            { label: 'Redirect URI (must match exactly)', value: 'urn:ietf:wg:oauth:2.0:oob', highlight: true, badge: '1' },
+            { label: 'Client ID (shown after clicking Save App)', value: '8f3e2d1c0b9a87654321fedcba987654...', highlight: true, badge: '2' }
+          ],
+          'After installing MyTV, sign in on your TV with a 1-second QR code — no passwords typed on TV.'
+        ),
+        steps: [
+          'Sign in to <strong>trakt.tv</strong> and open <strong>Settings &rarr; Your API Apps &rarr; New Application</strong>.',
+          'Enter Name: <code>MyTV</code> and paste <code>urn:ietf:wg:oauth:2.0:oob</code> into <strong>Redirect URI</strong>.',
+          'Click <strong>Save App</strong>, then copy the generated <strong>Client ID</strong> (you do not need the Client Secret).'
+        ],
+        tip: 'MyTV uses Trakt OAuth Device Pairing, so you only paste the Client ID here and scan a QR code on your TV.'
+      },
+      omdb: {
+        title: 'How to Get Free OMDb & MDBList Critic Keys',
+        sub: 'Optional — adds Rotten Tomatoes & Metacritic scores beside IMDb ratings (1,000/day free each)',
+        url: 'https://www.omdbapi.com/apikey.aspx',
+        visual: portalMockSvg(
+          'omdbapi.com/apikey.aspx  &  mdblist.com/preferences',
+          ['OMDb Free Key', 'Email Activate', 'MDBList Prefs'],
+          0,
+          'Generate Free Critic Rating Keys',
+          [
+            { label: 'OMDb: Select "FREE! (1,000 daily limit)" -> Emailed Key', value: '9a8b7c6d', highlight: true, badge: '1' },
+            { label: 'MDBList: Preferences -> API Key -> Create New Key', value: 'sample-mdblist-key-12345', highlight: true, badge: '2' }
+          ],
+          'Important: OMDb emails an activation link — click it once before the key starts working!'
+        ),
+        steps: [
+          '<strong>OMDb</strong>: Open <strong>omdbapi.com/apikey.aspx</strong>, select <strong>FREE! (1,000 daily limit)</strong>, enter your email, and submit.',
+          'Open the email from OMDb, <strong>click the activation link inside the email</strong>, and copy the 8-character key.',
+          '<strong>MDBList (optional extra)</strong>: Sign in at <strong>mdblist.com/preferences</strong>, click <strong>New API Key</strong>, and copy it.'
+        ],
+        tip: 'MyTV permanently caches ratings per movie/show on your TV, so 1,000 daily requests is far more than a household ever uses.'
+      },
+      gemini: {
+        title: 'How to Get a Free Google Gemini API Key',
+        sub: 'Optional — enables natural-language plot & mood search on your TV',
+        url: 'https://aistudio.google.com/app/apikey',
+        visual: portalMockSvg(
+          'aistudio.google.com/app/apikey',
+          ['Prompts', 'API Keys', 'Usage'],
+          1,
+          'Google AI Studio — API Keys',
+          [
+            { label: 'Click "Create API key" -> Copy Generated Key', value: 'AIzaSyExampleKeyPlaceholder123456789', highlight: true, badge: '1' },
+            { label: 'Model Used by MyTV (Free Tier)', value: 'gemini-2.5-flash (zero billing required)', highlight: false, badge: '' }
+          ],
+          'No credit card is required for the Google AI Studio free tier.'
+        ),
+        steps: [
+          'Sign in with your Google account at <strong>aistudio.google.com/app/apikey</strong>.',
+          'Click <strong>Create API key</strong> (select or create a free project if prompted).',
+          'Copy the key starting with <code>AIza...</code> and paste it into Setup Studio.'
+        ],
+        tip: 'You can leave this blank if you only need standard title/actor search.'
+      },
+      wiz: {
+        title: 'How WiZ Smart Bulbs Connect (Zero API Key)',
+        sub: '100% local Wi-Fi UDP discovery — no cloud account or token needed',
+        url: 'https://www.wizconnected.com',
+        visual: portalMockSvg(
+          'MyTV -> Settings -> Smart-Home -> Scan WiZ Bulbs',
+          ['Local Wi-Fi', 'UDP Port 38899', 'Auto-Discover'],
+          0,
+          'Automatic Local Bulb Discovery',
+          [
+            { label: 'Recommended: Leave IP field blank & scan inside MyTV', value: 'TV broadcasts UDP discovery on your home Wi-Fi', highlight: true, badge: '1' },
+            { label: 'Optional Manual Override (comma-separated IPs)', value: '192.168.1.40, 192.168.1.41', highlight: false, badge: '' }
+          ],
+          'Make sure your TV and WiZ bulbs are connected to the same home Wi-Fi network.'
+        ),
+        steps: [
+          'Ensure your WiZ bulbs are already paired to your home Wi-Fi using the official WiZ mobile app.',
+          'Leave the IP field blank to auto-discover them on your TV, or enter comma-separated local bulb IPs from your router.'
+        ],
+        tip: 'WiZ commands go straight from your TV to your bulbs over local LAN — instant response even without internet.'
+      },
+      sensibo: {
+        title: 'How to Get Your Sensibo Sky API Key',
+        sub: 'Optional — controls Sensibo AC power, Cool/Heat mode, temperature, and fan speed',
+        url: 'https://home.sensibo.com/me/api',
+        visual: portalMockSvg(
+          'home.sensibo.com/me/api',
+          ['Dashboard', 'Account', 'API Keys'],
+          2,
+          'Sensibo Web App — API Key',
+          [
+            { label: 'New API Key Name -> Click "Add API Key"', value: 'MyTV', highlight: false, badge: '1' },
+            { label: 'Generated API Key (copy immediately)', value: 'ExampleSensiboApiKeyToken123456', highlight: true, badge: '2' }
+          ],
+          'MyTV automatically detects all Sensibo pods linked to your account.'
+        ),
+        steps: [
+          'Sign in to your Sensibo account at <strong>home.sensibo.com/me/api</strong>.',
+          'Enter <code>MyTV</code> as the API key name and click <strong>Add API Key</strong>.',
+          'Copy the generated key immediately and paste it into Setup Studio.'
+        ],
+        tip: 'Your Sensibo key is encrypted into Android KeyStore on the TV — it never leaves your home devices.'
+      },
+      tuya: {
+        title: 'How to Get Tuya / Smart Life Cloud Credentials',
+        sub: 'Optional — controls Tuya / Smart Life ACs and smart switches',
+        url: 'https://iot.tuya.com',
+        visual: portalMockSvg(
+          'iot.tuya.com -> Cloud -> Development',
+          ['Overview', 'Cloud', 'Devices', 'Authorizations'],
+          1,
+          'Tuya IoT Core Project — Authorization Keys',
+          [
+            { label: 'Access ID / Client ID', value: 'exampletuyaclientid01', highlight: true, badge: '1' },
+            { label: 'Access Secret / Client Secret', value: 'example_tuya_secret_placeholder_99', highlight: true, badge: '2' }
+          ],
+          'Remember to link your Smart Life / Tuya mobile app under Devices -> Link App Account.'
+        ),
+        steps: [
+          'Create a free developer account at <strong>iot.tuya.com</strong> and open <strong>Cloud &rarr; Create Cloud Project</strong>.',
+          'Enable the <strong>IoT Core</strong> API service (free trial tier) and select your region data center.',
+          'Under <strong>Devices &rarr; Link Tuya App Account</strong>, scan the QR code with your Smart Life / Tuya phone app.',
+          'Open the project <strong>Overview</strong> tab and copy both <strong>Access ID</strong> and <strong>Access Secret</strong>.'
+        ],
+        tip: 'Have another brand like Philips Hue, Home Assistant, or Govee? Use the "Other Smart-Home Brand" box right below!'
+      },
+      supabase: {
+        title: 'How to Set Up Free Supabase Profiles & Encrypted Vault',
+        sub: 'Optional — multi-user household profiles, watch history sync & zero-knowledge key backup',
+        url: 'https://supabase.com/dashboard',
+        visual: portalMockSvg(
+          'supabase.com/dashboard -> Project Settings -> API',
+          ['SQL Editor', 'Table Editor', 'Project Settings', 'API'],
+          3,
+          'Supabase Project API Settings',
+          [
+            { label: 'Project URL', value: 'https://exampleprojectid.supabase.co', highlight: true, badge: '1' },
+            { label: 'Project API Keys -> anon / public key', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example...', highlight: true, badge: '2' }
+          ],
+          'Run docs/supabase-schema.sql once in SQL Editor, then run the 4-line SQL generated here.'
+        ),
+        steps: [
+          'Create a free project at <strong>supabase.com/dashboard</strong> (500 MB free forever).',
+          'Open <strong>SQL Editor</strong> and run the contents of <code>docs/supabase-schema.sql</code> once.',
+          'Open <strong>Project Settings &rarr; API</strong> and copy <strong>Project URL</strong> and the <strong>anon public</strong> key here.',
+          'Click <strong>Generate Key &amp; SQL</strong> in Setup Studio and run the generated 4-line SQL snippet in Supabase SQL Editor.'
+        ],
+        tip: 'Completely optional! Without Supabase, MyTV still works 100% locally on your TV.'
+      }
+    };
+
+    function openGuide(key) {
+      const g = API_GUIDES[key];
+      if (!g) return;
+      document.getElementById('guideTitle').textContent = g.title;
+      document.getElementById('guideSub').textContent = g.sub;
+      document.getElementById('guideVisual').innerHTML = g.visual;
+      document.getElementById('guideSteps').innerHTML = g.steps.map(s => `<li>${s}</li>`).join('');
+      document.getElementById('guideTip').textContent = g.tip;
+      document.getElementById('guideLink').href = g.url;
+      document.getElementById('guideModal').classList.add('open');
+    }
+
+    function closeGuide() {
+      document.getElementById('guideModal').classList.remove('open');
     }
 
     async function bootstrap() {
@@ -1871,10 +2184,10 @@
         const t = res.tools || {};
         const items = [
           ['Python ' + (t.python || ''), 'Runs MyTV Setup Studio and secret-sync scripts', true],
-          ['Java JDK 17+', 'Compiles the native MyTV Android TV launcher', !!t.java_installed],
-          ['Android SDK', 'Packages and signs MyTV.apk cleanly', !!t.android_sdk],
-          ['ADB Platform-Tools', 'Connects to Android TV / Fire TV over Wi-Fi', !!t.adb_installed],
-          ['Node.js 20+', 'Builds the optional Companion Phone Remote web app', !!t.node_installed]
+          ['Java JDK 17+', 'Compiles the native MyTV Android TV launcher', Boolean(t.java_installed)],
+          ['Android SDK', 'Packages and signs MyTV.apk cleanly', Boolean(t.android_sdk)],
+          ['ADB Platform-Tools', 'Connects to Android TV / Fire TV over Wi-Fi', Boolean(t.adb_installed)],
+          ['Node.js 20+', 'Builds the optional Companion Phone Remote web app', Boolean(t.node_installed)]
         ];
         const readyCount = items.filter(x => x[2]).length;
         document.getElementById('val-tools').innerHTML =

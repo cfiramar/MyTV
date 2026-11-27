@@ -72,6 +72,7 @@ CONFIG_TO_DOTENV_MAP: Dict[str, str] = {
     "gaming_pc_mac": "GAMING_PC_MAC",
     "enable_gaming": "ENABLE_GAMING",
     "enable_smarthome": "ENABLE_SMARTHOME",
+    "custom_smarthome_brands": "CUSTOM_SMARTHOME_BRANDS",
     "city": "CITY",
     "latitude": "LATITUDE",
     "longitude": "LONGITUDE",
@@ -135,6 +136,12 @@ class SetupConfigStore:
             out_lines.append(f"{key}={val}")
         path.write_text("\n".join(out_lines) + "\n", encoding="utf-8", newline="\n")
 
+    @staticmethod
+    def slugify_brand(name: str) -> str:
+        """Converts a user-entered smart-home company name into a safe config key slug."""
+        slug = re.sub(r"[^a-z0-9]+", "_", name.strip().lower()).strip("_")
+        return slug[:40] or "custom_device"
+
     def load_masked_state(self) -> Dict[str, Any]:
         """Returns non-secret config values and boolean presence flags for secret keys (never raw secrets)."""
         cfg = self._parse_kv(self.config_path)
@@ -149,6 +156,15 @@ class SetupConfigStore:
             return default
 
         configured_keys = {k: bool(get_val(k)) for k in SECRET_CONFIG_KEYS}
+        raw_brands = get_val("custom_smarthome_brands", "")
+        custom_smarthome: List[Dict[str, Any]] = []
+        for raw_name in [b.strip() for b in raw_brands.split(",") if b.strip()]:
+            slug = self.slugify_brand(raw_name)
+            cfg_key = f"custom_smarthome_key_{slug}"
+            env_key = cfg_key.upper()
+            has_key = bool(cfg.get(cfg_key) or env.get(env_key))
+            custom_smarthome.append({"brand": raw_name, "slug": slug, "has_key": has_key})
+
         values = {
             "tv_ip": env.get("TV_IP", ""),
             "city": get_val("city", ""),
@@ -171,18 +187,44 @@ class SetupConfigStore:
             "games_dirs": env.get("MYTV_GAMES_DIRS", ""),
             "non_tv_monitors": env.get("MYTV_NON_TV_MONITORS", ""),
         }
-        return {"values": values, "configured_keys": configured_keys}
+        return {
+            "values": values,
+            "configured_keys": configured_keys,
+            "custom_smarthome": custom_smarthome,
+        }
 
     def save_settings(self, payload: Dict[str, Any]) -> None:
-        """Writes non-empty secrets and updated settings into `config.properties` and `.env`."""
+        """Writes non-empty secrets, custom smart-home brands, and settings into `config.properties` and `.env`."""
         self.ensure_files_exist()
         cfg_updates: Dict[str, str] = {}
         env_updates: Dict[str, str] = {}
 
         dotenv_only = {"tv_ip", "games_dirs", "non_tv_monitors"}
 
+        if isinstance(payload.get("custom_smarthome"), list):
+            brand_names: List[str] = []
+            seen_slugs = set()
+            for entry in payload["custom_smarthome"]:
+                if not isinstance(entry, dict):
+                    continue
+                brand = str(entry.get("brand", "")).strip().replace("\r", "").replace("\n", "").replace(",", " ")
+                if not brand:
+                    continue
+                slug = self.slugify_brand(brand)
+                if slug not in seen_slugs:
+                    seen_slugs.add(slug)
+                    brand_names.append(brand)
+                api_key = str(entry.get("api_key", "")).strip().replace("\r", "").replace("\n", "")
+                if api_key:
+                    cfg_key = f"custom_smarthome_key_{slug}"
+                    cfg_updates[cfg_key] = api_key
+                    env_updates[cfg_key.upper()] = api_key
+            brands_csv = ", ".join(brand_names)
+            cfg_updates["custom_smarthome_brands"] = brands_csv
+            env_updates["CUSTOM_SMARTHOME_BRANDS"] = brands_csv
+
         for raw_key, raw_val in payload.items():
-            if raw_val is None:
+            if raw_val is None or raw_key == "custom_smarthome":
                 continue
             val = str(raw_val).strip().replace("\r", "").replace("\n", "")
             # Never overwrite an existing secret with an empty string unless explicitly requested
@@ -220,21 +262,47 @@ class AgentPromptBuilder:
         smarthome_devices: List[str],
         enable_gaming: bool,
         games_dirs: str,
+        custom_smarthome: Optional[List[Dict[str, Any]]] = None,
     ) -> str:
         """Builds a clear, human-readable instruction prompt for Claude Code, Antigravity, Cursor, or Codex."""
         plat = cls.PLATFORM_LABELS.get(tv_platform, "Smart TV")
         ip_part = f" at IP `{tv_ip.strip()}`" if tv_ip.strip() else " (ask me for my TV's Wi-Fi IP)"
         city_part = f" My city is `{city.strip()}`." if city.strip() else ""
 
-        if enable_smarthome:
-            devs = ", ".join(smarthome_devices) if smarthome_devices else "my smart devices"
-            sh_line = f"- Smart Home Tab: ENABLE — please enable Smart Home ({devs}) and guide me if any key is missing."
+        custom_entries = [
+            entry for entry in (custom_smarthome or [])
+            if isinstance(entry, dict) and str(entry.get("brand", "")).strip()
+        ]
+        if enable_smarthome or custom_entries:
+            if smarthome_devices:
+                devs = ", ".join(smarthome_devices)
+                sh_line = f"- Smart Home Tab: ENABLE — enable Smart Home ({devs}); MyTV will automatically display discovered/configured devices."
+            else:
+                sh_line = "- Smart Home Tab: ENABLE — enable Smart Home and guide me if any device API key is missing (MyTV automatically shows only found/configured devices)."
+            if custom_entries:
+                parts: List[str] = []
+                for entry in custom_entries:
+                    brand = str(entry.get("brand", "")).strip()
+                    slug = SetupConfigStore.slugify_brand(brand)
+                    has_key = bool(entry.get("has_key") or str(entry.get("api_key", "")).strip())
+                    if has_key:
+                        parts.append(f"`{brand}` (API key saved locally as `custom_smarthome_key_{slug}`)")
+                    else:
+                        parts.append(f"`{brand}` (no key saved yet)")
+                sh_line += (
+                    f"\n- Custom Smart-Home Devices to Support: {', '.join(parts)}. "
+                    "Please inspect `SmartHomeManager.java` and implement modular support for these brands before building (never print secret values in chat)."
+                )
         else:
             sh_line = "- Smart Home Tab: DISABLE — I do not need Smart Home controls right now, so hide the Smart Home tab (`enable_smarthome=false`)."
 
         if enable_gaming:
             folders = f" (standalone game folders: `{games_dirs.strip()}`)" if games_dirs.strip() else ""
-            gm_line = f"- PC Gaming Tab: ENABLE — set up 4K Windows PC Game Streaming{folders}, detect my non-TV desk monitors, and walk me through Sunshine pairing."
+            gm_line = (
+                f"- PC Gaming Tab: ENABLE — set up Windows PC Game Streaming{folders}, "
+                "automatically inspect my connected monitors via `laptop_gaming_agent.py --list-monitors` to configure `MYTV_NON_TV_MONITORS`, "
+                "and walk me through Sunshine pairing."
+            )
         else:
             gm_line = "- PC Gaming Tab: DISABLE — I will not stream PC games to this TV right now, so hide the Gaming tab (`enable_gaming=false`)."
 
@@ -332,6 +400,105 @@ class EnvironmentInspector:
             }
         except Exception as exc:
             return {"ok": False, "error": f"City lookup failed: {exc}"}
+
+    @staticmethod
+    def browse_folder_dialog(title: str = "Select a Game Folder for MyTV") -> Dict[str, Any]:
+        """Opens the native OS folder chooser (Windows Explorer, macOS Finder, or Linux dialog) cleanly."""
+        safe_title = title.replace('"', "").replace("'", "")
+        tk_script = (
+            "import tkinter as tk\n"
+            "from tkinter import filedialog\n"
+            "root = tk.Tk()\n"
+            "root.withdraw()\n"
+            "try:\n"
+            "    root.attributes('-topmost', True)\n"
+            "except Exception:\n"
+            "    pass\n"
+            f"path = filedialog.askdirectory(title={safe_title!r})\n"
+            "root.destroy()\n"
+            "print(path or '')\n"
+        )
+
+        # macOS: native Finder chooser first
+        if sys.platform == "darwin" and shutil.which("osascript"):
+            try:
+                proc = subprocess.run(
+                    [
+                        "osascript",
+                        "-e",
+                        f'POSIX path of (choose folder with prompt "{safe_title}")',
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    check=False,
+                )
+                chosen = proc.stdout.strip().rstrip("/")
+                if proc.returncode == 0 and chosen:
+                    return {"ok": True, "path": chosen}
+                if proc.returncode != 0 and "User canceled" in (proc.stderr or ""):
+                    return {"ok": False, "cancelled": True}
+            except Exception:
+                pass
+
+        # Linux: native GTK/KDE chooser first
+        if sys.platform.startswith("linux"):
+            for cmd in (
+                ["zenity", "--file-selection", "--directory", f"--title={safe_title}"],
+                ["kdialog", "--getexistingdirectory", str(Path.home()), "--title", safe_title],
+            ):
+                if shutil.which(cmd[0]):
+                    try:
+                        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120, check=False)
+                        chosen = proc.stdout.strip()
+                        if proc.returncode == 0 and chosen:
+                            return {"ok": True, "path": chosen}
+                        return {"ok": False, "cancelled": True}
+                    except Exception:
+                        pass
+
+        # Cross-platform standard-library Tkinter folder dialog (runs in child process for main-thread safety)
+        try:
+            proc = subprocess.run(
+                [sys.executable, "-c", tk_script],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                check=False,
+            )
+            if proc.returncode == 0:
+                chosen = proc.stdout.strip()
+                if chosen:
+                    return {"ok": True, "path": os.path.normpath(chosen)}
+                return {"ok": False, "cancelled": True}
+        except Exception:
+            pass
+
+        # Windows PowerShell WinForms fallback when tkinter is absent
+        if sys.platform == "win32":
+            ps_cmd = (
+                "Add-Type -AssemblyName System.Windows.Forms; "
+                "$d = New-Object System.Windows.Forms.FolderBrowserDialog; "
+                f"$d.Description = '{safe_title}'; "
+                "$d.UseDescriptionForTitle = $true; "
+                "if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $d.SelectedPath }"
+            )
+            try:
+                proc = subprocess.run(
+                    ["powershell", "-NoProfile", "-STA", "-Command", ps_cmd],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    check=False,
+                )
+                chosen = proc.stdout.strip()
+                if chosen:
+                    return {"ok": True, "path": os.path.normpath(chosen)}
+                return {"ok": False, "cancelled": True}
+            except Exception as exc:
+                return {"ok": False, "error": f"Could not open folder picker: {exc}"}
+
+        return {"ok": False, "error": "Native folder picker is unavailable in this environment — type or paste the path directly."}
 
     @staticmethod
     def detect_windows_monitors(repo_root: Path) -> Dict[str, Any]:
@@ -494,8 +661,12 @@ def create_setup_http_server(
                     smarthome_devices=[str(x) for x in (body.get("smarthome_devices") or [])],
                     enable_gaming=bool(body.get("enable_gaming", False)),
                     games_dirs=str(body.get("games_dirs", "")),
+                    custom_smarthome=body.get("custom_smarthome") if isinstance(body.get("custom_smarthome"), list) else None,
                 )
                 self._send_json(200, {"ok": True, "prompt": prompt})
+                return
+            if parsed.path == "/api/browse-folder":
+                self._send_json(200, EnvironmentInspector.browse_folder_dialog())
                 return
             if parsed.path == "/api/validate-tmdb":
                 ok, msg = EnvironmentInspector.validate_tmdb_key(str(body.get("tmdb_key", "")))

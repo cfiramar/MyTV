@@ -90,9 +90,55 @@ class MyTvSetupStudioTests(unittest.TestCase):
             smarthome_devices=["WiZ Lights", "Sensibo AC"],
             enable_gaming=True,
             games_dirs=r"C:\Games;E:\SteamGames",
+            custom_smarthome=[
+                {"brand": "Philips Hue", "api_key": "hue_secret_value"},
+                {"brand": "Govee", "api_key": ""},
+            ],
         )
         self.assertIn("enable Smart Home (WiZ Lights, Sensibo AC)", p2)
         self.assertIn(r"C:\Games;E:\SteamGames", p2)
+        self.assertIn("Philips Hue", p2)
+        self.assertIn("custom_smarthome_key_philips_hue", p2)
+        self.assertNotIn("hue_secret_value", p2)
+        self.assertNotIn("4K Windows", p2)
+        self.assertNotIn("60fps", p2)
+
+    def test_custom_smarthome_brands_mask_secrets_and_preserve_keys(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            launcher = root / "MyTV-launcher"
+            launcher.mkdir()
+            (launcher / "config.example.properties").write_text("city=\n", encoding="utf-8")
+            (root / ".env.example").write_text("CITY=\n", encoding="utf-8")
+
+            store = SetupConfigStore(root)
+            store.save_settings(
+                {
+                    "enable_smarthome": "true",
+                    "custom_smarthome": [
+                        {"brand": "Philips Hue", "api_key": "super_secret_hue_999"},
+                        {"brand": "Home Assistant", "api_key": ""},
+                    ],
+                }
+            )
+            state = store.load_masked_state()
+            self.assertNotIn("super_secret_hue_999", json.dumps(state))
+            self.assertEqual(2, len(state["custom_smarthome"]))
+            self.assertEqual("Philips Hue", state["custom_smarthome"][0]["brand"])
+            self.assertTrue(state["custom_smarthome"][0]["has_key"])
+            self.assertFalse(state["custom_smarthome"][1]["has_key"])
+
+            # Re-saving without re-typing the custom API key keeps the saved secret intact
+            store.save_settings(
+                {
+                    "custom_smarthome": [
+                        {"brand": "Philips Hue", "api_key": ""},
+                        {"brand": "Home Assistant", "api_key": ""},
+                    ]
+                }
+            )
+            raw_cfg = (launcher / "config.properties").read_text(encoding="utf-8")
+            self.assertIn("custom_smarthome_key_philips_hue=super_secret_hue_999", raw_cfg)
 
     def test_household_key_generator_produces_valid_256bit_hex_and_matching_sha256(self) -> None:
         creds = EnvironmentInspector.generate_household_credentials("owner@example.com")
