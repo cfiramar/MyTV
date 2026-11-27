@@ -249,7 +249,11 @@ final class Updates {
                 AppLog.w("update: " + version + " APK " + wrong);
                 //noinspection ResultOfMethodCallIgnored
                 apk.delete();
-                set(c, FAILED, version, OTHER, "refused", name);
+                if (wrong.contains("not signed with the same key") || wrong.contains("isn't signed with the same key")) {
+                    set(c, BUILD, version, "", "refused", name);
+                } else {
+                    set(c, FAILED, version, OTHER, "refused", name);
+                }
                 return false;
             }
             deleteDownloads(c, apk);

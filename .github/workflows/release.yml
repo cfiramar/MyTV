@@ -57,13 +57,18 @@ jobs:
         run: |
           echo "$MYTV_KEYSTORE_BASE64" | base64 -d > MyTV-launcher/mytv.keystore
 
-      - name: Update versionName in AndroidManifest.xml
+      - name: Update versionCode and versionName in AndroidManifest.xml
         run: |
           TAG="${{ github.event.inputs.version_tag || github.ref_name }}"
           VER="${TAG#v}"
+          VCODE="$(python3 -c "p=[int(x) for x in '$VER'.split('-')[0].split('.') if x.isdigit()]; p=(p+[0,0,0])[:3]; print(p[0]*10000+p[1]*100+p[2])")"
+          sed -i "s/android:versionCode=\"[^\"]*\"/android:versionCode=\"$VCODE\"/" MyTV-launcher/app/AndroidManifest.xml
           sed -i "s/android:versionName=\"[^\"]*\"/android:versionName=\"$VER\"/" MyTV-launcher/app/AndroidManifest.xml
+          echo "Set AndroidManifest.xml versionName=$VER versionCode=$VCODE"
 
       - name: Build MyTV Packages & Setup Studio Archive
+        env:
+          MYTV_RELEASE_REPO: ${{ github.repository }}
         run: |
           (cd MyTV-launcher && bash ./build.sh --generic && python3 webos/build.py --generic && python3 tizen/build.py --generic)
           python3 -c '

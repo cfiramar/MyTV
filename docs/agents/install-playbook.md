@@ -46,10 +46,12 @@ Follow this structured runbook when helping a human user install, configure, or 
 ### 3c. Inspect TV Brand, Build, Install & Sync Encrypted Secrets (Android TV / Google TV / Fire TV)
 1. Connect over ADB (`adb connect <TV_IP>:5555` — on Chromecast Android 14, pair via *Wireless debugging* `adb pair <ip:port> <code>` then `adb tcpip 5555`). Tell the user to accept *Allow debugging* on the TV screen.
 2. Run read-only brand checks (see [`tv-brand-adaptation.md`](tv-brand-adaptation.md)) and immediately run `adb disconnect`.
-3. Build and run verification:
+3. Build (or download the signed GitHub Release APK for automatic OTA updates):
+   - **Automatic OTA Self-Updates (Recommended when no custom Java/Smart-Home edits are needed)**: If the user has no custom Smart-Home brands or Java edits to compile in and a signed `MyTV.apk` is published on GitHub Releases, you may install that release `MyTV.apk` directly and push all private keys & tab flags with `send_key.py --sync-config` so the TV automatically receives future OTA releases (`Settings -> System -> Updates`).
+   - **Local Build (Required if adding custom Smart-Home brands or local Java adjustments)**:
    ```bash
    cd MyTV-remote && npm ci && npm run build && npm test
-   cd ../MyTV-launcher && ./build.sh
+   cd ../MyTV-launcher && bash ./build.sh
    ```
 4. Install and push hardware-encrypted secrets:
    ```bash

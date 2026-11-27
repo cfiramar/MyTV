@@ -133,11 +133,17 @@ number() {
 }
 if $GENERIC; then
   LAT=""; LON=""; REGION=""; CURRENCY=""
+  DEFAULT_GITHUB_REPO="${MYTV_RELEASE_REPO:-}"
 else
   LAT="$(number latitude 40.7128)"
   LON="$(number longitude -74.0060)"
   REGION="$(prop tmdb_region US)"
   CURRENCY="$(prop currency USD)"
+  DEFAULT_GITHUB_REPO="${MYTV_RELEASE_REPO:-}"
+  if [ -z "$DEFAULT_GITHUB_REPO" ] && command -v git >/dev/null 2>&1; then
+    REMOTE_URL="$(git remote get-url origin 2>/dev/null || true)"
+    DEFAULT_GITHUB_REPO="$(printf '%s' "$REMOTE_URL" | sed -nE 's#^.*github\.com[:/]([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(\.git)?$#\1#p')"
+  fi
 fi
 ASSIST=false; [ "$(prop disable_assistant false)" = "true" ] && ASSIST=true
 ANIMATION=false; [ "$(prop hide_animation false)" = "true" ] && ANIMATION=true
@@ -172,7 +178,7 @@ final class Config {
     static final String CINEMETA_URL = "$(prop cinemeta_url 'https://v3-cinemeta.strem.io')";
     static final String SUPABASE_URL = "$(prop supabase_url '')";
     static final String SUPABASE_ANON_KEY = "$(prop supabase_anon_key '')";
-    static final String GITHUB_REPO = "$(prop github_repo '')";
+    static final String GITHUB_REPO = "$(if $GENERIC; then printf '%s' "$DEFAULT_GITHUB_REPO"; else prop github_repo "$DEFAULT_GITHUB_REPO"; fi)";
     static final String GITHUB_TOKEN = "";
     static final String GEMINI_API_KEY = "$(prop gemini_api_key '')";
     static final String SENSIBO_API_KEY = "";
