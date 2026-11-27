@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="MyTV Remote" />
+  <meta name="theme-color" content="#0b0b0d" />
+  <link rel="manifest" href="/manifest.json" />
+  <title>MyTV Companion Remote</title>
+  <style>
+    /* ==========================================================================
+       MyTV Liquid Glass Design System (Matched 1:1 with HomeView.java tvOS 27)
+       ========================================================================== */
+    :root,
+    [data-theme="dark"] {
+      --sky-top: #1c1c1e;
+      --sky-bottom: #0b0b0d;
+      --ambient-1: rgba(56, 189, 248, 0.14);
+      --ambient-2: rgba(99, 102, 241, 0.12);
+      --platter-bg: rgba(44, 44, 46, 0.72);
+      --platter-bg-elevated: rgba(58, 58, 60, 0.88);
+      --platter-border: rgba(255, 255, 255, 0.14);
+      --platter-highlight: rgba(255, 255, 255, 0.22);
+      --platter-shadow: 0 14px 34px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+      --btn-bg: rgba(255, 255, 255, 0.09);
+      --btn-bg-active: rgba(255, 255, 255, 0.20);
+      --btn-border: rgba(255, 255, 255, 0.15);
+      --input-bg: rgba(0, 0, 0, 0.38);
+      --text-main: #f5f5f7;
+      --text-dim: #98989d;
+      --text-faint: rgba(235, 235, 245, 0.45);
+      --pill-focus-bg: #ffffff;
+      --pill-focus-ink: #1d1d1f;
+      --pill-focus-shadow: 0 6px 20px rgba(0, 0, 0, 0.38);
+      --accent: #38bdf8;
+      --accent-blue: #2563eb;
+      --accent-glow: rgba(56, 189, 248, 0.30);
+      --success: #30d158;
+      --warning: #f59e0b;
+      --danger: #ff453a;
+    }
+
+    [data-theme="light"] {
+      --sky-top: #f5f5f7;
+      --sky-bottom: #e2e2e7;
+      --ambient-1: rgba(37, 99, 235, 0.10);
+      --ambient-2: rgba(14, 165, 233, 0.10);
+      --platter-bg: rgba(255, 255, 255, 0.74);
+      --platter-bg-elevated: rgba(255, 255, 255, 0.92);
+      --platter-border: rgba(0, 0, 0, 0.08);
+      --platter-highlight: rgba(255, 255, 255, 0.85);
+      --platter-shadow: 0 12px 28px rgba(0, 0, 0, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      --btn-bg: rgba(0, 0, 0, 0.055);
+      --btn-bg-active: rgba(0, 0, 0, 0.12);
+      --btn-border: rgba(0, 0, 0, 0.09);
+      --input-bg: rgba(255, 255, 255, 0.82);
+      --text-main: #1d1d1f;
+      --text-dim: #6e6e73;
+      --text-faint: #8e8e93;
+      --pill-focus-bg: #ffffff;
+      --pill-focus-ink: #1d1d1f;
+      --pill-focus-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+      --accent: #0284c7;
+      --accent-blue: #2563eb;
+      --accent-glow: rgba(2, 132, 199, 0.22);
+      --success: #16a34a;
+      --warning: #d97706;
+      --danger: #dc2626;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    input, textarea, select {
+      user-select: text;
+    }
+
+    html, body {
+      overscroll-behavior: none;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      margin: 0;
+      padding: max(env(safe-area-inset-top, 8px), 8px) 10px calc(max(env(safe-area-inset-bottom, 10px), 10px) + 74px) 10px;
+      min-height: 100vh;
+      min-height: 100dvh;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Segoe UI", Roboto, sans-serif;
+      background:
+        radial-gradient(circle at 16% 8%, var(--ambient-1), transparent 42%),
+        radial-gradient(circle at 84% 20%, var(--ambient-2), transparent 46%),
+        linear-gradient(180deg, var(--sky-top), var(--sky-bottom));
+      color: var(--text-main);
+      overflow-x: hidden;
+      transition: background 0.35s ease, color 0.25s ease;
+    }
+
+    .app-shell {
+      max-width: 460px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .icon {
+      width: 17px;
+      height: 17px;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+      flex-shrink: 0;
+    }
+
+    .icon-sm {
+      width: 14px;
+      height: 14px;
+    }
+
+    .icon-lg {
+      width: 21px;
+      height: 21px;
+    }
+
+    .glass {
+      background: var(--platter-bg);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      border: 1px solid var(--platter-border);
+      box-shadow: var(--platter-shadow);
+      border-radius: 22px;
+    }
+
+    .btn {
+      background: var(--btn-bg);
+      border: 1px solid var(--btn-border);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14), inset 0 1px 0 var(--platter-highlight);
+      color: var(--text-main);
+      border-radius: 16px;
+      padding: 9px 10px;
+      font-size: 12.5px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .btn:active {
+      transform: scale(0.94);
+      background: var(--btn-bg-active);
+    }
+
+    /* Signature tvOS White Pill (matches HomeView.java drawLightButtons & drawSubPill) */
+    .pill-focus,
+    .btn.pill-focus {
+      background: var(--pill-focus-bg) !important;
+      color: var(--pill-focus-ink) !important;
+      border-color: rgba(255, 255, 255, 0.9) !important;
+      box-shadow: var(--pill-focus-shadow) !important;
+      font-weight: 700;
+    }
+
+    .btn-accent {
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.85), rgba(14, 165, 233, 0.85));
+      color: #ffffff;
+      border-color: rgba(56, 189, 248, 0.55);
+      box-shadow: 0 6px 20px var(--accent-glow);
+    }
+
+    .btn-chip {
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+    }
+
+    .role-badge {
+      display: none;
+      align-items: center;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      background: rgba(56, 189, 248, 0.18);
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      color: var(--accent);
+      cursor: pointer;
+    }
+
+    .role-select {
+      background: var(--input-bg);
+      color: var(--text-main);
+      border: 1px solid var(--platter-border);
+      border-radius: 999px;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      outline: none;
+    }
+
+    /* Native Android APK Download Banner (shown in mobile browser, hidden in native APK) */
+    .apk-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 11px;
+      margin-bottom: 8px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.28), rgba(14, 165, 233, 0.18));
+      border: 1px solid rgba(56, 189, 248, 0.42);
+    }
+
+    .apk-banner.hidden {
+      display: none !important;
+    }
+
+    /* Top Status Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 12px;
+      margin-bottom: 8px;
+      gap: 6px;
+    }
+
+    .tv-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      cursor: pointer;
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 12px var(--success);
+      flex-shrink: 0;
+    }
+
+    .status-dot.offline {
+      background: var(--danger);
+      box-shadow: 0 0 12px var(--danger);
+    }
+
+    .tv-title {
+      font-size: 14.5px;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tv-sub {
+      font-size: 11px;
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+
+    .icon-pill {
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      border-radius: 50%;
+    }
+
+    .user-pill {
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* 7-Screen TV Top-Bar Strip (Search, Home, Apps, Gaming, Reels, Smart-Home, Settings) */
+    .tv-topbar-wrap {
+      padding: 5px;
+      margin-bottom: 8px;
+      border-radius: 999px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .tv-topbar-wrap::-webkit-scrollbar {
+      display: none;
+    }
+
+    .tv-screen-pill {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-dim);
+      padding: 7px 11px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.16s cubic-bezier(0.2, 0.8, 0.2, 1);
+      flex-shrink: 0;
+    }
+
+    .tv-screen-pill:active {
+      transform: scale(0.95);
+    }
+
+    .tv-screen-pill.active {
+      background: var(--pill-focus-bg);
+      color: var(--pill-focus-ink);
+      box-shadow: var(--pill-focus-shadow);
+      font-weight: 700;
+    }
+
+    /* Home Context Row: Side-Shelf Toggle + [ TV Shows | Movies ] Segmented Selector */
+    .context-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .sideshelf-btn {
+      padding: 8px 11px;
+      border-radius: 999px;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+
+    .segmented-pills {
+      display: inline-flex;
+      padding: 3px;
+      border-radius: 999px;
+      gap: 3px;
+      flex: 1;
+      min-width: 0;
+      justify-content: center;
+    }
+
+    .seg-pill {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      background: transparent;
+      color: var(--text-dim);
+      padding: 6px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .seg-pill.active {
+      background: var(--pill-focus-bg);
+      color: var(--pill-focus-ink);
+      box-shadow: var(--pill-focus-shadow);
+      font-weight: 700;
+    }
+
+    /* D-Pad & Touchpad Platter */
+    .dpad-card {
+      padding: 12px;
+      margin-bottom: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .dpad-grid {
+      display: grid;
+      width: 100%;
+      max-width: 256px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-rows: repeat(3, 56px);
+      gap: 8px;
+      align-items: center;
+      justify-items: center;
+    }
+
+    .dpad-btn {
+      width: 100%;
+      height: 100%;
+      border-radius: 18px;
+      flex-direction: column;
+      gap: 2px;
+      padding: 4px;
+    }
+
+    .dpad-corner-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-dim);
+    }
+
+    .dpad-ok {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      background: var(--pill-focus-bg);
+      color: var(--pill-focus-ink);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      box-shadow: var(--pill-focus-shadow);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1px;
+      padding: 0;
+    }
+
+    .dpad-ok-sub {
+      font-size: 8.5px;
+      font-weight: 600;
+      opacity: 0.65;
+      letter-spacing: 0;
+    }
+
+    .nav-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+      width: 100%;
+    }
+
+    .nav-row .btn {
+      padding: 9px 4px;
+      font-size: 11.5px;
+      gap: 4px;
+      border-radius: 14px;
+    }
+
+    .touchpad {
+      width: 100%;
+      height: 82px;
+      border-radius: 18px;
+      background: var(--btn-bg);
+      border: 1px dashed var(--platter-border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-dim);
+      font-size: 11.5px;
+      touch-action: none;
+      position: relative;
+      overflow: hidden;
+      gap: 2px;
+      padding: 6px;
+      text-align: center;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .touchpad:active {
+      background: var(--btn-bg-active);
+      border-color: var(--accent);
+    }
+
+    /* Unified Search, Copy/Paste & Gemini AI Card */
+    .input-card {
+      padding: 12px;
+      margin-bottom: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .card-header-line {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .text-input {
+      flex: 1;
+      background: var(--input-bg);
+      border: 1px solid var(--platter-border);
+      border-radius: 14px;
+      padding: 11px 13px;
+      color: var(--text-main);
+      font-size: 13.5px;
+      outline: none;
+      min-width: 0;
+    }
+
+    .text-input:focus {
+      border-color: var(--accent);
+    }
+
+    .pair-code-input {
+      text-align: center;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 0.25em;
+    }
+
+    .voice-btn.listening {
+      background: rgba(255, 69, 58, 0.32);
+      border-color: var(--danger);
+      animation: pulse 1.2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0.5); }
+      50% { box-shadow: 0 0 0 10px rgba(255, 69, 58, 0); }
+    }
+
+    .tab-pane {
+      display: none;
+    }
+    .tab-pane.active {
+      display: block;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-dim);
+      margin: 8px 4px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .grid-3 .btn {
+      padding: 9px 6px;
+      font-size: 11.5px;
+      gap: 4px;
+      border-radius: 14px;
+    }
+
+    /* Smart Home Rich Cards */
+    .routines-strip {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      margin-bottom: 12px;
+      scrollbar-width: none;
+    }
+    .routines-strip::-webkit-scrollbar {
+      display: none;
+    }
+
+    .routine-pill {
+      flex-shrink: 0;
+      padding: 10px 14px;
+      border-radius: 18px;
+      font-size: 12.5px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .smart-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .device-card {
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .device-card.on {
+      background: linear-gradient(145deg, rgba(37, 99, 235, 0.24), var(--platter-bg));
+      border-color: rgba(56, 189, 248, 0.48);
+    }
+
+    .device-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .device-info {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .device-name {
+      font-size: 15px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .device-status {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
+    .power-toggle {
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .device-controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    /* Gaming Browser Cards (16:9 Artwork + Status Pills) */
+    .status-pills-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-bottom: 10px;
+    }
+
+    .status-pill {
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--platter-bg);
+      border: 1px solid var(--platter-border);
+    }
+
+    .status-pill.connected,
+    .status-pill.online {
+      background: rgba(48, 209, 88, 0.18);
+      border-color: rgba(48, 209, 88, 0.45);
+      color: var(--success);
+    }
+
+    .games-horiz {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+      scrollbar-width: none;
+    }
+    .games-horiz::-webkit-scrollbar {
+      display: none;
+    }
+
+    .game-card-16x9 {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      background: linear-gradient(135deg, #1b2838, #0f1722);
+      border: 1px solid var(--platter-border);
+      aspect-ratio: 16 / 9;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 10px;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.32);
+    }
+
+    .game-card-16x9 img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+    }
+
+    .game-card-overlay {
+      position: relative;
+      z-index: 1;
+      background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.84) 100%);
+      margin: -10px;
+      padding: 22px 10px 9px 10px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .game-card-title {
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 700;
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .game-card-sub {
+      color: rgba(255, 255, 255, 0.72);
+      font-size: 10.5px;
+      font-weight: 500;
+    }
+
+    .reel-item {
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    /* Liquid Glass Pairing & Google Admin Sign-In Modal Overlay */
+    .pairing-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      background: rgba(6, 8, 12, 0.72);
+      backdrop-filter: blur(22px) saturate(160%);
+      -webkit-backdrop-filter: blur(22px) saturate(160%);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .pairing-overlay.visible {
+      display: flex;
+    }
+
+    .pairing-modal {
+      width: 100%;
+      max-width: 410px;
+      padding: 20px 18px;
+      background: var(--platter-bg-elevated);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .pairing-divider {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-dim);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .pairing-divider::before,
+    .pairing-divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--platter-border);
+    }
+
+    /* Bottom Liquid Glass 5-Tab Navigation Dock */
+    .bottom-dock {
+      position: fixed;
+      bottom: max(env(safe-area-inset-bottom, 6px), 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 20px);
+      max-width: 460px;
+      padding: 5px;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 3px;
+      z-index: 50;
+      border-radius: 999px;
+    }
+
+    .dock-tab {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      padding: 6px 2px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 600;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      min-width: 0;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.16s ease;
+    }
+
+    .dock-tab.active {
+      background: var(--pill-focus-bg);
+      color: var(--pill-focus-ink);
+      box-shadow: var(--pill-focus-shadow);
+      font-weight: 700;
+    }
+
+    .toast {
+      position: fixed;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-90px);
+      padding: 9px 16px;
+      border-radius: 999px;
+      font-size: 12.5px;
+      font-weight: 600;
+      transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.2, 1);
+      z-index: 100;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    .toast.visible {
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <div id="toast" class="glass toast">Ready</div>
+
+  <!-- Liquid Glass QR Pairing, 1-Click TV Approval, 30-Day Guest Re-Approval & Google Admin Recovery Overlay -->
+  <div id="pairingOverlay" class="pairing-overlay" role="dialog" aria-modal="true" aria-labelledby="pairingOverlayTitle">
+    <div class="glass pairing-modal">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+        <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+          <div class="btn icon-pill btn-accent" style="pointer-events:none; flex-shrink:0;">
+            <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3z"/><path d="M18 18h3v3h-3z"/><path d="M14 18h3"/><path d="M18 14v3"/></svg>
+          </div>
+          <div style="min-width:0;">
+            <div id="pairingOverlayTitle" style="font-size:16px; font-weight:800; letter-spacing:-0.01em;">Pair Companion Remote</div>
+            <div id="pairingOverlaySub" style="font-size:12px; color:var(--text-dim); margin-top:2px;">Tap Pair below and point your camera at the QR code on your TV screen.</div>
+          </div>
+        </div>
+        <button class="btn icon-pill" style="width:30px; height:30px; flex-shrink:0;" onclick="closePairingOverlayManual()" aria-label="Close">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <!-- Primary 1-Tap QR Scanner Button -->
+      <button id="overlayScanQrBtn" class="btn btn-accent" style="padding:12px 14px; font-size:13.5px; font-weight:700;" onclick="startQrScanner()">
+        <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3z"/><path d="M18 18h3v3h-3z"/></svg>
+        <span>Pair (Scan TV QR Code)</span>
+      </button>
+
+      <!-- Live In-App Camera QR Viewfinder -->
+      <div id="qrScannerBox" style="display:none; flex-direction:column; gap:8px; padding:10px; border-radius:16px; background:rgba(0,0,0,0.45); border:1px solid var(--platter-border);">
+        <div style="position:relative; width:100%; aspect-ratio:4/3; border-radius:12px; overflow:hidden; background:#050608;">
+          <video id="qrVideo" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>
+          <div style="position:absolute; inset:18%; border:2px solid var(--accent); border-radius:16px; box-shadow:0 0 0 999px rgba(0,0,0,0.32); pointer-events:none;"></div>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <span id="qrScannerHint" style="font-size:11.5px; color:var(--text-dim);">Point camera at the QR code shown on TV...</span>
+          <label class="btn btn-chip" style="cursor:pointer; flex-shrink:0;">
+            <span>Snap QR</span>
+            <input id="qrFileInput" type="file" accept="image/*" capture="environment" style="display:none;" onchange="scanQrImageFile(event)" />
+          </label>
+          <button class="btn btn-chip" onclick="stopQrScanner()" style="flex-shrink:0;">Close</button>
+        </div>
+      </div>
+
+      <!-- 1-Click TV Remote Approval Status -->
+      <div style="padding:10px 12px; border-radius:14px; background:var(--btn-bg); border:1px solid var(--platter-border); display:flex; align-items:center; justify-content:space-between; gap:8px;">
+        <span id="pairPollStatusText" style="font-size:11.5px; color:var(--text-dim); white-space:normal;">Searching for MyTV on Wi-Fi...</span>
+        <button class="btn btn-chip" onclick="requestTvPairPrompt()" style="flex-shrink:0;">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg>
+          <span>Show QR on TV</span>
+        </button>
+      </div>
+
+      <!-- 6-Digit Code Entry -->
+      <div class="input-row">
+        <input id="pairCodeInput" class="text-input pair-code-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" aria-label="6-Digit TV Pairing Code" />
+        <button class="btn pill-focus" onclick="submitSixDigitPairCode()">
+          <span>Pair Code</span>
+        </button>
+      </div>
+
+      <!-- Anti-Lockout Owner Google Sign-In -->
+      <div id="googleAdminAuthWrap" style="display:none; flex-direction:column; gap:10px;">
+        <div class="pairing-divider">Owner / Admin Recovery</div>
+        <button class="btn btn-accent" style="padding:11px 14px;" onclick="signInWithGoogleAdmin()">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>Sign in with Google (Owner / Admin)</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-shell">
+    <!-- Top Status Header -->
+    <header class="glass header">
+      <div class="tv-badge" onclick="openQrPairScanner()" title="Tap to pair with TV">
+        <div id="statusDot" class="status-dot"></div>
+        <div style="min-width:0;">
+          <div id="tvModelText" class="tv-title">MyTV</div>
+          <div id="tvSubText" class="tv-sub">On TV: Home · TV Shows</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="headerPairBtn" class="btn btn-accent btn-chip" onclick="openQrPairScanner()" title="Pair with TV via QR Code">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3z"/><path d="M18 18h3v3h-3z"/></svg>
+          <span>Pair</span>
+        </button>
+        <span id="roleHeaderBadge" class="role-badge" onclick="openQrPairScanner()" title="Current Remote Role"></span>
+        <button id="fullscreenBtn" class="btn icon-pill" onclick="toggleFullscreen()" title="Full-Screen Mode (Hide Browser Bars)" aria-label="Full-Screen Mode">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+        </button>
+        <button class="btn icon-pill" onclick="toggleTheme()" title="Toggle Light / Dark Liquid Glass Theme" aria-label="Toggle Theme">
+          <svg id="themeIcon" class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </button>
+        <button class="btn user-pill" onclick="sendKey('users')" title="Switch Active Household Profile">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span id="activeUserText">Main</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Download Native Android App Banner (Hidden inside native APK) -->
+    <div id="apkInstallBanner" class="glass apk-banner">
+      <div style="min-width:0; flex:1;">
+        <div style="font-size:12px; font-weight:700; color:var(--text-main);">Install Native Android Remote App</div>
+        <div style="font-size:10.5px; color:var(--text-dim);">Full-screen app · Fingerprint PC Unlock · Volume buttons</div>
+      </div>
+      <a id="apkDownloadLink" href="/MyTV-Remote.apk" download="MyTV-Remote.apk" class="btn btn-accent btn-chip" style="flex-shrink:0;">
+        <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>Get APK</span>
+      </a>
+      <button class="btn icon-pill" style="width:26px; height:26px;" onclick="dismissApkBanner()" aria-label="Dismiss">
+        <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- 7-Screen TV Top-Bar Switcher (Mirrors HomeView.java TOP_BAR_ICONS 0..6) -->
+    <nav class="glass tv-topbar-wrap" aria-label="TV Top-Bar Screens">
+      <button class="tv-screen-pill" data-screen="0" onclick="switchTvScreen(0, 'search')">
+        <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span>Search</span>
+      </button>
+      <button class="tv-screen-pill active" data-screen="1" onclick="switchTvScreen(1, 'home')">
+        <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>Home</span>
+      </button>
+      <button class="tv-screen-pill" data-screen="2" onclick="switchTvScreen(2, 'apps')">
+        <svg class="icon icon-sm" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>
+        <span>Apps</span>
+      </button>
+      <button class="tv-screen-pill" data-screen="3" onclick="switchTvScreen(3, 'gaming')">
+        <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/><rect x="2" y="6" width="20" height="12" rx="4"/></svg>
+        <span>Gaming</span>
+      </button>
+      <button class="tv-screen-pill" data-screen="4" style="display:none;" onclick="switchTvScreen(4, 'reels')">
+        <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/></svg>
+        <span>Reels</span>
+      </button>
+      <button class="tv-screen-pill" data-screen="5" onclick="switchTvScreen(5, 'smarthome')">
+        <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>
+        <span>Smart-Home</span>
+      </button>
+      <button class="tv-screen-pill" data-screen="6" onclick="switchTvScreen(6, 'settings')">
+        <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Settings</span>
+      </button>
+    </nav>
+
+    <!-- ========================================================================
+         TAB 1: TAILOR-MADE MYTV REMOTE & UNIFIED SEARCH
+         ======================================================================== -->
+    <main id="tab-remote" class="tab-pane active">
+      <!-- MyTV Home Context Bar: Favorite Apps Side-Shelf + [ TV Shows | Movies ] Selector -->
+      <div class="context-bar">
+        <button id="sideShelfToggleBtn" class="btn sideshelf-btn" onclick="sendKey('sideshelf')" title="Open or close Favorite Apps Side-Shelf on TV">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+          <span>Side-Shelf</span>
+        </button>
+        <div class="glass segmented-pills" role="group" aria-label="Home Media Mode">
+          <button id="subTabTvBtn" class="seg-pill active" onclick="switchSubTab(0)">TV Shows</button>
+          <button id="subTabMovieBtn" class="seg-pill" onclick="switchSubTab(1)">Movies</button>
+        </div>
+      </div>
+
+      <!-- Tactile D-Pad, Volume/Mute & Touchpad -->
+      <section class="glass dpad-card">
+        <div class="dpad-grid">
+          <button class="btn dpad-btn" onclick="sendKey('back')" aria-label="Back">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
+            <span class="dpad-corner-label">Back</span>
+          </button>
+          <button class="btn dpad-btn" onclick="sendKey('up')" aria-label="Up">
+            <svg class="icon icon-lg" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>
+          </button>
+          <button class="btn dpad-btn" onclick="sendKey('hold_ok')" title="Open Hold-OK Context / Reorder Menu on TV">
+            <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/><circle cx="5" cy="12" r="1.5"/></svg>
+            <span class="dpad-corner-label">Hold OK</span>
+          </button>
+
+          <button class="btn dpad-btn" onclick="sendKey('left')" aria-label="Left">
+            <svg class="icon icon-lg" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <button id="okCenterBtn" class="btn dpad-ok" aria-label="OK (Tap to Select, Hold for Menu)">
+            <span>OK</span>
+            <span class="dpad-ok-sub">Hold: Menu</span>
+          </button>
+          <button class="btn dpad-btn" onclick="sendKey('right')" aria-label="Right">
+            <svg class="icon icon-lg" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+
+          <button class="btn dpad-btn" onclick="sendKey('home')" aria-label="Home">
+            <svg class="icon" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            <span class="dpad-corner-label">Home</span>
+          </button>
+          <button class="btn dpad-btn" onclick="sendKey('down')" aria-label="Down">
+            <svg class="icon icon-lg" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <button class="btn dpad-btn" onclick="sendKey('sideshelf')" aria-label="Favorite Apps Side-Shelf">
+            <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+            <span class="dpad-corner-label">Shelf</span>
+          </button>
+        </div>
+
+        <!-- Volume, Dedicated SVG Mute Button & Voice Assistant -->
+        <div class="nav-row">
+          <button class="btn" onclick="sendKey('vol_down')">
+            <svg class="icon" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+            <span>Vol -</span>
+          </button>
+          <button class="btn" onclick="sendKey('mute')">
+            <svg class="icon" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+            <span>Mute</span>
+          </button>
+          <button class="btn" onclick="sendKey('vol_up')">
+            <svg class="icon" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+            <span>Vol +</span>
+          </button>
+          <button class="btn btn-accent" id="voiceBtn" onclick="startVoiceInput()">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+            <span>Voice</span>
+          </button>
+        </div>
+
+        <!-- Smooth Liquid Glass Trackpad -->
+        <div id="touchpad" class="touchpad">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3"/></svg>
+          <div style="font-weight:700; color:var(--text-main);">Liquid Glass Trackpad</div>
+          <div>Glide to scroll rows · Tap = OK · Hold = Context Menu</div>
+        </div>
+      </section>
+
+      <!-- Unified Search (Shows/Movies, YouTube, Apps, Settings), Clipboard Paste & Gemini AI -->
+      <section class="glass input-card">
+        <div class="card-header-line">
+          <span style="display:inline-flex; align-items:center; gap:6px;">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+            <span>Unified TV Search · Clipboard · Gemini AI</span>
+          </span>
+        </div>
+        <div class="input-row">
+          <input id="remoteTextInput" class="text-input" type="text" placeholder="Search shows, movies, YouTube, apps, or paste text..." />
+          <button class="btn" onclick="pasteFromPhoneClipboard()" title="Paste from phone clipboard">
+            <svg class="icon" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+          </button>
+        </div>
+        <div class="grid-3" style="margin-bottom:0;">
+          <button class="btn pill-focus" onclick="submitText(true)">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <span>Search TV</span>
+          </button>
+          <button class="btn" onclick="submitText(false)">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <span>Copy Text</span>
+          </button>
+          <button class="btn btn-accent" onclick="askGeminiAi()">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+            <span>Gemini AI</span>
+          </button>
+        </div>
+        <div id="aiResultBox" style="display:none; font-size:13px; padding:8px 10px; border-radius:14px; background:var(--btn-bg);"></div>
+      </section>
+    </main>
+
+    <!-- ========================================================================
+         TAB 2: GAMING BROWSER (16:9 Art, Biometric PC Unlock, Controller & PC Status)
+         ======================================================================== -->
+    <main id="tab-gaming" class="tab-pane">
+      <div class="section-title">
+        <span>Controller & Gaming PC Status</span>
+        <button class="btn btn-chip" onclick="syncGamingWithPc()">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+          <span>Sync PC</span>
+        </button>
+      </div>
+
+      <div id="gamingStatusPillsRow" class="status-pills-row">
+        <div id="controllerStatusPill" class="status-pill">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/><rect x="2" y="6" width="20" height="12" rx="4"/></svg>
+          <span id="controllerStatusText">Checking Bluetooth / USB Gamepads...</span>
+        </div>
+        <div id="pcStatusPill" class="status-pill">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          <span id="gamingStatusBadge">PC Standby · Instant Local Cache</span>
+        </div>
+      </div>
+
+      <!-- Streaming & PC Controls (Matches Gaming Screen Row 2) -->
+      <div class="grid-3">
+        <button class="btn btn-accent" onclick="wakeGamingLaptop()">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <span>Wake PC</span>
+        </button>
+        <button class="btn pill-focus" onclick="launchGamingItem('steam_bigpicture', 'Steam Big Picture')">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><rect x="2" y="6" width="20" height="12" rx="4"/></svg>
+          <span>Big Picture</span>
+        </button>
+        <button class="btn" onclick="launchGamingItem('desktop', 'Windows Desktop')">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          <span>Desktop</span>
+        </button>
+      </div>
+
+      <!-- Admin-Only Wireless PC Unlock: Android Fingerprint KeyStore + Alphanumeric PIN Fallback -->
+      <section id="pcUnlockCard" class="glass input-card">
+        <div id="biometricUnlockRow" style="display:none; flex-wrap:wrap; gap:8px; align-items:center;">
+          <button id="biometricUnlockBtn" class="btn btn-accent" style="flex:1;" onclick="unlockPcWithFingerprint()">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8 4"/><path d="M5 19.5C5.5 18 6 15 6 12c0-.7.12-1.37.34-2"/><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/><path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/><path d="M8.65 22c.21-.66.45-1.32.57-2"/><path d="M14 13.12c0 2.38 0 6.38-1 8.88"/><path d="M2 16h.01"/><path d="M21.8 16c.2-2 .131-5.354 0-6"/><path d="M9 6.8a6 6 0 0 1 9 5.2c0 .47 0 1.17-.02 2"/></svg>
+            <span>Unlock PC (Fingerprint)</span>
+          </button>
+          <button id="savePinBiometricBtn" class="btn btn-chip" onclick="savePinToFingerprint()">Save PIN to Fingerprint</button>
+          <button id="clearPinBiometricBtn" class="btn btn-chip" style="display:none;" onclick="clearSavedFingerprintPin()">Clear</button>
+        </div>
+        <div class="input-row">
+          <input id="gamingPinInput" class="text-input" type="password" placeholder="Windows Hello PIN (digits & letters) if PC is locked..." />
+          <button class="btn" onclick="unlockGamingLaptop()">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+            <span>Unlock</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Continue Playing Row (Only shown when recently played games exist) -->
+      <div id="continuePlayingSection" style="display:none;">
+        <div class="section-title"><span>Continue Playing</span></div>
+        <div id="continuePlayingList" class="games-horiz"></div>
+      </div>
+
+      <!-- Games Library (16:9 Cover Art Cards) -->
+      <div class="section-title">
+        <span>Games Library</span>
+        <button class="btn btn-chip" id="toggleHiddenGamesBtn" onclick="toggleShowHiddenGames()">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span>Show Hidden</span>
+        </button>
+      </div>
+      <div id="gamingGamesList" class="grid-2"></div>
+    </main>
+
+    <!-- ========================================================================
+         TAB 3: SMART-HOME (Routines, Dynamic WiZ Scan, AC Mode/Fan, Dimmer, Boiler)
+         ======================================================================== -->
+    <main id="tab-smarthome" class="tab-pane">
+      <div class="section-title">
+        <span>Routines & Wi-Fi Discovery</span>
+        <button class="btn btn-chip" onclick="runSmartRoutine('discover_wiz')">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+          <span>Scan WiZ Bulbs</span>
+        </button>
+      </div>
+
+      <div class="routines-strip">
+        <button class="btn routine-pill btn-accent" onclick="runSmartRoutine('movie_time')">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+          <span>Movie Time</span>
+        </button>
+        <button class="btn routine-pill" onclick="runSmartRoutine('good_night')">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+          <span>Good Night</span>
+        </button>
+        <button class="btn routine-pill" onclick="runSmartRoutine('all_lights_bright')">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/></svg>
+          <span>All Lights 100%</span>
+        </button>
+        <button class="btn routine-pill" onclick="runSmartRoutine('google_home_voice')">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+          <span>Google Home Voice</span>
+        </button>
+      </div>
+
+      <div class="section-title"><span>Smart-Home Devices (LAN & Cloud)</span></div>
+      <div id="smartHomeGrid" class="smart-list"></div>
+    </main>
+
+    <!-- ========================================================================
+         TAB 4: REELS & CAST
+         ======================================================================== -->
+    <main id="tab-cast" class="tab-pane">
+      <div class="section-title"><span>Broadcast Link / Send Reel to TV</span></div>
+      <section class="glass input-card">
+        <div class="input-row">
+          <input id="castUrlInput" class="text-input" type="url" placeholder="Paste YouTube, TikTok, Instagram Reel, or stream URL..." />
+          <button class="btn" onclick="pasteToCastUrl()" title="Paste link from clipboard">
+            <svg class="icon" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+          </button>
+        </div>
+        <input id="castTitleInput" class="text-input" type="text" placeholder="Optional title or note (e.g. Watch this tonight!)" />
+        <div class="input-row">
+          <button class="btn btn-accent" style="flex:1;" onclick="castToTv(true)">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><line x1="2" y1="20" x2="2.01" y2="20"/></svg>
+            <span>Cast & Save to Reels</span>
+          </button>
+          <button class="btn" onclick="castToTv(false)">Play Once</button>
+        </div>
+      </section>
+
+      <div class="grid-2">
+        <button class="btn" onclick="quickCastUrl('https://www.youtube.com/shorts', 'YouTube Shorts')">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span>YouTube Shorts</span>
+        </button>
+        <button class="btn" onclick="quickCastUrl('https://www.tiktok.com', 'TikTok TV')">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/></svg>
+          <span>TikTok TV Feed</span>
+        </button>
+      </div>
+
+      <div class="section-title"><span>Family Shared Reels Feed</span></div>
+      <div id="sharedReelsList"></div>
+    </main>
+
+    <!-- ========================================================================
+         TAB 5: FAVORITE SIDE-SHELF APPS, TRAKT OAUTH, PROFILES, PAIRED REMOTES & SYSTEM
+         ======================================================================== -->
+    <main id="tab-apps" class="tab-pane">
+      <div class="section-title">
+        <span>Favorite Side-Shelf Apps</span>
+        <button class="btn btn-chip" onclick="sendKey('sideshelf')">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+          <span>Toggle Shelf on TV</span>
+        </button>
+      </div>
+      <div id="favoriteAppsGrid" class="grid-2">
+        <button class="btn" onclick="launchApp('com.stremio.one')"><span>Stremio</span></button>
+        <button class="btn" onclick="launchApp('com.google.android.youtube.tv')"><span>YouTube</span></button>
+        <button class="btn" onclick="launchApp('com.netflix.ninja')"><span>Netflix</span></button>
+        <button class="btn" onclick="launchApp('com.apple.atve.androidtv.appletv')"><span>Apple TV</span></button>
+        <button class="btn" onclick="launchApp('com.wbd.stream')"><span>Max / HBO</span></button>
+        <button class="btn" onclick="launchApp('com.disney.disneyplus')"><span>Disney+</span></button>
+        <button class="btn" onclick="launchApp('com.amazon.amazonvideo.livingroom')"><span>Prime Video</span></button>
+        <button class="btn" onclick="launchApp('com.spotify.tv.android')"><span>Spotify</span></button>
+      </div>
+
+      <div class="section-title"><span>Private Trakt Account & Watch List Sync</span></div>
+      <section class="glass input-card">
+        <div class="device-top">
+          <div class="device-info">
+            <div id="traktStatusTitle" class="device-name">Trakt OAuth</div>
+            <div id="traktStatusSub" class="device-status">Syncs private Watch List, Ratings, Favorites & History</div>
+          </div>
+          <button class="btn btn-accent" onclick="sendKey('trakt')">
+            <span>Sync / Link on TV</span>
+          </button>
+        </div>
+      </section>
+
+      <div class="section-title"><span>Household User Profiles</span></div>
+      <div id="userProfilesList" class="grid-2"></div>
+
+      <section class="glass input-card">
+        <div class="card-header-line"><span>Add or Update Household Profile</span></div>
+        <input id="newProfileName" class="text-input" type="text" placeholder="Display Name (e.g. Alex)" />
+        <input id="newProfileTrakt" class="text-input" type="text" placeholder="Trakt Username (optional)" />
+        <button class="btn btn-accent" onclick="createUserProfile()">Save User Profile</button>
+      </section>
+
+      <!-- Admin-Only Paired Remotes & Guests Management -->
+      <div id="adminDevicesSection" style="display:none;">
+        <div class="section-title">
+          <span>Paired Remotes & Guests</span>
+          <button class="btn btn-chip" onclick="refreshPairedDevices()">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            <span>Refresh</span>
+          </button>
+        </div>
+        <section class="glass input-card">
+          <div class="input-row">
+            <button class="btn btn-accent" style="flex:1;" onclick="createAdminInvite('GUEST')">
+              <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+              <span>Invite Guest (30d)</span>
+            </button>
+            <button class="btn" style="flex:1;" onclick="createAdminInvite('HOUSEHOLD')">
+              <span>Invite Household</span>
+            </button>
+          </div>
+          <div id="adminInviteResultBox" style="display:none; align-items:center; justify-content:space-between; gap:8px; padding:10px 12px; border-radius:14px; background:var(--btn-bg);"></div>
+          <div id="pairedDevicesList" class="smart-list" style="margin-bottom:0;"></div>
+        </section>
+      </div>
+
+      <!-- Admin-Only Launcher & OTA Self-Update -->
+      <section id="adminSystemCard" class="glass input-card">
+        <div class="card-header-line"><span>Launcher & OTA Self-Update (Admin)</span></div>
+        <div class="input-row">
+          <button class="btn" style="flex:1;" onclick="setLauncherMode('settings')">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <span>MyTV Settings</span>
+          </button>
+          <button class="btn" style="flex:1; border-color:rgba(255,69,58,0.45);" onclick="setLauncherMode('original')">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
+            <span>Native Launcher</span>
+          </button>
+        </div>
+        <div style="font-size:11.5px; color:var(--text-dim);">GitHub Release Auto-Update (Optional)</div>
+        <input id="githubTokenInput" class="text-input" type="password" placeholder="Optional: Private GitHub Read-Only Token (github_pat_...)" />
+        <button class="btn btn-accent" onclick="triggerSelfUpdate()">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>Save Token & Check for App Update</span>
+        </button>
+      </section>
+
+      <a id="tab5ApkDownloadBtn" href="/MyTV-Remote.apk" download="MyTV-Remote.apk" class="btn pill-focus" style="width:100%; margin-bottom:10px;">
+        <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>Download Native Android Remote App (.apk)</span>
+      </a>
+    </main>
+  </div>
+
+  <!-- Bottom 5-Tab Liquid Glass Navigation Dock (All Crisp SVG Icons, Zero Emojis) -->
+  <nav class="glass bottom-dock" aria-label="Companion Remote Tabs">
+    <button class="dock-tab active" data-tab="remote" onclick="switchTab('remote')">
+      <svg class="icon" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="4"/><circle cx="12" cy="8" r="2"/><line x1="10" y1="15" x2="14" y2="15"/></svg>
+      <span>Remote</span>
+    </button>
+    <button class="dock-tab" data-tab="gaming" onclick="switchTab('gaming')">
+      <svg class="icon" viewBox="0 0 24 24"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/><rect x="2" y="6" width="20" height="12" rx="4"/></svg>
+      <span>Gaming</span>
+    </button>
+    <button class="dock-tab" data-tab="smarthome" onclick="switchTab('smarthome')">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>
+      <span>Smart Home</span>
+    </button>
+    <button class="dock-tab" data-tab="cast" style="display:none;" onclick="switchTab('cast')">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><line x1="2" y1="20" x2="2.01" y2="20"/></svg>
+      <span>Reels & Cast</span>
+    </button>
+    <button class="dock-tab" data-tab="apps" onclick="switchTab('apps')">
+      <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>
+      <span>Apps & TV</span>
+    </button>
+  </nav>
+
+  <script src="/app.bundle.js"></script>
+</body>
+</html>

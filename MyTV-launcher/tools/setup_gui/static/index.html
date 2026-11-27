@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MyTV Setup Studio</title>
+  <style>
+    :root {
+      --bg-base: #070b14;
+      --glass-bg: rgba(20, 28, 46, 0.62);
+      --glass-bg-strong: rgba(26, 36, 58, 0.78);
+      --glass-border: rgba(255, 255, 255, 0.13);
+      --glass-highlight: rgba(255, 255, 255, 0.24);
+      --ink: #f8fafc;
+      --dim: rgba(226, 232, 240, 0.74);
+      --faint: rgba(148, 163, 184, 0.68);
+      --accent: #38bdf8;
+      --accent-indigo: #818cf8;
+      --emerald: #34d399;
+      --amber: #fbbf24;
+      --rose: #fb7185;
+      --pill-ink: #0b1120;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background:
+        radial-gradient(ellipse 75% 55% at 15% 8%, rgba(56, 189, 248, 0.18), transparent 65%),
+        radial-gradient(ellipse 70% 50% at 85% 16%, rgba(129, 140, 248, 0.19), transparent 65%),
+        radial-gradient(ellipse 65% 55% at 50% 96%, rgba(16, 185, 129, 0.10), transparent 70%),
+        var(--bg-base);
+      color: var(--ink);
+      line-height: 1.55;
+      padding: 28px 20px 64px;
+    }
+
+    .shell { max-width: 1080px; margin: 0 auto; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding: 14px 20px;
+      border-radius: 999px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(28px) saturate(160%);
+      -webkit-backdrop-filter: blur(28px) saturate(160%);
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+      margin-bottom: 28px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-badge {
+      width: 36px;
+      height: 36px;
+      border-radius: 11px;
+      background: linear-gradient(135deg, #38bdf8, #6366f1);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 18px rgba(56, 189, 248, 0.35);
+    }
+
+    .nav-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .nav-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 18px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--dim);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.16s ease, background 0.18s ease, color 0.18s ease;
+    }
+
+    .nav-pill:hover { color: var(--ink); background: rgba(255, 255, 255, 0.07); }
+
+    .nav-pill.active {
+      background: #ffffff;
+      color: var(--pill-ink);
+      box-shadow: 0 8px 22px rgba(255, 255, 255, 0.22);
+    }
+
+    .icon { width: 18px; height: 18px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+
+    .hero {
+      padding: 28px 30px;
+      border-radius: 26px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(28px);
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      margin-bottom: 22px;
+    }
+
+    .hero h1 { font-size: 26px; letter-spacing: -0.025em; margin-bottom: 8px; }
+    .hero p { color: var(--dim); font-size: 15px; max-width: 780px; }
+
+    .pane { display: none; animation: fadeIn 0.2s ease; }
+    .pane.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; margin-bottom: 18px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-top: 14px; }
+
+    .card {
+      padding: 22px 24px;
+      border-radius: 22px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      margin-bottom: 18px;
+    }
+
+    .card h2 {
+      font-size: 17px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .card-sub { color: var(--dim); font-size: 13.5px; margin-bottom: 16px; }
+
+    label.field-label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--dim);
+      margin-bottom: 6px;
+      letter-spacing: 0.01em;
+    }
+
+    .field-row { display: flex; gap: 10px; margin-bottom: 14px; align-items: center; }
+
+    input[type="text"], input[type="password"], select, textarea {
+      width: 100%;
+      padding: 11px 14px;
+      border-radius: 13px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(8, 13, 25, 0.68);
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+    }
+
+    textarea { resize: vertical; min-height: 122px; font-family: "JetBrains Mono", Consolas, monospace; font-size: 13px; line-height: 1.5; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: 1px solid var(--glass-border);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--ink);
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      text-decoration: none;
+      transition: transform 0.14s ease, background 0.16s ease, border-color 0.16s ease;
+    }
+
+    .btn:hover { background: rgba(255, 255, 255, 0.15); border-color: var(--glass-highlight); }
+    .btn:active { transform: scale(0.98); }
+
+    .btn-primary {
+      background: #ffffff;
+      color: var(--pill-ink);
+      border-color: #ffffff;
+      box-shadow: 0 8px 24px rgba(255, 255, 255, 0.18);
+    }
+    .btn-primary:hover { background: #f1f5f9; }
+
+    .btn-accent {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.24), rgba(129, 140, 248, 0.24));
+      border-color: rgba(56, 189, 248, 0.45);
+      color: #e0f2fe;
+    }
+
+    .toggle-box {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      margin-bottom: 12px;
+    }
+
+    .switch {
+      position: relative;
+      width: 46px;
+      height: 26px;
+      flex-shrink: 0;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; inset: 0; cursor: pointer;
+      background: rgba(148, 163, 184, 0.28);
+      border-radius: 999px;
+      transition: 0.2s;
+    }
+    .slider::before {
+      content: ""; position: absolute; height: 20px; width: 20px; left: 3px; bottom: 3px;
+      background: #fff; border-radius: 50%; transition: 0.2s;
+    }
+    .switch input:checked + .slider { background: var(--accent); }
+    .switch input:checked + .slider::before { transform: translateX(20px); }
+
+    .chip-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.05); cursor: pointer; user-select: none;
+    }
+    .chip input { accent-color: var(--accent); }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .badge-req { background: rgba(56, 189, 248, 0.18); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.35); }
+    .badge-rec { background: rgba(52, 211, 153, 0.16); color: #6ee7b7; border: 1px solid rgba(52, 211, 153, 0.35); }
+    .badge-opt { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.26); }
+    .badge-saved { background: rgba(52, 211, 153, 0.2); color: #6ee7b7; }
+
+    details.glass-collapse {
+      border-radius: 20px;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+
+    details.glass-collapse > summary {
+      list-style: none;
+      padding: 18px 22px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 700;
+      font-size: 15.5px;
+    }
+    details.glass-collapse > summary::-webkit-details-marker { display: none; }
+    .collapse-body { padding: 4px 22px 22px; border-top: 1px solid rgba(255, 255, 255, 0.07); }
+
+    .key-item {
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    }
+    .key-item:last-child { border-bottom: none; }
+    .key-head {
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 6px;
+    }
+    .key-meta { font-size: 13px; color: var(--dim); margin-bottom: 10px; }
+
+    .step-card {
+      padding: 16px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .step-num {
+      display: inline-flex; width: 26px; height: 26px; border-radius: 999px;
+      align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700;
+      background: rgba(56, 189, 248, 0.2); color: var(--accent); margin-bottom: 8px;
+    }
+    .step-card h3 { font-size: 14.5px; margin-bottom: 4px; }
+    .step-card p { font-size: 13px; color: var(--dim); }
+
+    .status-banner {
+      padding: 11px 16px; border-radius: 14px; font-size: 13.5px; margin-top: 10px;
+      background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); color: #e0f2fe;
+      display: none;
+    }
+    .status-banner.show { display: block; }
+
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; z-index: 999;
+      padding: 12px 20px; border-radius: 999px;
+      background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; font-size: 13.5px; font-weight: 600;
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5);
+      opacity: 0; pointer-events: none; transform: translateY(10px); transition: 0.2s ease;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    .tool-Row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .dot-ok { background: var(--emerald); box-shadow: 0 0 8px var(--emerald); }
+    .dot-warn { background: var(--amber); }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-badge">
+          <svg class="icon" viewBox="0 0 24 24" style="color:#fff;"><rect x="2" y="4" width="20" height="13" rx="2.5"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </span>
+        <span>MyTV Setup Studio</span>
+        <span id="sandboxBadge" class="badge badge-rec" style="display:none;">Sandbox Preview · TV Untouched</span>
+      </div>
+      <nav class="nav-pills" role="tablist">
+        <button class="nav-pill active" data-pane="pane-start" onclick="openPane('pane-start')">
+          <svg class="icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <span>Start &amp; AI Prompt</span>
+        </button>
+        <button class="nav-pill" data-pane="pane-keys" onclick="openPane('pane-keys')">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+          <span>API Keys &amp; Save</span>
+        </button>
+        <button class="nav-pill" data-pane="pane-tv" onclick="openPane('pane-tv')">
+          <svg class="icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
+          <span>Prepare Your TV</span>
+        </button>
+        <button class="nav-pill" data-pane="pane-qa" onclick="openPane('pane-qa')">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span>Troubleshooting &amp; Q&amp;A</span>
+        </button>
+      </nav>
+    </header>
+
+    <!-- =====================================================================
+         PANE 1: START & AI PROMPT GENERATOR
+         ===================================================================== -->
+    <section id="pane-start" class="pane active">
+      <div class="hero">
+        <h1>Welcome to Your Bloat-Free 4K TV Experience</h1>
+        <p>Pick the features you want on your TV below. Unused tabs stay completely hidden so your home screen stays calm and personal — and you or your AI agent can turn them on anytime later.</p>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h2>
+            <svg class="icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
+            <span>1. Your TV &amp; Location</span>
+          </h2>
+          <p class="card-sub">Used for TV brand safety checks, local weather, and sunrise/sunset themes.</p>
+
+          <label class="field-label" for="tvPlatform">TV Operating System</label>
+          <div class="field-row">
+            <select id="tvPlatform" onchange="refreshPrompt()">
+              <option value="android_tv">Android TV / Google TV (Sony, TCL, Xiaomi, Philips, Hisense, Chromecast, onn...)</option>
+              <option value="fire_tv">Amazon Fire TV / Fire TV Stick</option>
+              <option value="lg_webos">LG Smart TV (webOS)</option>
+              <option value="samsung_tizen">Samsung Smart TV (Tizen)</option>
+            </select>
+          </div>
+
+          <label class="field-label" for="tvIp">TV Wi-Fi IP Address (Optional now — your AI agent can also ask later)</label>
+          <div class="field-row">
+            <input id="tvIp" type="text" placeholder="e.g. 192.168.1.50" oninput="refreshPrompt()" />
+            <button class="btn" onclick="probeTvConnection()">Test TV</button>
+          </div>
+          <div id="tvProbeResult" class="status-banner"></div>
+
+          <label class="field-label" for="cityInput">Your City (Auto-fills coordinates &amp; region)</label>
+          <div class="field-row">
+            <input id="cityInput" type="text" placeholder="e.g. New York, London, Tel Aviv" oninput="refreshPrompt()" />
+            <button class="btn" onclick="lookupCity()">Auto-Fill</button>
+          </div>
+          <div id="cityResult" class="status-banner"></div>
+        </div>
+
+        <div class="card">
+          <h2>
+            <svg class="icon" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/></svg>
+            <span>2. Optional Tabs</span>
+          </h2>
+          <p class="card-sub">Turn off tabs you don't use — MyTV removes them cleanly from both your TV and Phone Remote.</p>
+
+          <div class="toggle-box">
+            <div>
+              <div style="font-weight:700; font-size:14.5px;">Smart Home Tab</div>
+              <div style="font-size:12.5px; color:var(--dim);">Control lights, AC, and water boiler from the couch (zero PC needed).</div>
+              <div id="shDevicesWrap" class="chip-group" style="display:none;">
+                <label class="chip"><input type="checkbox" class="sh-dev" value="WiZ Smart Lights" onchange="refreshPrompt()" checked /> WiZ Lights</label>
+                <label class="chip"><input type="checkbox" class="sh-dev" value="Sensibo AC" onchange="refreshPrompt()" /> Sensibo AC</label>
+                <label class="chip"><input type="checkbox" class="sh-dev" value="Tuya Smart AC" onchange="refreshPrompt()" /> Tuya AC</label>
+                <label class="chip"><input type="checkbox" class="sh-dev" value="Switcher Boiler" onchange="refreshPrompt()" /> Switcher Boiler</label>
+              </div>
+            </div>
+            <label class="switch">
+              <input id="toggleSmartHome" type="checkbox" onchange="onToggleOptionalTabs()" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="toggle-box">
+            <div style="width:100%;">
+              <div style="font-weight:700; font-size:14.5px;">PC Gaming Tab (4K Streaming)</div>
+              <div style="font-size:12.5px; color:var(--dim);">Stream Steam, Epic, Heroic &amp; standalone Windows games at 4K 60fps.</div>
+              <div id="gamingOptsWrap" style="display:none; margin-top:10px;">
+                <label class="field-label" for="gamesDirsInput">Standalone Game Folders on PC (Steam &amp; Epic auto-detected)</label>
+                <div class="field-row" style="margin-bottom:8px;">
+                  <input id="gamesDirsInput" type="text" placeholder="e.g. C:\Games;D:\PCGames" oninput="refreshPrompt()" />
+                  <button class="btn" onclick="detectMonitors()">Detect Monitors</button>
+                </div>
+                <div id="monitorsResult" class="status-banner"></div>
+              </div>
+            </div>
+            <label class="switch">
+              <input id="toggleGaming" type="checkbox" onchange="onToggleOptionalTabs()" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:10px;">
+          <h2>
+            <svg class="icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <span>3. Copy &amp; Paste This Prompt Into Your AI Agent</span>
+          </h2>
+          <div style="display:flex; gap:10px;">
+            <button class="btn btn-accent" onclick="saveChoicesAndCopyPrompt()">Save Choices &amp; Copy Prompt</button>
+          </div>
+        </div>
+        <p class="card-sub">Works with Claude Code, Google Antigravity, Cursor, Codex, or Windsurf opened inside this folder.</p>
+        <textarea id="agentPromptBox" readonly></textarea>
+
+        <div class="grid-4">
+          <div class="step-card">
+            <div class="step-num">1</div>
+            <h3>Quick Intake</h3>
+            <p>Your agent confirms your TV IP, city, and which optional tabs you want shown or hidden.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-num">2</div>
+            <h3>Free Personal Keys</h3>
+            <p>Your agent checks any keys you saved in the next tab and guides you if anything is missing.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-num">3</div>
+            <h3>Safe TV Inspection</h3>
+            <p>You tap "Allow Debugging" once on your TV while the agent verifies brand safety &amp; installs MyTV.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-num">4</div>
+            <h3>You Stay in Control</h3>
+            <p>Nothing on your TV changes until you switch to MyTV in Settings — and "Original" restores stock anytime.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         PANE 2: GUIDED API KEYS & ONE-CLICK SAVE
+         ===================================================================== -->
+    <section id="pane-keys" class="pane">
+      <div class="hero">
+        <h1>Guided Free Services &amp; API Keys</h1>
+        <p>Every key stays 100% private on your computer inside git-ignored files and is encrypted into your TV's hardware keystore during install. Leave any optional service blank if you don't use it.</p>
+      </div>
+
+      <details class="glass-collapse" open>
+        <summary>
+          <span>Media Catalogs, Watchlists &amp; Critic Ratings</span>
+          <span class="badge badge-req">1 Required · 4 Optional</span>
+        </summary>
+        <div class="collapse-body">
+          <div class="key-item">
+            <div class="key-head">
+              <div><strong>TMDB API Key</strong> <span class="badge badge-req">Required for 4K Catalogs</span> <span id="saved-tmdb_key" class="badge badge-saved" style="display:none;">Saved</span></div>
+              <a class="btn" href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">Get Free TMDB Key</a>
+            </div>
+            <div class="key-meta">Powers 4K backdrops, posters, 38+ genre rows, and "More Like This" recommendations. Free tier (~50 requests/sec).</div>
+            <div class="field-row">
+              <input id="key-tmdb_key" type="password" placeholder="Paste TMDB API Key (v3) or Read Access Token..." />
+              <button class="btn" onclick="verifyTmdbKey()">Verify Key</button>
+            </div>
+            <div id="tmdbVerifyBanner" class="status-banner"></div>
+          </div>
+
+          <div class="key-item">
+            <div class="key-head">
+              <div><strong>Trakt Client ID</strong> <span class="badge badge-rec">Recommended</span> <span id="saved-trakt_client_id" class="badge badge-saved" style="display:none;">Saved</span></div>
+              <a class="btn" href="https://trakt.tv/oauth/applications/new" target="_blank" rel="noopener">Create Free Trakt App</a>
+            </div>
+            <div class="key-meta">2-way Watchlist, episode watch progress &amp; personal ratings. Set Redirect URI to <code>urn:ietf:wg:oauth:2.0:oob</code>, then copy the Client ID.</div>
+            <div class="field-row">
+              <input id="key-trakt_client_id" type="password" placeholder="Paste Trakt Client ID..." />
+            </div>
+          </div>
+
+          <div class="key-item">
+            <div class="key-head">
+              <div><strong>OMDb &amp; MDBList Keys</strong> <span class="badge badge-opt">Optional · Rotten Tomatoes &amp; Metacritic</span></div>
+              <div style="display:flex; gap:8px;">
+                <a class="btn" href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noopener">OMDb (1,000/day free)</a>
+                <a class="btn" href="https://mdblist.com/preferences/" target="_blank" rel="noopener">MDBList (1,000/day free)</a>
+              </div>
+            </div>
+            <div class="key-meta">Adds Rotten Tomatoes (RT) and Metacritic (MC) critic scores beside IMDb ratings (cached permanently per title). Remember to click the OMDb activation link in your email.</div>
+            <div class="grid-2" style="margin-bottom:0;">
+              <input id="key-omdb_key" type="password" placeholder="OMDb API Key (optional)..." />
+              <input id="key-mdblist_key" type="password" placeholder="MDBList API Key (optional)..." />
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details class="glass-collapse">
+        <summary>
+          <span>AI Natural-Language &amp; Voice Search</span>
+          <span class="badge badge-opt">Optional</span>
+        </summary>
+        <div class="collapse-body">
+          <div class="key-item">
+            <div class="key-head">
+              <div><strong>Google Gemini API Key</strong> <span class="badge badge-opt">Optional</span> <span id="saved-gemini_api_key" class="badge badge-saved" style="display:none;">Saved</span></div>
+              <a class="btn" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Get Free Gemini Key</a>
+            </div>
+            <div class="key-meta">Lets you search by plot description, mood, or natural voice queries ("90s sci-fi thriller with a twist"). Uses Gemini Flash free tier.</div>
+            <input id="key-gemini_api_key" type="password" placeholder="Paste Gemini API Key (optional)..." />
+          </div>
+        </div>
+      </details>
+
+      <details class="glass-collapse">
+        <summary>
+          <span>Smart-Home Devices (Lights, AC &amp; Water Boiler)</span>
+          <span class="badge badge-opt">Optional · Enables Smart Home Tab</span>
+        </summary>
+        <div class="collapse-body">
+          <div class="key-item">
+            <div class="key-head">
+              <div><strong>WiZ Smart Bulbs</strong> <span class="badge badge-opt">100% Free Local Wi-Fi</span></div>
+            </div>
+            <div class="key-meta">No cloud account or API key needed — MyTV discovers WiZ bulbs automatically over Wi-Fi UDP (or enter comma-separated bulb IPs below).</div>
+            <input id="key-wiz_light_ips" type="text" placeholder="Optional comma-separated WiZ bulb IPs (or scan on TV)..." />
+          </div>
+          <div class="key-item">
+            <div class="key-head">
+              <div><strong>Sensibo Sky AC &amp; Tuya Smart Life AC</strong> <span class="badge badge-opt">Optional</span></div>
+              <div style="display:flex; gap:8px;">
+                <a class="btn" href="https://home.sensibo.com/me/api" target="_blank" rel="noopener">Sensibo API Key</a>
+                <a class="btn" href="https://iot.tuya.com" target="_blank" rel="noopener">Tuya Cloud Portal</a>
+              </div>
+            </div>
+            <div class="grid-2" style="margin-bottom:10px;">
+              <input id="key-sensibo_api_key" type="password" placeholder="Sensibo API Key (optional)..." />
+              <input id="key-tuya_access_id" type="text" placeholder="Tuya Access ID (optional)..." />
+            </div>
+            <input id="key-tuya_access_secret" type="password" placeholder="Tuya Access Secret (optional)..." />
+          </div>
+        </div>
+      </details>
+
+      <details class="glass-collapse">
+        <summary>
+          <span>Multi-User Household Profiles &amp; Encrypted Cloud Backup (Supabase)</span>
+          <span class="badge badge-opt">Optional</span>
+        </summary>
+        <div class="collapse-body">
+          <div class="key-item">
+            <div class="key-head">
+              <div><strong>Supabase Project + 256-Bit Household Key</strong> <span class="badge badge-opt">Free 500 MB Tier</span></div>
+              <div style="display:flex; gap:8px;">
+                <a class="btn" href="https://supabase.com/dashboard" target="_blank" rel="noopener">Open Supabase</a>
+                <button class="btn btn-accent" onclick="generateHouseholdKey()">Auto-Generate Household Key &amp; SQL</button>
+              </div>
+            </div>
+            <div class="key-meta">Syncs multi-user family profiles, watch history, and zero-knowledge AES-256-GCM key backups. Run <code>docs/supabase-schema.sql</code> once in Supabase SQL Editor, then run the generated 4-line SQL below.</div>
+            <div class="grid-2" style="margin-bottom:10px;">
+              <input id="key-supabase_url" type="text" placeholder="Supabase Project URL (https://xyz.supabase.co)..." />
+              <input id="key-supabase_anon_key" type="password" placeholder="Supabase anon public key..." />
+            </div>
+            <div class="grid-2" style="margin-bottom:10px;">
+              <input id="key-admin_emails" type="text" placeholder="Your Google email for Admin phone sign-in (you@gmail.com)..." />
+              <input id="key-household_key" type="password" placeholder="64-char Household Key (click Auto-Generate above)..." />
+            </div>
+            <textarea id="householdSqlBox" style="display:none; min-height:96px;" readonly></textarea>
+          </div>
+        </div>
+      </details>
+
+      <div class="card" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+        <div>
+          <div style="font-weight:700;">Save Directly to Local Config Files</div>
+          <div style="font-size:13px; color:var(--dim);">Writes safely to git-ignored <code>MyTV-launcher/config.properties</code> and <code>.env</code> on your computer.</div>
+        </div>
+        <button class="btn btn-primary" onclick="saveAllKeys()">Save Settings Locally</button>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         PANE 3: PREPARE YOUR TV & SYSTEM CHECK
+         ===================================================================== -->
+    <section id="pane-tv" class="pane">
+      <div class="hero">
+        <h1>Preparing Your TV for One-Time Installation</h1>
+        <p>Before your AI agent installs MyTV over Wi-Fi, turn on Developer Debugging on your TV using the matching card below (takes about 60 seconds).</p>
+      </div>
+
+      <div class="card">
+        <h2>Local Computer Readiness</h2>
+        <p class="card-sub">Don't worry if something shows Missing — your AI agent can install JDK 17 or Android platform-tools automatically.</p>
+        <div id="toolsBadges" class="tool-Row"></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h2>Google TV &amp; Android TV (Sony, TCL, Xiaomi, Philips, Hisense, onn)</h2>
+          <ol style="padding-left:18px; color:var(--dim); font-size:13.8px; display:grid; gap:8px; margin-top:10px;">
+            <li>Open your TV's <strong>Settings &rarr; System &rarr; About</strong>.</li>
+            <li>Scroll down to <strong>Android TV OS Build</strong> and press <strong>OK 7 times</strong> until it says <em>"You are now a developer!"</em>.</li>
+            <li>Go back one screen to <strong>System &rarr; Developer options</strong> and turn ON <strong>USB debugging</strong> (and <strong>Network debugging</strong> if listed).</li>
+            <li>Find your TV's Wi-Fi IP under <strong>Settings &rarr; Network &amp; Internet &rarr; your Wi-Fi name</strong>.</li>
+          </ol>
+        </div>
+
+        <div class="card">
+          <h2>Chromecast with Google TV / Android 14 Streamers</h2>
+          <ol style="padding-left:18px; color:var(--dim); font-size:13.8px; display:grid; gap:8px; margin-top:10px;">
+            <li>Enable <strong>Developer options</strong> as shown on the left.</li>
+            <li>On Android 14, open <strong>Developer options &rarr; Wireless debugging</strong> and turn it ON.</li>
+            <li>Choose <strong>Pair device with pairing code</strong> — give the 6-digit code and IP:port shown on screen to your AI agent.</li>
+            <li>Your AI agent will pair and open port 5555 automatically.</li>
+          </ol>
+        </div>
+
+        <div class="card">
+          <h2>LG webOS Smart TVs</h2>
+          <ol style="padding-left:18px; color:var(--dim); font-size:13.8px; display:grid; gap:8px; margin-top:10px;">
+            <li>Install the official <strong>Developer Mode</strong> app from the LG Content Store and sign in with a free LG Developer account.</li>
+            <li>Turn <strong>Dev Mode Status</strong> ON (your TV will restart).</li>
+            <li>Re-open Developer Mode and turn <strong>Key Server</strong> ON, then share the IP and 6-character passphrase when prompted.</li>
+          </ol>
+        </div>
+
+        <div class="card">
+          <h2>Samsung Tizen Smart TVs &amp; Amazon Fire TV</h2>
+          <ul style="padding-left:18px; color:var(--dim); font-size:13.8px; display:grid; gap:8px; margin-top:10px;">
+            <li><strong>Samsung Tizen</strong>: Open the <strong>Apps</strong> panel, press <code>1 2 3 4 5</code> on your remote, switch <strong>Developer mode</strong> ON, enter this computer's IP, and restart the TV.</li>
+            <li><strong>Amazon Fire TV</strong>: Open <strong>Settings &rarr; My Fire TV &rarr; About</strong>, click your Fire TV name 7 times, then enable <strong>ADB Debugging</strong> under Developer Options.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         PANE 4: TROUBLESHOOTING & Q&A
+         ===================================================================== -->
+    <section id="pane-qa" class="pane">
+      <div class="hero">
+        <h1>Troubleshooting &amp; Common Questions</h1>
+        <p>Quick answers for manual setup, TV prompts, adding optional tabs later, and switching back to your stock TV launcher.</p>
+      </div>
+
+      <details class="glass-collapse" open>
+        <summary>What steps do I have to do manually vs. what does the AI agent do?</summary>
+        <div class="collapse-body" style="color:var(--dim); font-size:14px; display:grid; gap:8px; padding-top:12px;">
+          <p><strong>What you do manually:</strong> (1) Enable Developer/Debugging mode on your TV once, (2) create your own free TMDB key (and any optional keys you want), (3) click <em>"Allow Debugging"</em> on your TV screen when the agent connects, and (4) if using Windows PC Gaming, install Sunshine and approve one Administrator PowerShell setup command.</p>
+          <p><strong>What the AI agent handles automatically:</strong> Checking/installing build tools, configuring files, verifying your TV brand's protected system apps, building <code>MyTV.apk</code> + <code>MyTV-Remote.apk</code>, installing over Wi-Fi, and encrypting your keys into your TV's hardware vault.</p>
+        </div>
+      </details>
+
+      <details class="glass-collapse">
+        <summary>What if my AI agent fails to set an API key — how do I enter keys myself?</summary>
+        <div class="collapse-body" style="color:var(--dim); font-size:14px; display:grid; gap:8px; padding-top:12px;">
+          <p>You have two easy ways without needing the AI agent:</p>
+          <p><strong>1. Directly on your TV:</strong> Open <strong>MyTV &rarr; Settings &rarr; Get Started (Initial Setup &amp; Cloud)</strong>. You can pair Trakt via QR code, sign in to Stremio, scan Wi-Fi for WiZ bulbs, and enter API keys right on screen.</p>
+          <p><strong>2. In this Setup Studio:</strong> Open the <strong>API Keys &amp; Save</strong> tab above, paste your keys, click <strong>Save Settings Locally</strong>, and ask your agent to rebuild/sync — or run <code>python MyTV-launcher/tools/send_key.py &lt;TV_IP&gt; --sync-config</code>.</p>
+        </div>
+      </details>
+
+      <details class="glass-collapse">
+        <summary>I skipped Gaming or Smart Home during setup. Can I add those tabs later?</summary>
+        <div class="collapse-body" style="color:var(--dim); font-size:14px; display:grid; gap:8px; padding-top:12px;">
+          <p>Yes — both features are built in and modular! You can turn either tab on at any time:</p>
+          <p><strong>On your TV:</strong> Go to <strong>Settings &rarr; Home &amp; Appearance &rarr; Interface &amp; Units</strong> and change <strong>Gaming Tab Visibility</strong> or <strong>Smart Home Tab Visibility</strong> to <em>Always Show</em> or <em>Automatic</em>.</p>
+          <p><strong>With your AI agent:</strong> Simply tell your agent <em>"Enable the Gaming tab (or Smart Home tab) on my MyTV and guide me through the keys/PC setup"</em> — it only needs to update <code>enable_gaming=true</code> or <code>enable_smarthome=true</code> and sync your keys.</p>
+        </div>
+      </details>
+
+      <details class="glass-collapse">
+        <summary>Google Play Protect showed "Risky app blocked" or "Built for an older version of Android"</summary>
+        <div class="collapse-body" style="color:var(--dim); font-size:14px; display:grid; gap:8px; padding-top:12px;">
+          <p>On Android 14 TVs, Play Protect shows this prompt the first time an app with a remote-button accessibility helper is installed over ADB. Select <strong>More details &rarr; Install anyway</strong> on your TV remote. Future updates won't ask again. Always install via ADB rather than a TV file-manager app so Play Protect doesn't grey out the option.</p>
+        </div>
+      </details>
+
+      <details class="glass-collapse">
+        <summary>How do I return to my TV's original factory home screen?</summary>
+        <div class="collapse-body" style="color:var(--dim); font-size:14px; display:grid; gap:8px; padding-top:12px;">
+          <p>MyTV never uninstalls or deletes your stock launcher. Open <strong>MyTV &rarr; Settings &rarr; System &rarr; Launcher Mode</strong> and select <strong>Original TV Home</strong> — your factory home screen and stock settings return immediately. Always switch back to <strong>Original</strong> before uninstalling MyTV.</p>
+        </div>
+      </details>
+    </section>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const TOKEN = "__MYTV_SETUP_TOKEN__";
+
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+    }
+
+    function openPane(id) {
+      document.querySelectorAll('.pane').forEach(p => p.classList.toggle('active', p.id === id));
+      document.querySelectorAll('.nav-pill').forEach(b => b.classList.toggle('active', b.dataset.pane === id));
+    }
+
+    async function api(path, method = 'GET', body = null) {
+      const opts = { method, headers: { 'X-MyTV-Setup-Token': TOKEN } };
+      if (body !== null) {
+        opts.headers['Content-Type'] = 'application/json';
+        opts.body = JSON.stringify(body);
+      }
+      const res = await fetch(path, opts);
+      return res.json();
+    }
+
+    function onToggleOptionalTabs() {
+      const sh = document.getElementById('toggleSmartHome').checked;
+      const gm = document.getElementById('toggleGaming').checked;
+      document.getElementById('shDevicesWrap').style.display = sh ? 'flex' : 'none';
+      document.getElementById('gamingOptsWrap').style.display = gm ? 'block' : 'none';
+      refreshPrompt();
+    }
+
+    async function refreshPrompt() {
+      const devs = Array.from(document.querySelectorAll('.sh-dev:checked')).map(el => el.value);
+      const data = await api('/api/prompt', 'POST', {
+        tv_platform: document.getElementById('tvPlatform').value,
+        tv_ip: document.getElementById('tvIp').value,
+        city: document.getElementById('cityInput').value,
+        enable_smarthome: document.getElementById('toggleSmartHome').checked,
+        smarthome_devices: devs,
+        enable_gaming: document.getElementById('toggleGaming').checked,
+        games_dirs: document.getElementById('gamesDirsInput').value
+      });
+      if (data.ok) {
+        document.getElementById('agentPromptBox').value = data.prompt;
+      }
+    }
+
+    async function saveChoicesAndCopyPrompt() {
+      const sh = document.getElementById('toggleSmartHome').checked;
+      const gm = document.getElementById('toggleGaming').checked;
+      await api('/api/save', 'POST', {
+        settings: {
+          tv_ip: document.getElementById('tvIp').value,
+          city: document.getElementById('cityInput').value,
+          enable_smarthome: sh ? 'true' : 'false',
+          enable_gaming: gm ? 'true' : 'false',
+          games_dirs: document.getElementById('gamesDirsInput').value
+        }
+      });
+      const box = document.getElementById('agentPromptBox');
+      await navigator.clipboard.writeText(box.value);
+      showToast('Saved preferences & copied AI prompt to clipboard');
+    }
+
+    async function lookupCity() {
+      const banner = document.getElementById('cityResult');
+      banner.textContent = 'Looking up city coordinates...';
+      banner.classList.add('show');
+      const res = await api('/api/lookup-city', 'POST', { city: document.getElementById('cityInput').value });
+      if (res.ok) {
+        document.getElementById('cityInput').value = res.city;
+        await api('/api/save', 'POST', {
+          settings: {
+            city: res.city,
+            latitude: res.latitude,
+            longitude: res.longitude,
+            tmdb_region: res.country_code
+          }
+        });
+        banner.textContent = `Saved ${res.city} (${res.latitude}, ${res.longitude} · Region ${res.country_code})`;
+        refreshPrompt();
+      } else {
+        banner.textContent = res.error || 'Lookup failed';
+      }
+    }
+
+    async function probeTvConnection() {
+      const banner = document.getElementById('tvProbeResult');
+      banner.textContent = 'Testing ADB connection to TV (check your TV screen for an Allow Debugging prompt)...';
+      banner.classList.add('show');
+      const res = await api('/api/probe-tv', 'POST', { tv_ip: document.getElementById('tvIp').value });
+      banner.textContent = res.ok
+        ? `Connected to ${res.brand} ${res.model} (and safely disconnected ADB)`
+        : res.error;
+    }
+
+    async function detectMonitors() {
+      const banner = document.getElementById('monitorsResult');
+      banner.textContent = 'Inspecting connected Windows displays...';
+      banner.classList.add('show');
+      const res = await api('/api/list-monitors', 'POST', {});
+      banner.textContent = res.ok ? (res.output || 'Displays inspected.') : (res.error || 'Could not list monitors.');
+    }
+
+    async function verifyTmdbKey() {
+      const banner = document.getElementById('tmdbVerifyBanner');
+      banner.textContent = 'Checking key with TMDB...';
+      banner.classList.add('show');
+      const res = await api('/api/validate-tmdb', 'POST', { tmdb_key: document.getElementById('key-tmdb_key').value });
+      banner.textContent = res.message;
+    }
+
+    async function generateHouseholdKey() {
+      const email = document.getElementById('key-admin_emails').value;
+      const res = await api('/api/generate-household-key', 'POST', { admin_email: email });
+      if (res.ok) {
+        document.getElementById('key-household_key').value = res.household_key;
+        const sqlBox = document.getElementById('householdSqlBox');
+        sqlBox.style.display = 'block';
+        sqlBox.value = res.sql;
+        showToast('Generated 256-bit Household Key & Supabase SQL');
+      }
+    }
+
+    async function saveAllKeys() {
+      const ids = [
+        'tmdb_key', 'trakt_client_id', 'omdb_key', 'mdblist_key', 'gemini_api_key',
+        'wiz_light_ips', 'sensibo_api_key', 'tuya_access_id', 'tuya_access_secret',
+        'supabase_url', 'supabase_anon_key', 'admin_emails', 'household_key'
+      ];
+      const settings = {
+        tv_ip: document.getElementById('tvIp').value,
+        city: document.getElementById('cityInput').value,
+        enable_smarthome: document.getElementById('toggleSmartHome').checked ? 'true' : 'false',
+        enable_gaming: document.getElementById('toggleGaming').checked ? 'true' : 'false',
+        games_dirs: document.getElementById('gamesDirsInput').value
+      };
+      ids.forEach(k => {
+        const el = document.getElementById('key-' + k);
+        if (el && el.value.trim() !== '') settings[k] = el.value.trim();
+      });
+      const res = await api('/api/save', 'POST', { settings });
+      if (res.ok) {
+        applyLoadedState(res.state);
+        showToast('Saved settings safely to local config.properties & .env');
+      }
+    }
+
+    function applyLoadedState(state) {
+      if (!state) return;
+      const v = state.values || {};
+      if (v.tv_ip) document.getElementById('tvIp').value = v.tv_ip;
+      if (v.city) document.getElementById('cityInput').value = v.city;
+      if (v.games_dirs) document.getElementById('gamesDirsInput').value = v.games_dirs;
+      if (v.wiz_light_ips) document.getElementById('key-wiz_light_ips').value = v.wiz_light_ips;
+      if (v.tuya_access_id) document.getElementById('key-tuya_access_id').value = v.tuya_access_id;
+      if (v.supabase_url) document.getElementById('key-supabase_url').value = v.supabase_url;
+      if (v.admin_emails) document.getElementById('key-admin_emails').value = v.admin_emails;
+
+      document.getElementById('toggleSmartHome').checked = (v.enable_smarthome === 'true');
+      document.getElementById('toggleGaming').checked = (v.enable_gaming === 'true');
+      onToggleOptionalTabs();
+
+      const ck = state.configured_keys || {};
+      ['tmdb_key', 'trakt_client_id', 'gemini_api_key'].forEach(k => {
+        const b = document.getElementById('saved-' + k);
+        if (b) b.style.display = ck[k] ? 'inline-flex' : 'none';
+      });
+    }
+
+    async function bootstrap() {
+      const res = await api('/api/state');
+      if (res.ok) {
+        const sb = document.getElementById('sandboxBadge');
+        if (sb && res.sandbox) sb.style.display = 'inline-flex';
+        applyLoadedState(res.state);
+        const t = res.tools || {};
+        const items = [
+          ['Python ' + (t.python || ''), true],
+          ['Java JDK 17+', !!t.java_installed],
+          ['Android SDK', !!t.android_sdk],
+          ['ADB Platform-Tools', !!t.adb_installed],
+          ['Node.js 20+', !!t.node_installed]
+        ];
+        document.getElementById('toolsBadges').innerHTML = items.map(([label, ok]) =>
+          `<span class="chip"><span class="dot ${ok ? 'dot-ok' : 'dot-warn'}"></span>${label}: ${ok ? 'Ready' : 'Agent Will Install'}</span>`
+        ).join('');
+      }
+      refreshPrompt();
+    }
+
+    bootstrap();
+  </script>
+</body>
+</html>

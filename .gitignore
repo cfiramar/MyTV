@@ -1,0 +1,54 @@
+# Local configuration, credentials, and signing keys stay on your machine
+config.properties
+**/config.properties
+keys.txt
+**/keys.txt
+.env
+**/.env
+*.keystore
+**/*.keystore
+*.idsig
+**/*.idsig
+
+# Local AI session memory & private developer rules (never committed)
+memory/
+.agents/
+CLAUDE.local.md
+**/CLAUDE.local.md
+AGENTS.local.md
+**/AGENTS.local.md
+GEMINI.local.md
+**/GEMINI.local.md
+
+# Build output
+out/
+**/out/
+.test-classes/
+**/.test-classes/
+node_modules/
+**/node_modules/
+*.apk
+**/*.apk
+MyTV-launcher/MyTV-Remote.apk
+MyTV-launcher/app/assets/remote/MyTV-Remote.apk
+MyTV-remote/public/MyTV-Remote.apk
+*.ipk
+**/*.ipk
+*.wgt
+**/*.wgt
+webos-apps.local.json
+**/webos-apps.local.json
+webos-icons.local/
+**/webos-icons.local/
+__pycache__/
+**/__pycache__/
+
+# OS & translation cache
+.DS_Store
+tools/.i18n-cache.json
+MyTV-launcher/tools/.i18n-cache.json
+
+# Private debugging exports and build directories
+trakt-export-*/
+build/
+**/build/

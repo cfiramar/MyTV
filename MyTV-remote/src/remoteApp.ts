@@ -1,0 +1,2023 @@
+import {
+  AdminInviteResponse,
+  AuthConfigResponse,
+  GamingGameItem,
+  GamingStatus,
+  PairedDeviceInfo,
+  RemoteForbiddenError,
+  RemoteKeyName,
+  RemoteRole,
+  RemoteUnauthorizedError,
+  SmartHomeDevice,
+  SmartHomeRoutineId,
+  TvRemoteService,
+  TvStatus,
+} from './services/TvRemoteService';
+
+interface MyTvNativeBridgeInterface {
+  discoverTv?(hintUrl: string): string;
+  startNativeTvDiscovery?(hintUrl: string): void;
+  isBiometricAvailable(): boolean;
+  hasSavedPcUnlockPin(): boolean;
+  enrollPcUnlockPin(pin: string): void;
+  authenticatePcUnlock(): void;
+  clearSavedPcUnlockPin(): void;
+}
+
+interface BarcodeDetectorLike {
+  detect(source: ImageBitmapSource): Promise<Array<{ rawValue?: string }>>;
+}
+
+declare global {
+  interface Window {
+    MyTvNative?: MyTvNativeBridgeInterface;
+    MyTvNativeRemote?: MyTvNativeBridgeInterface;
+    BarcodeDetector?: new (opts?: { formats?: string[] }) => BarcodeDetectorLike;
+    SpeechRecognition?: new () => SpeechRecognitionLike;
+    webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+    __toastTimer?: ReturnType<typeof setTimeout>;
+    onMyTvGoogleAuthCallback?: (accessToken: string) => void;
+    onMyTvDiscovered?: (baseUrl: string) => void;
+    onMyTvQrScanned?: (rawUri: string) => void;
+    onBiometricEnrollResult?: (ok: boolean, errorMessage: string) => void;
+    onBiometricPcPinReady?: (pin: string) => void;
+    onBiometricPcPinError?: (errorMessage: string) => void;
+    [key: string]: unknown;
+  }
+}
+
+interface SpeechRecognitionLike {
+  lang: string;
+  interimResults: boolean;
+  onresult: ((ev: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+}
+
+const STORAGE_BASE_URL = 'mytv_base_url';
+const STORAGE_TOKEN = 'mytv_remote_token';
+const STORAGE_ROLE = 'mytv_remote_role';
+const STORAGE_CLIENT_ID = 'mytv_client_id';
+const SCREEN_NAMES = ['Search', 'Home', 'Apps', 'Gaming', 'Reels', 'Smart-Home', 'Settings'];
+
+const nativeBridge: MyTvNativeBridgeInterface | undefined =
+  typeof window !== 'undefined' ? window.MyTvNative || window.MyTvNativeRemote : undefined;
+
+const IS_NATIVE_APK =
+  typeof window !== 'undefined' &&
+  (window.location.protocol === 'file:' ||
+    window.location.hostname.toLowerCase() === TvRemoteService.NATIVE_REMOTE_HOST ||
+    window.location.search.includes('native=1') ||
+    Boolean(nativeBridge));
+
+function readStorage(key: string): string {
+  try {
+    return (localStorage.getItem(key) || '').trim();
+  } catch {
+    return '';
+  }
+}
+
+function writeStorage(key: string, val: string): void {
+  try {
+    if (val) {
+      localStorage.setItem(key, val);
+    } else {
+      localStorage.removeItem(key);
+    }
+  } catch {
+    // Ignore private-browsing storage restrictions
+  }
+}
+
+function getOrCreateClientId(): string {
+  let id = readStorage(STORAGE_CLIENT_ID);
+  if (!id) {
+    const rnd = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    id = `cid_${rnd}`;
+    writeStorage(STORAGE_CLIENT_ID, id);
+  }
+  return id;
+}
+
+function detectDeviceName(): string {
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
+  if (/iPhone/i.test(ua)) return 'iPhone Remote';
+  if (/iPad/i.test(ua)) return 'iPad Remote';
+  const androidMatch = ua.match(/Android\s+[0-9.]+;\s*([^;)]+)/i);
+  if (androidMatch && androidMatch[1]) {
+    const model = androidMatch[1].replace(/\bBuild\/.*$/i, '').trim();
+    if (model) return model.slice(0, 36);
+  }
+  if (IS_NATIVE_APK) return 'Android Companion App';
+  return 'Mobile Companion';
+}
+
+let currentStatus: TvStatus | null = null;
+let currentAuthConfig: AuthConfigResponse | null = null;
+let currentRole: RemoteRole | '' = (readStorage(STORAGE_ROLE) as RemoteRole | '') || '';
+let isPaired = false;
+let isGuestExpiredState = false;
+let activePairRequestId = '';
+let pairPollTimer: ReturnType<typeof setInterval> | null = null;
+let showHiddenGames = false;
+let localThemeOverride: boolean | null = null;
+
+// Diff signatures to avoid wiping DOM innerHTML on unchanged 6-second polls (PERF-15)
+let lastShelfSig = '';
+let lastSmartHomeSig = '';
+let lastReelsSig = '';
+let lastUsersSig = '';
+let lastGamingSig = '';
+let lastAdminDevicesSig = '';
+
+const initialBaseUrl =
+  typeof window !== 'undefined'
+    ? TvRemoteService.resolveDynamicBaseUrl(window.location, readStorage(STORAGE_BASE_URL))
+    : '';
+
+if (
+  initialBaseUrl &&
+  typeof window !== 'undefined' &&
+  window.location.port === '8484' &&
+  window.location.hostname.toLowerCase() !== TvRemoteService.NATIVE_REMOTE_HOST
+) {
+  // Persist live TV origin automatically so router/Wi-Fi IP changes stay in sync
+  writeStorage(STORAGE_BASE_URL, initialBaseUrl);
+}
+
+const remoteService = new TvRemoteService(initialBaseUrl, undefined, {
+  authToken: readStorage(STORAGE_TOKEN),
+  timeoutMs: TvRemoteService.DEFAULT_TIMEOUT_MS,
+  onAuthError: (err) => {
+    if (err instanceof RemoteUnauthorizedError) {
+      handleUnauthorizedTransition(err.guestExpired);
+    } else if (err instanceof RemoteForbiddenError) {
+      showToast('Action requires Admin permission');
+    }
+  },
+});
+
+function escapeHtml(str: unknown): string {
+  return String(str ?? '').replace(/[&<>"']/g, (c) => {
+    switch (c) {
+      case '&':
+        return '&amp;';
+      case '<':
+        return '&lt;';
+      case '>':
+        return '&gt;';
+      case '"':
+        return '&quot;';
+      default:
+        return '&#39;';
+    }
+  });
+}
+
+function escapeAttr(str: unknown): string {
+  return String(str ?? '').replace(/['"\\]/g, '');
+}
+
+function showToast(msg: string): void {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('visible');
+  if (window.__toastTimer) clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => el.classList.remove('visible'), 2200);
+}
+
+function syncApkDownloadLinks(): void {
+  const base = remoteService.getBaseUrl();
+  const href = base ? remoteService.getAndroidApkDownloadUrl() : '/MyTV-Remote.apk';
+  const bannerLink = document.getElementById('apkDownloadLink') as HTMLAnchorElement | null;
+  const tab5Link = document.getElementById('tab5ApkDownloadBtn') as HTMLAnchorElement | null;
+  if (bannerLink) bannerLink.href = href;
+  if (tab5Link) tab5Link.href = href;
+}
+
+function applyRoleVisibility(role: RemoteRole | ''): void {
+  currentRole = role;
+  if (role) writeStorage(STORAGE_ROLE, role);
+
+  const roleBadge = document.getElementById('roleHeaderBadge');
+  const pairBtn = document.getElementById('headerPairBtn');
+  if (roleBadge) {
+    if (!role) {
+      roleBadge.style.display = 'none';
+    } else {
+      roleBadge.style.display = 'inline-flex';
+      roleBadge.textContent = role === 'ADMIN' ? 'Admin' : role === 'HOUSEHOLD' ? 'Household' : 'Guest';
+    }
+  }
+  if (pairBtn) {
+    pairBtn.style.display = role ? 'none' : 'inline-flex';
+  }
+
+  const isAdmin = role === 'ADMIN';
+  const adminDevicesSec = document.getElementById('adminDevicesSection');
+  if (adminDevicesSec) {
+    adminDevicesSec.style.display = isAdmin ? 'block' : 'none';
+  }
+
+  const pcUnlockSec = document.getElementById('pcUnlockCard');
+  if (pcUnlockSec) {
+    pcUnlockSec.style.display = isAdmin ? 'flex' : 'none';
+  }
+
+  const launcherUpdateSec = document.getElementById('adminSystemCard');
+  if (launcherUpdateSec) {
+    launcherUpdateSec.style.display = isAdmin ? 'flex' : 'none';
+  }
+
+  refreshBiometricUiState();
+}
+
+function refreshBiometricUiState(): void {
+  const bioRow = document.getElementById('biometricUnlockRow');
+  const bioUnlockBtn = document.getElementById('biometricUnlockBtn');
+  const saveBioBtn = document.getElementById('savePinBiometricBtn');
+  const clearBioBtn = document.getElementById('clearPinBiometricBtn');
+
+  const available = Boolean(nativeBridge && nativeBridge.isBiometricAvailable() && currentRole === 'ADMIN');
+  if (!bioRow) return;
+  if (!available) {
+    bioRow.style.display = 'none';
+    return;
+  }
+  bioRow.style.display = 'flex';
+  const hasSaved = Boolean(nativeBridge && nativeBridge.hasSavedPcUnlockPin());
+  if (bioUnlockBtn) {
+    bioUnlockBtn.style.display = hasSaved ? 'inline-flex' : 'none';
+  }
+  if (saveBioBtn) {
+    saveBioBtn.textContent = hasSaved ? 'Update Fingerprint PIN' : 'Save PIN to Fingerprint';
+  }
+  if (clearBioBtn) {
+    clearBioBtn.style.display = hasSaved ? 'inline-flex' : 'none';
+  }
+}
+
+function stopPairingPoll(): void {
+  if (pairPollTimer) {
+    clearInterval(pairPollTimer);
+    pairPollTimer = null;
+  }
+}
+
+let qrMediaStream: MediaStream | null = null;
+let qrScanTimer: ReturnType<typeof setInterval> | null = null;
+let qrFinderConsecutiveHits = 0;
+let qrVerifyInFlight = false;
+
+function stopQrScanner(): void {
+  if (qrScanTimer) {
+    clearInterval(qrScanTimer);
+    qrScanTimer = null;
+  }
+  qrFinderConsecutiveHits = 0;
+  if (qrMediaStream) {
+    for (const track of qrMediaStream.getTracks()) {
+      try {
+        track.stop();
+      } catch {
+        // Ignore
+      }
+    }
+    qrMediaStream = null;
+  }
+  const video = document.getElementById('qrVideo') as HTMLVideoElement | null;
+  if (video) {
+    video.srcObject = null;
+  }
+  const box = document.getElementById('qrScannerBox');
+  if (box) {
+    box.style.display = 'none';
+  }
+}
+
+function setPairingOverlayVisible(visible: boolean): void {
+  const overlay = document.getElementById('pairingOverlay');
+  if (!overlay) return;
+  overlay.classList.toggle('visible', visible);
+  if (!visible) {
+    stopPairingPoll();
+    stopQrScanner();
+  }
+}
+
+function closePairingOverlayManual(): void {
+  setPairingOverlayVisible(false);
+}
+
+function updateOverlayStatusText(title: string, subtitle: string): void {
+  const t = document.getElementById('pairingOverlayTitle');
+  const s = document.getElementById('pairingOverlaySub');
+  if (t) t.textContent = title;
+  if (s) s.textContent = subtitle;
+}
+
+async function ensureTvDiscovered(forceRescan: boolean = false): Promise<string> {
+  if (!forceRescan && remoteService.getBaseUrl()) {
+    return remoteService.getBaseUrl();
+  }
+  const hint = remoteService.getBaseUrl() || readStorage(STORAGE_BASE_URL);
+  const discovered = await TvRemoteService.discoverLanTv(hint);
+  if (discovered) {
+    remoteService.setBaseUrl(discovered);
+    writeStorage(STORAGE_BASE_URL, discovered);
+    syncApkDownloadLinks();
+    return discovered;
+  }
+  return remoteService.getBaseUrl();
+}
+
+async function handleScannedQrPayload(rawPayload: string): Promise<boolean> {
+  const parsed = TvRemoteService.parsePairingQrPayload(rawPayload);
+  if (!parsed.baseUrl && !parsed.qrSecret && !parsed.code && !parsed.token) {
+    return false;
+  }
+  if (parsed.baseUrl) {
+    remoteService.setBaseUrl(parsed.baseUrl);
+    writeStorage(STORAGE_BASE_URL, parsed.baseUrl);
+    syncApkDownloadLinks();
+  } else if (!remoteService.getBaseUrl()) {
+    await ensureTvDiscovered(true);
+  }
+  if (parsed.token) {
+    stopQrScanner();
+    await completePairingSuccess(parsed.token, parsed.role || 'GUEST');
+    return true;
+  }
+  if (!remoteService.getBaseUrl()) {
+    showToast('Searching for MyTV on Wi-Fi...');
+    return false;
+  }
+  try {
+    qrVerifyInFlight = true;
+    const verified = await remoteService.verifyPairing({
+      qrSecret: parsed.qrSecret,
+      code: parsed.code,
+      deviceName: detectDeviceName(),
+    });
+    stopQrScanner();
+    await completePairingSuccess(verified.token, verified.role);
+    return true;
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : 'QR code expired — scan the fresh QR on TV');
+    void requestTvPairPrompt();
+    return false;
+  } finally {
+    qrVerifyInFlight = false;
+  }
+}
+
+async function startQrScanner(): Promise<void> {
+  setPairingOverlayVisible(true);
+  void requestTvPairPrompt();
+
+  const box = document.getElementById('qrScannerBox');
+  const video = document.getElementById('qrVideo') as HTMLVideoElement | null;
+  const hint = document.getElementById('qrScannerHint');
+  if (box) box.style.display = 'flex';
+  if (hint) hint.textContent = 'Opening camera — point at the QR code on your TV...';
+
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (hint) hint.textContent = 'Tap Snap QR to scan the TV QR code with your camera.';
+    const fileInput = document.getElementById('qrFileInput') as HTMLInputElement | null;
+    fileInput?.click();
+    return;
+  }
+
+  stopQrScanner();
+  if (box) box.style.display = 'flex';
+
+  try {
+    qrMediaStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 640 },
+        height: { ideal: 480 },
+      },
+      audio: false,
+    });
+    if (video) {
+      video.srcObject = qrMediaStream;
+      await video.play().catch(() => {});
+    }
+    if (hint) hint.textContent = 'Point your phone at the QR code on the TV screen...';
+  } catch {
+    if (hint) hint.textContent = 'Tap Snap QR to capture the TV QR code.';
+    return;
+  }
+
+  let detector: BarcodeDetectorLike | null = null;
+  if (typeof window !== 'undefined' && window.BarcodeDetector) {
+    try {
+      detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+    } catch {
+      detector = null;
+    }
+  }
+
+  const canvas = document.createElement('canvas');
+  const cw = 160;
+  const ch = 120;
+  canvas.width = cw;
+  canvas.height = ch;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const lumaBuf = new Uint8Array(cw * ch);
+
+  qrFinderConsecutiveHits = 0;
+  qrScanTimer = setInterval(async () => {
+    if (!video || video.readyState < 2 || qrVerifyInFlight) return;
+
+    // 1. Hardware / OS BarcodeDetector (extracts full URL + qrSecret directly from QR)
+    if (detector) {
+      try {
+        const codes = await detector.detect(video);
+        if (codes && codes.length > 0 && codes[0].rawValue) {
+          await handleScannedQrPayload(codes[0].rawValue);
+          return;
+        }
+      } catch {
+        // Fall through to ISO-18004 Finder-Pattern lock
+      }
+    }
+
+    // 2. Built-in ISO-18004 1:1:3:1:1 QR Finder-Pattern Lock + Wi-Fi Auto-Discovery
+    if (ctx) {
+      try {
+        ctx.drawImage(video, 0, 0, cw, ch);
+        const img = ctx.getImageData(0, 0, cw, ch).data;
+        for (let i = 0, p = 0; i < img.length; i += 4, p++) {
+          lumaBuf[p] = (img[i] * 77 + img[i + 1] * 150 + img[i + 2] * 29) >> 8;
+        }
+        if (TvRemoteService.hasQrFinderPatternInLuma(lumaBuf, cw, ch)) {
+          qrFinderConsecutiveHits++;
+          if (qrFinderConsecutiveHits >= 2 && activePairRequestId && remoteService.getBaseUrl()) {
+            qrFinderConsecutiveHits = 0;
+            qrVerifyInFlight = true;
+            try {
+              const verified = await remoteService.verifyPairing({
+                requestId: activePairRequestId,
+                clientId: getOrCreateClientId(),
+                qrCameraDetected: true,
+                deviceName: detectDeviceName(),
+              });
+              stopQrScanner();
+              await completePairingSuccess(verified.token, verified.role);
+            } catch {
+              // Keep scanning
+            } finally {
+              qrVerifyInFlight = false;
+            }
+          }
+        } else {
+          qrFinderConsecutiveHits = 0;
+        }
+      } catch {
+        // Ignore frame capture errors
+      }
+    }
+  }, 220);
+}
+
+async function scanQrImageFile(ev: Event): Promise<void> {
+  const input = ev.target as HTMLInputElement | null;
+  const file = input?.files?.[0];
+  if (!file) return;
+  try {
+    if (typeof createImageBitmap === 'function') {
+      const bmp = await createImageBitmap(file);
+      if (typeof window !== 'undefined' && window.BarcodeDetector) {
+        try {
+          const det = new window.BarcodeDetector({ formats: ['qr_code'] });
+          const codes = await det.detect(bmp);
+          if (codes && codes.length > 0 && codes[0].rawValue) {
+            await handleScannedQrPayload(codes[0].rawValue);
+            return;
+          }
+        } catch {
+          // Fall through to Finder-Pattern check
+        }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = 240;
+      canvas.height = 180;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(bmp, 0, 0, 240, 180);
+        const img = ctx.getImageData(0, 0, 240, 180).data;
+        const luma = new Uint8Array(240 * 180);
+        for (let i = 0, p = 0; i < img.length; i += 4, p++) {
+          luma[p] = (img[i] * 77 + img[i + 1] * 150 + img[i + 2] * 29) >> 8;
+        }
+        if (TvRemoteService.hasQrFinderPatternInLuma(luma, 240, 180) && activePairRequestId) {
+          const verified = await remoteService.verifyPairing({
+            requestId: activePairRequestId,
+            clientId: getOrCreateClientId(),
+            qrCameraDetected: true,
+            deviceName: detectDeviceName(),
+          });
+          stopQrScanner();
+          await completePairingSuccess(verified.token, verified.role);
+          return;
+        }
+      }
+    }
+    showToast('Could not read QR — point live camera at TV or tap Approve on TV');
+  } catch {
+    showToast('Could not scan photo');
+  } finally {
+    if (input) input.value = '';
+  }
+}
+
+function handleUnauthorizedTransition(guestExpired: boolean): void {
+  isPaired = false;
+  isGuestExpiredState = guestExpired;
+  remoteService.setAuthToken('');
+  writeStorage(STORAGE_TOKEN, '');
+  writeStorage(STORAGE_ROLE, '');
+  applyRoleVisibility('');
+  setPairingOverlayVisible(true);
+  if (guestExpired) {
+    updateOverlayStatusText(
+      'Guest Access Expired (30 Days)',
+      'Tap Pair to scan the TV QR code or approve on your TV screen with 1 click.'
+    );
+  } else {
+    updateOverlayStatusText(
+      'Pair Companion Remote',
+      'Tap Pair to scan the QR code on your TV screen, or approve on TV with 1 click.'
+    );
+  }
+  void requestTvPairPrompt();
+}
+
+async function completePairingSuccess(token: string, role: RemoteRole): Promise<void> {
+  stopPairingPoll();
+  stopQrScanner();
+  activePairRequestId = '';
+  isPaired = true;
+  isGuestExpiredState = false;
+  remoteService.setAuthToken(token);
+  writeStorage(STORAGE_TOKEN, token);
+  applyRoleVisibility(role);
+  setPairingOverlayVisible(false);
+  showToast(
+    role === 'ADMIN'
+      ? 'Paired as Owner / Admin'
+      : role === 'HOUSEHOLD'
+        ? 'Paired as Household Member'
+        : 'Paired as Guest (30 Days)'
+  );
+  await refreshStatus();
+  void loadGamingZone(false);
+  if (role === 'ADMIN') {
+    void refreshPairedDevices();
+  }
+}
+
+async function requestTvPairPrompt(): Promise<void> {
+  const waitBadge = document.getElementById('pairPollStatusText');
+  let base = remoteService.getBaseUrl();
+  if (!base) {
+    if (waitBadge) waitBadge.textContent = 'Finding your MyTV on Wi-Fi...';
+    base = await ensureTvDiscovered(true);
+  }
+  if (!base) {
+    if (waitBadge) {
+      waitBadge.textContent = 'Tap Pair (Scan TV QR Code) above to locate and pair with your TV.';
+    }
+    return;
+  }
+
+  try {
+    const cfg = await remoteService.getAuthConfig();
+    currentAuthConfig = cfg;
+    renderGoogleAuthAvailability(cfg);
+    if (cfg.paired && cfg.role) {
+      await completePairingSuccess(remoteService.getAuthToken(), cfg.role);
+      return;
+    }
+    if (cfg.handoffToken) {
+      await completePairingSuccess(cfg.handoffToken, cfg.handoffRole || 'GUEST');
+      return;
+    }
+    if (cfg.bootstrapAdmin && !isGuestExpiredState) {
+      updateOverlayStatusText(
+        'First-Time Owner Setup',
+        'Scan the QR code shown on TV or click Approve on TV to pair this phone as Admin.'
+      );
+    }
+  } catch {
+    // Cached TV address may have changed after router/TV restart: auto-discover on Wi-Fi
+    if (waitBadge) waitBadge.textContent = 'Locating MyTV on Wi-Fi...';
+    const recovered = await ensureTvDiscovered(true);
+    if (!recovered) {
+      document.getElementById('statusDot')?.classList.add('offline');
+      if (waitBadge) {
+        waitBadge.textContent = 'Scan the TV QR code above or verify phone and TV are on the same Wi-Fi.';
+      }
+      return;
+    }
+  }
+
+  try {
+    const res = await remoteService.requestPairing(detectDeviceName(), getOrCreateClientId());
+    activePairRequestId = res.requestId;
+    if (waitBadge) {
+      waitBadge.textContent = 'QR code shown on TV — scan it with Pair above or click Approve on TV';
+    }
+    startPairingPollLoop();
+  } catch (err) {
+    if (waitBadge) {
+      waitBadge.textContent = err instanceof Error ? err.message : 'Could not open pairing prompt on TV';
+    }
+  }
+}
+
+function startPairingPollLoop(): void {
+  stopPairingPoll();
+  if (!activePairRequestId) return;
+  pairPollTimer = setInterval(async () => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    if (!activePairRequestId) {
+      stopPairingPoll();
+      return;
+    }
+    try {
+      const poll = await remoteService.pollPairing(activePairRequestId);
+      const waitBadge = document.getElementById('pairPollStatusText');
+      if (poll.status === 'approved' && poll.token && poll.role) {
+        await completePairingSuccess(poll.token, poll.role);
+      } else if (poll.status === 'dismissed') {
+        activePairRequestId = '';
+        stopPairingPoll();
+        if (waitBadge) waitBadge.textContent = 'Prompt dismissed on TV. Tap Show QR on TV to try again.';
+      } else if (poll.status === 'expired') {
+        activePairRequestId = '';
+        stopPairingPoll();
+        if (waitBadge) waitBadge.textContent = 'Pairing code expired. Tap Show QR on TV for a fresh QR code.';
+      }
+    } catch {
+      // Transient LAN hiccup; next poll will retry
+    }
+  }, 1500);
+}
+
+function renderGoogleAuthAvailability(cfg: AuthConfigResponse | null): void {
+  const googleWrap = document.getElementById('googleAdminAuthWrap');
+  if (!googleWrap) return;
+  googleWrap.style.display = cfg && cfg.googleAuthEnabled && cfg.supabaseUrl ? 'flex' : 'none';
+}
+
+async function submitSixDigitPairCode(): Promise<void> {
+  const input = document.getElementById('pairCodeInput') as HTMLInputElement | null;
+  const code = input ? input.value.trim() : '';
+  if (!/^\d{6}$/.test(code)) {
+    showToast('Enter the 6-digit code shown on your TV');
+    return;
+  }
+  if (!remoteService.getBaseUrl()) {
+    await ensureTvDiscovered(true);
+  }
+  try {
+    const res = await remoteService.verifyPairing({
+      code,
+      deviceName: detectDeviceName(),
+    });
+    if (input) input.value = '';
+    await completePairingSuccess(res.token, res.role);
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : 'Invalid 6-digit code');
+  }
+}
+
+async function signInWithGoogleAdmin(): Promise<void> {
+  try {
+    if (!remoteService.getBaseUrl()) {
+      await ensureTvDiscovered(true);
+    }
+    if (!currentAuthConfig) {
+      currentAuthConfig = await remoteService.getAuthConfig();
+    }
+    if (!currentAuthConfig.googleAuthEnabled || !currentAuthConfig.supabaseUrl) {
+      showToast('Configure Supabase URL on TV first for Google Sign-In');
+      return;
+    }
+    const webOrigin = remoteService.getBaseUrl() || window.location.origin;
+    remoteService.startGoogleSignIn(currentAuthConfig.supabaseUrl, IS_NATIVE_APK, undefined, webOrigin);
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : 'Cannot reach TV for Google Sign-In');
+  }
+}
+
+async function bootstrapConnectionAndAuth(): Promise<void> {
+  syncApkDownloadLinks();
+
+  // 1. Check if user opened a QR pairing link (`/?pair=<128-bit-secret>`)
+  const qrSecret = TvRemoteService.extractPairSecretFromUrl(window.location.href);
+  if (qrSecret) {
+    if (window.history && window.history.replaceState) {
+      const cleanUrl = window.location.pathname + (IS_NATIVE_APK ? '?native=1' : '');
+      window.history.replaceState(null, '', cleanUrl);
+    }
+    const ok = await handleScannedQrPayload(window.location.href);
+    if (ok) return;
+  }
+
+  // 2. Ensure TV endpoint is discovered on Wi-Fi automatically (never ask user for an IP)
+  if (!remoteService.getBaseUrl()) {
+    await ensureTvDiscovered(true);
+  }
+
+  // 3. Validate existing token (or same-phone Chrome->APK handoff token) via `/api/auth/config`
+  try {
+    if (!remoteService.getBaseUrl()) {
+      throw new Error('TV not yet discovered');
+    }
+    const cfg = await remoteService.getAuthConfig();
+    currentAuthConfig = cfg;
+    renderGoogleAuthAvailability(cfg);
+    if (cfg.paired && cfg.role) {
+      isPaired = true;
+      isGuestExpiredState = false;
+      applyRoleVisibility(cfg.role);
+      setPairingOverlayVisible(false);
+      await refreshStatus();
+      void loadGamingZone(false);
+      if (cfg.role === 'ADMIN') {
+        void refreshPairedDevices();
+      }
+    } else if (cfg.handoffToken) {
+      await completePairingSuccess(cfg.handoffToken, cfg.handoffRole || 'GUEST');
+    } else {
+      handleUnauthorizedTransition(Boolean(cfg.guestExpired));
+    }
+  } catch {
+    document.getElementById('statusDot')?.classList.add('offline');
+    // Cached TV address may be stale after power-cycle or DHCP change: auto-discover live TV on Wi-Fi
+    const previousUrl = remoteService.getBaseUrl();
+    const recoveredUrl = await TvRemoteService.discoverLanTv(previousUrl);
+    if (recoveredUrl && recoveredUrl !== previousUrl) {
+      remoteService.setBaseUrl(recoveredUrl);
+      writeStorage(STORAGE_BASE_URL, recoveredUrl);
+      syncApkDownloadLinks();
+      void bootstrapConnectionAndAuth();
+      return;
+    }
+    if (!isPaired) {
+      setPairingOverlayVisible(true);
+      updateOverlayStatusText(
+        'Pair Companion Remote',
+        'Tap Pair (Scan TV QR Code) below to connect to your TV automatically.'
+      );
+      if (nativeBridge && typeof nativeBridge.startNativeTvDiscovery === 'function') {
+        nativeBridge.startNativeTvDiscovery(previousUrl);
+      }
+    }
+  }
+}
+
+function openQrPairScanner(): void {
+  void startQrScanner();
+}
+
+function openPairingOverlayManual(): void {
+  setPairingOverlayVisible(true);
+  void requestTvPairPrompt();
+}
+
+function toggleFullscreen(): void {
+  const doc = document as Document & {
+    webkitFullscreenElement?: Element;
+    webkitExitFullscreen?: () => void;
+  };
+  const el = doc.documentElement as HTMLElement & {
+    webkitRequestFullscreen?: () => void;
+  };
+  if (!doc.fullscreenElement && !doc.webkitFullscreenElement) {
+    if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    showToast('Full-screen mode');
+  } else {
+    if (doc.exitFullscreen) doc.exitFullscreen().catch(() => {});
+    else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
+  }
+}
+
+function dismissApkBanner(): void {
+  const b = document.getElementById('apkInstallBanner');
+  if (b) b.classList.add('hidden');
+  try {
+    sessionStorage.setItem('mytv_hide_apk_banner', '1');
+  } catch {
+    // Ignore
+  }
+}
+
+function applyTheme(dark: boolean): void {
+  const mode = dark ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', mode);
+  const icon = document.getElementById('themeIcon');
+  if (icon) {
+    icon.innerHTML = dark
+      ? '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>'
+      : '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/>';
+  }
+}
+
+async function toggleTheme(): Promise<void> {
+  const currentDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  localThemeOverride = !currentDark;
+  applyTheme(localThemeOverride);
+  await sendKey('theme');
+  showToast(localThemeOverride ? 'Dark Liquid Glass' : 'Light Liquid Glass');
+}
+
+function switchTab(tabId: string): void {
+  document.querySelectorAll('.tab-pane').forEach((p) => p.classList.remove('active'));
+  document.querySelectorAll('.dock-tab').forEach((b) => b.classList.remove('active'));
+  const pane = document.getElementById(`tab-${tabId}`);
+  if (pane) pane.classList.add('active');
+  const btn = document.querySelector(`.dock-tab[data-tab="${tabId}"]`);
+  if (btn) btn.classList.add('active');
+  if (tabId === 'gaming') void loadGamingZone(false);
+  if (tabId === 'apps' && currentRole === 'ADMIN') void refreshPairedDevices();
+  void refreshStatus();
+}
+
+async function switchTvScreen(idx: number, keyName: RemoteKeyName): Promise<void> {
+  document.querySelectorAll('.tv-screen-pill').forEach((b) => {
+    b.classList.toggle('active', Number(b.getAttribute('data-screen')) === idx);
+  });
+  await sendKey(keyName);
+  setTimeout(() => void refreshStatus(), 220);
+}
+
+async function switchSubTab(idx: number): Promise<void> {
+  document.getElementById('subTabTvBtn')?.classList.toggle('active', idx === 0);
+  document.getElementById('subTabMovieBtn')?.classList.toggle('active', idx === 1);
+  await sendKey(idx === 0 ? 'subtab_tv' : 'subtab_movie');
+  showToast(idx === 0 ? 'Home: TV Shows' : 'Home: Movies');
+  setTimeout(() => void refreshStatus(), 220);
+}
+
+async function sendKey(key: RemoteKeyName): Promise<void> {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    navigator.vibrate(key === 'hold_ok' ? [18, 30, 18] : 10);
+  }
+  const ok = await remoteService.sendKey(key);
+  if (!ok && !isPaired) return;
+  if (key === 'users' || key === 'sideshelf' || key === 'theme') {
+    setTimeout(() => void refreshStatus(), 240);
+  }
+}
+
+async function submitText(submit: boolean): Promise<void> {
+  const input = document.getElementById('remoteTextInput') as HTMLInputElement | null;
+  const text = input ? input.value.trim() : '';
+  if (!text) {
+    if (submit) await switchTvScreen(0, 'search');
+    return;
+  }
+  const ok = await remoteService.sendText(text, submit);
+  if (ok) {
+    showToast(submit ? `Unified Search on TV: ${text}` : 'Copied to TV clipboard');
+    if (submit && input) {
+      input.value = '';
+      setTimeout(() => void refreshStatus(), 300);
+    }
+  }
+}
+
+async function askGeminiAi(): Promise<void> {
+  const input = document.getElementById('remoteTextInput') as HTMLInputElement | null;
+  const box = document.getElementById('aiResultBox');
+  const query =
+    (input && input.value.trim()) ||
+    'Suggest a great high-rated sci-fi thriller series or movie to watch tonight';
+  showToast('Asking Gemini AI...');
+  if (box) {
+    box.style.display = 'block';
+    box.textContent = 'Gemini AI is thinking...';
+  }
+  try {
+    const res = await remoteService.askGeminiAi(query, false);
+    if (box) {
+      const top = res.topItem;
+      const summary = res.summary || (res.titles && res.titles.join(', ')) || 'Recommendation ready';
+      if (top && top.deepLink) {
+        box.innerHTML = `
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <div style="min-width:0;">
+              <div style="font-weight:700; color:var(--text-main);">${escapeHtml(top.name)}</div>
+              <div style="font-size:12px; color:var(--text-dim); margin-top:2px;">${escapeHtml(summary)}</div>
+            </div>
+            <button class="btn btn-accent btn-chip" onclick="quickCastUrl('${escapeAttr(top.deepLink)}', '${escapeAttr(top.name)}')">Open on TV</button>
+          </div>
+        `;
+      } else {
+        box.textContent = summary;
+      }
+    }
+  } catch {
+    if (box) box.textContent = 'Could not reach Gemini AI on TV';
+  }
+}
+
+async function pasteFromPhoneClipboard(): Promise<void> {
+  try {
+    const clip = await navigator.clipboard.readText();
+    const input = document.getElementById('remoteTextInput') as HTMLInputElement | null;
+    if (clip && input) {
+      input.value = clip;
+      showToast('Pasted from clipboard');
+    }
+  } catch {
+    showToast('Long-press the text box to paste');
+  }
+}
+
+async function pasteToCastUrl(): Promise<void> {
+  try {
+    const clip = await navigator.clipboard.readText();
+    const input = document.getElementById('castUrlInput') as HTMLInputElement | null;
+    if (clip && input) {
+      input.value = clip;
+      showToast('Pasted link from clipboard');
+    }
+  } catch {
+    showToast('Long-press the URL field to paste');
+  }
+}
+
+function startVoiceInput(): void {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const btn = document.getElementById('voiceBtn');
+  if (!SpeechRec) {
+    const manual = prompt(
+      'Speak or type a voice command (e.g. "Movie time", "Turn on water boiler", "Severance"):'
+    );
+    if (manual && manual.trim()) {
+      void remoteService.sendVoiceCommand(manual.trim());
+      showToast(`Voice: "${manual.trim()}"`);
+    }
+    return;
+  }
+  const rec = new SpeechRec();
+  rec.lang = 'en-US';
+  rec.interimResults = false;
+  btn?.classList.add('listening');
+  showToast('Listening...');
+  rec.onresult = async (e) => {
+    const transcript = e.results[0][0].transcript;
+    btn?.classList.remove('listening');
+    showToast(`"${transcript}"`);
+    await remoteService.sendVoiceCommand(transcript);
+    setTimeout(() => void refreshStatus(), 350);
+  };
+  rec.onerror = () => btn?.classList.remove('listening');
+  rec.onend = () => btn?.classList.remove('listening');
+  rec.start();
+}
+
+/* ==========================================================================
+   GAMING BROWSER & BIOMETRIC FINGERPRINT UNLOCK
+   ========================================================================== */
+async function loadGamingZone(forceRefresh: boolean): Promise<void> {
+  if (!isPaired) return;
+  try {
+    const st = forceRefresh
+      ? await remoteService.syncGamingLibrary()
+      : await remoteService.getGamingStatus();
+    renderGamingZone(st);
+  } catch {
+    // Handled via auth listener or offline state
+  }
+}
+
+async function syncGamingWithPc(): Promise<void> {
+  showToast('Syncing library with Laptop Gaming Agent...');
+  await loadGamingZone(true);
+}
+
+async function wakeGamingLaptop(): Promise<void> {
+  showToast('Sending Wake-on-LAN to Gaming PC...');
+  try {
+    const st = await remoteService.wakeGamingPc();
+    renderGamingZone(st);
+  } catch {
+    showToast('Failed to send Wake-on-LAN');
+  }
+}
+
+function toggleShowHiddenGames(): void {
+  showHiddenGames = !showHiddenGames;
+  lastGamingSig = ''; // Force re-render
+  const btn = document.getElementById('toggleHiddenGamesBtn');
+  const span = btn?.querySelector('span');
+  if (span) span.textContent = showHiddenGames ? 'Hide Hidden' : 'Show Hidden';
+  void loadGamingZone(false);
+}
+
+async function unlockGamingLaptop(): Promise<void> {
+  const pinEl = document.getElementById('gamingPinInput') as HTMLInputElement | null;
+  const pin = pinEl ? pinEl.value.trim() : '';
+  if (!pin) {
+    if (nativeBridge && nativeBridge.isBiometricAvailable() && nativeBridge.hasSavedPcUnlockPin()) {
+      unlockPcWithFingerprint();
+      return;
+    }
+    showToast('Enter your Windows Hello PIN first');
+    return;
+  }
+  showToast('Unlocking Windows Laptop...');
+  try {
+    const st = await remoteService.unlockLaptop(pin);
+    if (pinEl) pinEl.value = '';
+    renderGamingZone(st);
+    showToast('Windows PC unlocked');
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : 'Failed to unlock PC');
+  }
+}
+
+function unlockPcWithFingerprint(): void {
+  if (!nativeBridge || !nativeBridge.isBiometricAvailable()) {
+    showToast('Fingerprint unlock is available in the Native Android Remote App');
+    return;
+  }
+  if (!nativeBridge.hasSavedPcUnlockPin()) {
+    showToast('Type your Windows PIN once and tap Save PIN to Fingerprint');
+    return;
+  }
+  nativeBridge.authenticatePcUnlock();
+}
+
+function savePinToFingerprint(): void {
+  if (!nativeBridge || !nativeBridge.isBiometricAvailable()) {
+    showToast('Fingerprint hardware unavailable');
+    return;
+  }
+  const pinEl = document.getElementById('gamingPinInput') as HTMLInputElement | null;
+  const pin = pinEl ? pinEl.value.trim() : '';
+  if (!pin) {
+    showToast('Enter your Windows PIN in the box first, then tap Save PIN to Fingerprint');
+    return;
+  }
+  nativeBridge.enrollPcUnlockPin(pin);
+}
+
+function clearSavedFingerprintPin(): void {
+  if (!nativeBridge) return;
+  nativeBridge.clearSavedPcUnlockPin();
+  refreshBiometricUiState();
+  showToast('Cleared saved fingerprint PC PIN');
+}
+
+async function launchGamingItem(gameId: string, title: string): Promise<void> {
+  const pinEl = document.getElementById('gamingPinInput') as HTMLInputElement | null;
+  const pin = pinEl && currentRole === 'ADMIN' ? pinEl.value.trim() : '';
+  showToast(`Launching ${title} on TV...`);
+  try {
+    const st = await remoteService.launchGame(gameId, pin);
+    if (pinEl) pinEl.value = '';
+    renderGamingZone(st);
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : 'Could not launch game');
+  }
+}
+
+async function setGamingItemHidden(gameId: string, hidden: boolean, ev?: Event): Promise<void> {
+  if (ev) ev.stopPropagation();
+  try {
+    const st = await remoteService.setGameHidden(gameId, hidden);
+    lastGamingSig = '';
+    renderGamingZone(st);
+  } catch {
+    showToast('Could not update game visibility');
+  }
+}
+
+function renderGameCardHtml(g: GamingGameItem, compact: boolean): string {
+  const art = g.imageUrl
+    ? `<img src="${escapeAttr(g.imageUrl)}" alt="${escapeAttr(g.title)}" loading="lazy" onerror="this.style.display='none'" />`
+    : '';
+  const catLabel = g.category === 'steam' ? 'Steam' : 'PC Game';
+  const widthStyle = compact ? 'min-width:210px; flex-shrink:0;' : '';
+  return `
+    <div class="game-card-16x9" style="${widthStyle}" onclick="launchGamingItem('${escapeAttr(g.id)}', '${escapeAttr(g.title)}')">
+      ${art}
+      <div class="game-card-overlay">
+        <div style="min-width:0;">
+          <div class="game-card-title">${escapeHtml(g.title)}${g.hidden ? ' (Hidden)' : ''}</div>
+          <div class="game-card-sub">${catLabel}</div>
+        </div>
+        ${
+          !compact
+            ? `<button class="btn btn-chip" style="background:rgba(0,0,0,0.55); color:#fff; border-color:rgba(255,255,255,0.22); padding:5px 9px;" onclick="setGamingItemHidden('${escapeAttr(g.id)}', ${!g.hidden}, event)">
+                ${g.hidden ? 'Unhide' : 'Hide'}
+              </button>`
+            : ''
+        }
+      </div>
+    </div>
+  `;
+}
+
+function renderGamingZone(gz: GamingStatus | null): void {
+  if (!gz) return;
+  const sig = JSON.stringify({ gz, showHiddenGames });
+  if (sig === lastGamingSig) return;
+  lastGamingSig = sig;
+
+  const boltSvg =
+    '<svg class="icon icon-sm" style="width:13px;height:13px;margin-left:2px;flex-shrink:0;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
+  const pillsRow = document.getElementById('gamingStatusPillsRow');
+  const activeCtrls = Array.isArray(gz.controllers) ? gz.controllers : [];
+  if (pillsRow) {
+    let ctrlHtml = '';
+    if (activeCtrls.length > 0) {
+      ctrlHtml = activeCtrls
+        .map((c) => {
+          const name = escapeHtml(c.name || 'Gamepad');
+          const pct =
+            typeof c.batteryPercent === 'number' && c.batteryPercent >= 0
+              ? ` · ${c.batteryPercent}%`
+              : c.charging
+                ? ' · Connected to Power'
+                : '';
+          const swatch = escapeAttr(c.color || '#64748b');
+          return `<div class="status-pill connected"><span style="width:12px;height:12px;border-radius:50%;background:${swatch};border:1.5px solid rgba(255,255,255,0.85);display:inline-block;flex-shrink:0;"></span><span>${name}${pct}</span>${c.charging ? boltSvg : ''}</div>`;
+        })
+        .join('');
+    } else {
+      const summary = escapeHtml(gz.controllerSummary || '0 Controllers Connected');
+      ctrlHtml = `<div id="controllerStatusPill" class="status-pill"><svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/><rect x="2" y="6" width="20" height="12" rx="4"/></svg><span id="controllerStatusText">${summary}</span></div>`;
+    }
+    const mode = gz.hdmiConnected
+      ? 'PC Online · Cable'
+      : gz.awake
+        ? 'PC Online · Wireless'
+        : 'PC Offline';
+    const lockTxt = gz.awake && gz.locked ? ' · Locked' : '';
+    const pcBatt =
+      gz.awake && typeof gz.batteryPercent === 'number' && gz.batteryPercent >= 0
+        ? ` · ${gz.batteryPercent}%`
+        : '';
+    const pcBolt =
+      gz.awake && gz.batteryCharging && typeof gz.batteryPercent === 'number' && gz.batteryPercent >= 0
+        ? boltSvg
+        : '';
+    const pcCls = gz.awake ? 'status-pill online connected' : 'status-pill';
+    pillsRow.innerHTML =
+      ctrlHtml +
+      `<div id="pcStatusPill" class="${pcCls}"><svg class="icon icon-sm" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg><span id="gamingStatusBadge">${escapeHtml(mode + lockTxt + pcBatt)}</span>${pcBolt}</div>`;
+  }
+
+  const contSec = document.getElementById('continuePlayingSection');
+  const contList = document.getElementById('continuePlayingList');
+  if (contSec && contList) {
+    const played = Array.isArray(gz.continuePlaying) ? gz.continuePlaying : [];
+    if (played.length > 0) {
+      contSec.style.display = 'block';
+      contList.innerHTML = played.map((g) => renderGameCardHtml(g, true)).join('');
+    } else {
+      contSec.style.display = 'none';
+    }
+  }
+
+  const list = document.getElementById('gamingGamesList');
+  if (list && Array.isArray(gz.games)) {
+    const gamesOnly = gz.games.filter(
+      (g) => g.category !== 'system' && (showHiddenGames || !g.hidden)
+    );
+    list.innerHTML = gamesOnly.map((g) => renderGameCardHtml(g, false)).join('');
+  }
+}
+
+/* ==========================================================================
+   SMART-HOME RICH CONTROLS & ROUTINES
+   ========================================================================== */
+async function runSmartRoutine(routineId: SmartHomeRoutineId): Promise<void> {
+  showToast('Running Smart-Home action...');
+  try {
+    const updated = await remoteService.executeSmartHomeRoutine(routineId);
+    renderStatus(updated);
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : 'Smart-Home action failed');
+  }
+}
+
+async function toggleDevice(deviceId: string): Promise<void> {
+  try {
+    const updated = await remoteService.toggleSmartHomeDevice(deviceId);
+    renderStatus(updated);
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : 'Device action failed');
+  }
+}
+
+async function adjustTemp(deviceId: string, tempDelta: number, ev?: Event): Promise<void> {
+  if (ev) ev.stopPropagation();
+  try {
+    const updated = await remoteService.adjustAcTemperature(deviceId, tempDelta);
+    renderStatus(updated);
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : 'AC update failed');
+  }
+}
+
+async function setAcParams(
+  deviceId: string,
+  acMode: string,
+  targetTemp: number,
+  fanLevel: string,
+  ev?: Event
+): Promise<void> {
+  if (ev) ev.stopPropagation();
+  try {
+    const updated = await remoteService.setAcParameters(deviceId, true, acMode, targetTemp, fanLevel);
+    renderStatus(updated);
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : 'AC update failed');
+  }
+}
+
+async function setLightParams(
+  deviceId: string,
+  brightness: number,
+  colorTempK: number,
+  ev?: Event
+): Promise<void> {
+  if (ev) ev.stopPropagation();
+  try {
+    const updated = await remoteService.setLightParameters(deviceId, true, brightness, colorTempK);
+    renderStatus(updated);
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : 'Light update failed');
+  }
+}
+
+async function setBoilerTimer(deviceId: string, timerMinutes: number, ev?: Event): Promise<void> {
+  if (ev) ev.stopPropagation();
+  showToast(`Water Boiler: On (${timerMinutes}m Timer)`);
+  try {
+    const updated = await remoteService.setBoilerTimer(deviceId, timerMinutes);
+    renderStatus(updated);
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : 'Boiler update failed');
+  }
+}
+
+function renderSmartDeviceCard(d: SmartHomeDevice): string {
+  const isOn = Boolean(d.isOn || d.on);
+  const statusTxt = d.statusText || d.status || (isOn ? 'On' : 'Off');
+  const temp = d.targetTempCelsius || d.targetTemp || 23;
+  const mode = (d.acMode || 'cool').toLowerCase();
+  const fan = (d.fanLevel || 'auto').toLowerCase();
+  const dim = d.brightness || 100;
+  const ct = d.colorTempK || 2700;
+  const timer = d.timerMinutes || 45;
+  const proto = d.protocol || '';
+
+  let controlsHtml = '';
+  if (proto === 'SENSIBO_AC' || proto === 'TUYA_AC') {
+    controlsHtml = `
+      <div class="device-controls-row">
+        <button class="btn btn-chip" onclick="adjustTemp('${escapeAttr(d.id)}', -1, event)">-1°C</button>
+        <span style="font-size:13px; font-weight:700; padding:0 4px;">${temp}°C</span>
+        <button class="btn btn-chip" onclick="adjustTemp('${escapeAttr(d.id)}', 1, event)">+1°C</button>
+        <button class="btn btn-chip ${mode === 'cool' ? 'pill-focus' : ''}" onclick="setAcParams('${escapeAttr(d.id)}', 'cool', ${temp}, '${fan}', event)">Cool</button>
+        <button class="btn btn-chip ${mode === 'heat' ? 'pill-focus' : ''}" onclick="setAcParams('${escapeAttr(d.id)}', 'heat', ${temp}, '${fan}', event)">Heat</button>
+        <button class="btn btn-chip ${mode === 'dry' ? 'pill-focus' : ''}" onclick="setAcParams('${escapeAttr(d.id)}', 'dry', ${temp}, '${fan}', event)">Dry</button>
+        <button class="btn btn-chip ${mode === 'fan' ? 'pill-focus' : ''}" onclick="setAcParams('${escapeAttr(d.id)}', 'fan', ${temp}, '${fan}', event)">Fan</button>
+      </div>
+      <div class="device-controls-row">
+        <span style="font-size:11px; color:var(--text-dim);">Fan:</span>
+        ${['auto', 'low', 'medium', 'high']
+          .map(
+            (f) => `
+          <button class="btn btn-chip ${fan === f ? 'pill-focus' : ''}" onclick="setAcParams('${escapeAttr(d.id)}', '${mode}', ${temp}, '${f}', event)">${f.charAt(0).toUpperCase() + f.slice(1)}</button>
+        `
+          )
+          .join('')}
+      </div>
+    `;
+  } else if (proto === 'WIZ_LIGHT') {
+    controlsHtml = `
+      <div class="device-controls-row">
+        ${[10, 20, 50, 75, 100]
+          .map(
+            (pct) => `
+          <button class="btn btn-chip ${isOn && dim === pct ? 'pill-focus' : ''}" onclick="setLightParams('${escapeAttr(d.id)}', ${pct}, ${ct}, event)">${pct}%</button>
+        `
+          )
+          .join('')}
+      </div>
+      <div class="device-controls-row">
+        <button class="btn btn-chip ${isOn && ct <= 3000 ? 'pill-focus' : ''}" onclick="setLightParams('${escapeAttr(d.id)}', ${dim}, 2700, event)">Warm 2700K</button>
+        <button class="btn btn-chip ${isOn && ct > 3000 && ct < 5000 ? 'pill-focus' : ''}" onclick="setLightParams('${escapeAttr(d.id)}', ${dim}, 4200, event)">Daylight 4200K</button>
+        <button class="btn btn-chip ${isOn && ct >= 5000 ? 'pill-focus' : ''}" onclick="setLightParams('${escapeAttr(d.id)}', ${dim}, 6000, event)">Cool 6000K</button>
+      </div>
+    `;
+  } else if (proto === 'SWITCHER_BOILER') {
+    controlsHtml = `
+      <div class="device-controls-row">
+        <span style="font-size:11px; color:var(--text-dim);">Auto-Off Timer:</span>
+        ${[15, 30, 45, 60]
+          .map(
+            (m) => `
+          <button class="btn btn-chip ${isOn && timer === m ? 'pill-focus' : ''}" onclick="setBoilerTimer('${escapeAttr(d.id)}', ${m}, event)">${m}m</button>
+        `
+          )
+          .join('')}
+      </div>
+    `;
+  }
+
+  return `
+    <div class="glass device-card ${isOn ? 'on' : ''}">
+      <div class="device-top">
+        <div class="device-info" onclick="toggleDevice('${escapeAttr(d.id)}')" style="cursor:pointer;">
+          <div class="device-name">${escapeHtml(d.name)}</div>
+          <div class="device-status">${escapeHtml(statusTxt)}</div>
+        </div>
+        <button class="btn power-toggle ${isOn ? 'pill-focus' : ''}" onclick="toggleDevice('${escapeAttr(d.id)}')">
+          ${isOn ? 'On' : 'Off'}
+        </button>
+      </div>
+      ${controlsHtml}
+    </div>
+  `;
+}
+
+/* ==========================================================================
+   CAST, APPS, PROFILES, PAIRED DEVICES ADMIN & SYSTEM
+   ========================================================================== */
+async function castToTv(saveReel: boolean): Promise<void> {
+  const urlInput = document.getElementById('castUrlInput') as HTMLInputElement | null;
+  const titleInput = document.getElementById('castTitleInput') as HTMLInputElement | null;
+  const url = urlInput ? urlInput.value.trim() : '';
+  if (!url) {
+    showToast('Enter an http://, https://, or stremio:// URL first');
+    return;
+  }
+  const title = (titleInput && titleInput.value.trim()) || 'Shared Reel';
+  const sender = (currentStatus && currentStatus.activeUser && currentStatus.activeUser.displayName) || 'Family';
+  const ok = await remoteService.castMedia(url, title, sender, saveReel);
+  if (ok) {
+    showToast(`Casting on TV: ${title}`);
+    if (urlInput) urlInput.value = '';
+    if (titleInput) titleInput.value = '';
+    setTimeout(() => void refreshStatus(), 500);
+  } else {
+    showToast('Only http://, https://, or stremio:// links are allowed');
+  }
+}
+
+async function quickCastUrl(url: string, title: string): Promise<void> {
+  const ok = await remoteService.castMedia(url, title, 'Remote', false);
+  if (ok) showToast(`Opening ${title} on TV...`);
+}
+
+async function launchApp(pkg: string): Promise<void> {
+  const ok = await remoteService.launchApp(pkg);
+  if (ok) showToast('Launching on TV...');
+}
+
+async function setLauncherMode(mode: 'mytv' | 'original' | 'settings'): Promise<void> {
+  const ok = await remoteService.setLauncherMode(mode);
+  if (ok) {
+    showToast(
+      mode === 'original' ? 'Restoring Native TV Launcher...' : 'Opening MyTV Settings on TV...'
+    );
+  }
+}
+
+async function triggerSelfUpdate(): Promise<void> {
+  const tokenInput = document.getElementById('githubTokenInput') as HTMLInputElement | null;
+  const githubToken = tokenInput ? tokenInput.value.trim() : '';
+  const ok = await remoteService.triggerSelfUpdate(githubToken, '');
+  if (tokenInput) tokenInput.value = '';
+  if (ok) showToast('Checking GitHub releases for updates...');
+}
+
+async function switchUser(username: string): Promise<void> {
+  try {
+    const updated = await remoteService.switchUserProfile(username);
+    renderStatus(updated);
+    showToast(`Switched user to ${username}`);
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : 'Could not switch profile');
+  }
+}
+
+async function createUserProfile(): Promise<void> {
+  const nameInput = document.getElementById('newProfileName') as HTMLInputElement | null;
+  const traktInput = document.getElementById('newProfileTrakt') as HTMLInputElement | null;
+  const displayName = nameInput ? nameInput.value.trim() : '';
+  if (!displayName) return;
+  try {
+    const updated = await remoteService.addUserProfile(
+      displayName,
+      traktInput ? traktInput.value.trim() : ''
+    );
+    renderStatus(updated);
+    if (nameInput) nameInput.value = '';
+    if (traktInput) traktInput.value = '';
+    showToast(`Saved profile: ${displayName}`);
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : 'Could not save profile');
+  }
+}
+
+/* ==========================================================================
+   ADMIN PAIRED DEVICES & GUEST MANAGEMENT
+   ========================================================================== */
+async function refreshPairedDevices(): Promise<void> {
+  if (currentRole !== 'ADMIN' || !isPaired) return;
+  try {
+    const devices = await remoteService.listPairedDevices();
+    renderPairedDevicesList(devices);
+  } catch {
+    // Handled via auth listener
+  }
+}
+
+function renderPairedDevicesList(devices: PairedDeviceInfo[]): void {
+  const container = document.getElementById('pairedDevicesList');
+  if (!container) return;
+  const sig = JSON.stringify(devices);
+  if (sig === lastAdminDevicesSig) return;
+  lastAdminDevicesSig = sig;
+
+  if (!devices || devices.length === 0) {
+    container.innerHTML =
+      '<div class="glass reel-item"><span class="tv-sub">No paired devices recorded yet.</span></div>';
+    return;
+  }
+
+  container.innerHTML = devices
+    .map((d) => {
+      const roleLabel =
+        d.role === 'ADMIN'
+          ? 'Admin'
+          : d.role === 'HOUSEHOLD'
+            ? 'Household'
+            : d.expired
+              ? 'Guest · Expired'
+              : `Guest · ${d.daysRemaining || 30}d left`;
+      const youTag = d.isCurrentDevice ? ' · This Phone' : '';
+      const emailSub = d.googleEmail ? ` · ${escapeHtml(d.googleEmail)}` : '';
+      return `
+        <div class="glass device-card" style="padding:12px;">
+          <div class="device-top">
+            <div class="device-info">
+              <div class="device-name" style="font-size:13.5px;">
+                <span>${escapeHtml(d.deviceName)}</span>
+                <span class="status-pill ${d.role === 'ADMIN' ? 'connected' : ''}" style="padding:2px 8px; font-size:10.5px;">${escapeHtml(roleLabel)}</span>
+              </div>
+              <div class="device-status">${escapeHtml(d.deviceId)}${youTag}${emailSub}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+              <select aria-label="Device Role" class="role-select" onchange="changePairedDeviceRole('${escapeAttr(d.deviceId)}', this.value)">
+                <option value="GUEST" ${d.role === 'GUEST' ? 'selected' : ''}>Guest (30d)</option>
+                <option value="HOUSEHOLD" ${d.role === 'HOUSEHOLD' ? 'selected' : ''}>Household</option>
+                <option value="ADMIN" ${d.role === 'ADMIN' ? 'selected' : ''}>Admin</option>
+              </select>
+              <button class="btn btn-chip" style="border-color:rgba(255,69,58,0.5); color:var(--danger);" onclick="revokePairedDevice('${escapeAttr(d.deviceId)}')">
+                Revoke
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+}
+
+async function revokePairedDevice(deviceId: string): Promise<void> {
+  try {
+    const updated = await remoteService.revokeDevice(deviceId);
+    lastAdminDevicesSig = '';
+    renderPairedDevicesList(updated);
+    showToast('Revoked remote device access');
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : 'Failed to revoke device');
+  }
+}
+
+async function changePairedDeviceRole(deviceId: string, role: string): Promise<void> {
+  const validRole: RemoteRole =
+    role === 'ADMIN' ? 'ADMIN' : role === 'HOUSEHOLD' ? 'HOUSEHOLD' : 'GUEST';
+  try {
+    const updated = await remoteService.setDeviceRole(deviceId, validRole);
+    lastAdminDevicesSig = '';
+    renderPairedDevicesList(updated);
+    showToast(`Updated role to ${validRole}`);
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : 'Failed to update role');
+  }
+}
+
+async function createAdminInvite(role: RemoteRole): Promise<void> {
+  try {
+    const inv: AdminInviteResponse = await remoteService.createInvite(role);
+    const box = document.getElementById('adminInviteResultBox');
+    if (box) {
+      box.style.display = 'flex';
+      box.innerHTML = `
+        <div style="min-width:0; flex:1;">
+          <div style="font-weight:700; font-size:13px;">${escapeHtml(inv.role)} Invite Code: <span style="letter-spacing:0.12em; color:var(--accent);">${escapeHtml(inv.code)}</span></div>
+          <div class="tv-sub" style="margin-top:2px;">Shown on TV for 5 min · Share link or code</div>
+        </div>
+        <button class="btn btn-accent btn-chip" onclick="copyInviteLink('${escapeAttr(inv.pairUrl)}')">Copy Link</button>
+      `;
+    }
+    showToast(`${inv.role} invite code: ${inv.code}`);
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : 'Could not create invite');
+  }
+}
+
+async function copyInviteLink(url: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast('Copied pairing link to clipboard');
+  } catch {
+    showToast(url);
+  }
+}
+
+/* ==========================================================================
+   STATUS RENDERING WITH DIFFED DOM UPDATES (PERF-15)
+   ========================================================================== */
+function renderStatus(st: TvStatus | null): void {
+  if (!st) return;
+  currentStatus = st;
+  document.getElementById('statusDot')?.classList.remove('offline');
+  const modelEl = document.getElementById('tvModelText');
+  if (modelEl) modelEl.textContent = st.tvModel ? `MyTV · ${st.tvModel}` : 'MyTV';
+
+  if (st.authRole && st.authRole !== currentRole) {
+    applyRoleVisibility(st.authRole);
+  }
+
+  if (localThemeOverride === null && typeof st.darkMode === 'boolean') {
+    applyTheme(st.darkMode);
+  }
+
+  if (st.enabledTabs) {
+    const showGaming = st.enabledTabs.gaming !== false;
+    const showReels = st.enabledTabs.reels !== false;
+    const showSmartHome = st.enabledTabs.smarthome !== false;
+
+    const setElVisible = (selector: string, visible: boolean) => {
+      document.querySelectorAll<HTMLElement>(selector).forEach((el) => {
+        el.style.display = visible ? '' : 'none';
+      });
+    };
+
+    setElVisible('.tv-screen-pill[data-screen="3"], .dock-tab[data-tab="gaming"]', showGaming);
+    setElVisible('.tv-screen-pill[data-screen="4"], .dock-tab[data-tab="cast"]', showReels);
+    setElVisible('.tv-screen-pill[data-screen="5"], .dock-tab[data-tab="smarthome"]', showSmartHome);
+
+    const activePane = document.querySelector('.tab-pane.active')?.id || '';
+    if (
+      (activePane === 'tab-gaming' && !showGaming) ||
+      (activePane === 'tab-cast' && !showReels) ||
+      (activePane === 'tab-smarthome' && !showSmartHome)
+    ) {
+      switchTab('remote');
+    }
+  }
+
+  const scrIdx = typeof st.activeScreen === 'number' ? st.activeScreen : 1;
+  const scrName = SCREEN_NAMES[scrIdx] || 'Home';
+  const subName = st.subTab === 1 ? 'Movies' : 'TV Shows';
+  const subEl = document.getElementById('tvSubText');
+  if (subEl) {
+    subEl.textContent =
+      scrIdx === 1
+        ? `On TV: Home · ${subName}${st.sideShelfOpen ? ' · Shelf Open' : ''}`
+        : `On TV: ${scrName}`;
+  }
+
+  document.querySelectorAll('.tv-screen-pill').forEach((b) => {
+    b.classList.toggle('active', Number(b.getAttribute('data-screen')) === scrIdx);
+  });
+
+  const subTv = document.getElementById('subTabTvBtn');
+  const subMv = document.getElementById('subTabMovieBtn');
+  if (subTv && subMv && typeof st.subTab === 'number') {
+    subTv.classList.toggle('active', st.subTab === 0);
+    subMv.classList.toggle('active', st.subTab === 1);
+  }
+
+  const shelfBtn = document.getElementById('sideShelfToggleBtn');
+  if (shelfBtn) {
+    shelfBtn.classList.toggle('pill-focus', Boolean(st.sideShelfOpen));
+  }
+
+  if (st.activeUser) {
+    const userTxt = document.getElementById('activeUserText');
+    if (userTxt) userTxt.textContent = st.activeUser.displayName;
+  }
+
+  if (st.controllerSummary) {
+    const ctrlText = document.getElementById('controllerStatusText');
+    const ctrlPill = document.getElementById('controllerStatusPill');
+    if (ctrlText && ctrlPill) {
+      ctrlText.textContent = st.controllerSummary;
+      ctrlPill.classList.toggle('connected', !st.controllerSummary.startsWith('No '));
+    }
+  }
+
+  const traktTitle = document.getElementById('traktStatusTitle');
+  const traktSub = document.getElementById('traktStatusSub');
+  if (traktTitle && traktSub) {
+    if (st.traktConnected) {
+      traktTitle.textContent = `Trakt Connected: @${st.traktUser || 'trakt'}`;
+      traktSub.textContent = 'Private Watch List, Ratings & Favorites synced';
+    } else {
+      traktTitle.textContent = 'Connect Private Trakt Account';
+      traktSub.textContent = 'Tap to open trakt.tv/activate code on TV';
+    }
+  }
+
+  const favGrid = document.getElementById('favoriteAppsGrid');
+  if (favGrid && Array.isArray(st.shelfApps) && st.shelfApps.length > 0) {
+    const shelfSig = JSON.stringify(st.shelfApps);
+    if (shelfSig !== lastShelfSig) {
+      lastShelfSig = shelfSig;
+      favGrid.innerHTML = st.shelfApps
+        .map(
+          (a) => `
+        <button class="btn" onclick="launchApp('${escapeAttr(a.pkg)}')">
+          <span>${escapeHtml(a.label)}</span>
+        </button>
+      `
+        )
+        .join('');
+    }
+  }
+
+  const shGrid = document.getElementById('smartHomeGrid');
+  if (shGrid && Array.isArray(st.smartHome)) {
+    const shSig = JSON.stringify(st.smartHome);
+    if (shSig !== lastSmartHomeSig) {
+      lastSmartHomeSig = shSig;
+      shGrid.innerHTML = st.smartHome.map((d) => renderSmartDeviceCard(d)).join('');
+    }
+  }
+
+  const reelsList = document.getElementById('sharedReelsList');
+  if (reelsList && Array.isArray(st.sharedReels)) {
+    const reelsSig = JSON.stringify(st.sharedReels);
+    if (reelsSig !== lastReelsSig) {
+      lastReelsSig = reelsSig;
+      if (st.sharedReels.length === 0) {
+        reelsList.innerHTML =
+          '<div class="glass reel-item"><span class="tv-sub">No Shared Reels yet — paste a link above!</span></div>';
+      } else {
+        reelsList.innerHTML = st.sharedReels
+          .map(
+            (r) => `
+          <div class="glass reel-item">
+            <div style="overflow:hidden;">
+              <div style="font-weight:700; font-size:13.5px;">${escapeHtml(r.title || 'Shared Reel')}</div>
+              <div class="tv-sub">From ${escapeHtml(r.sender || 'Family')} · ${escapeHtml(r.platform || 'video')}</div>
+            </div>
+            <button class="btn btn-accent btn-chip" onclick="quickCastUrl('${escapeAttr(r.url)}', '${escapeAttr(r.title || 'Shared Reel')}')">Play</button>
+          </div>
+        `
+          )
+          .join('');
+      }
+    }
+  }
+
+  const usersList = document.getElementById('userProfilesList');
+  if (usersList && Array.isArray(st.users)) {
+    const usersSig = JSON.stringify({
+      users: st.users,
+      active: st.activeUser ? st.activeUser.username : '',
+    });
+    if (usersSig !== lastUsersSig) {
+      lastUsersSig = usersSig;
+      usersList.innerHTML = st.users
+        .map((u) => {
+          const active = st.activeUser && st.activeUser.username === u.username;
+          return `
+            <button class="btn ${active ? 'pill-focus' : ''}" onclick="switchUser('${escapeAttr(u.username)}')">
+              <span>${escapeHtml(u.displayName)}</span>
+              ${u.traktUsername ? `<span style="font-size:11px; opacity:0.7;">(@${escapeHtml(u.traktUsername)})</span>` : ''}
+            </button>
+          `;
+        })
+        .join('');
+    }
+  }
+}
+
+let consecutiveOfflinePolls = 0;
+let lanRecoveryInFlight = false;
+
+async function refreshStatus(): Promise<void> {
+  if (!isPaired || !remoteService.getBaseUrl()) return;
+  try {
+    const st = await remoteService.getStatus();
+    consecutiveOfflinePolls = 0;
+    renderStatus(st);
+  } catch (err) {
+    if (!(err instanceof RemoteUnauthorizedError)) {
+      document.getElementById('statusDot')?.classList.add('offline');
+      consecutiveOfflinePolls++;
+      if (consecutiveOfflinePolls >= 2 && !lanRecoveryInFlight) {
+        lanRecoveryInFlight = true;
+        void TvRemoteService.discoverLanTv(remoteService.getBaseUrl())
+          .then((found) => {
+            if (found && found !== remoteService.getBaseUrl()) {
+              remoteService.setBaseUrl(found);
+              writeStorage(STORAGE_BASE_URL, found);
+              syncApkDownloadLinks();
+              consecutiveOfflinePolls = 0;
+              showToast('Reconnected to MyTV');
+              void refreshStatus();
+            }
+          })
+          .finally(() => {
+            lanRecoveryInFlight = false;
+          });
+      }
+    }
+  }
+}
+
+/* ==========================================================================
+   NATIVE ANDROID CALLBACKS & INTERACTION INITIALIZATION
+   ========================================================================== */
+function registerNativeCallbacksAndGlobals(): void {
+  window.onMyTvDiscovered = (discoveredUrl: string) => {
+    const normalized = TvRemoteService.normalizeHostInput(discoveredUrl);
+    if (!normalized) return;
+    if (normalized !== remoteService.getBaseUrl() || !isPaired) {
+      remoteService.setBaseUrl(normalized);
+      writeStorage(STORAGE_BASE_URL, normalized);
+      syncApkDownloadLinks();
+      void bootstrapConnectionAndAuth();
+    }
+  };
+
+  window.onMyTvQrScanned = (rawUri: string) => {
+    if (!rawUri) return;
+    void handleScannedQrPayload(rawUri);
+  };
+
+  window.onMyTvGoogleAuthCallback = async (accessToken: string) => {
+    if (!accessToken) return;
+    showToast('Verifying Google Admin account with TV...');
+    try {
+      const res = await remoteService.exchangeGoogleToken(accessToken, detectDeviceName());
+      await completePairingSuccess(res.token, res.role);
+      if (Array.isArray(res.devices)) {
+        lastAdminDevicesSig = '';
+        renderPairedDevicesList(res.devices);
+      }
+    } catch (err) {
+      if (err instanceof RemoteForbiddenError) {
+        showToast('Google account is not in the TV owner whitelist');
+      } else {
+        showToast(err instanceof Error ? err.message : 'Google Admin verification failed');
+      }
+    }
+  };
+
+  window.onBiometricEnrollResult = (ok: boolean, errorMessage: string) => {
+    refreshBiometricUiState();
+    if (ok) {
+      const pinEl = document.getElementById('gamingPinInput') as HTMLInputElement | null;
+      if (pinEl) pinEl.value = '';
+      showToast('Saved Windows PIN to Android Fingerprint KeyStore');
+    } else if (errorMessage && errorMessage !== 'Cancelled') {
+      showToast(errorMessage);
+    }
+  };
+
+  window.onBiometricPcPinReady = async (pin: string) => {
+    if (!pin) return;
+    showToast('Fingerprint verified — unlocking Gaming PC...');
+    try {
+      const st = await remoteService.unlockLaptop(pin);
+      renderGamingZone(st);
+      showToast('Gaming PC unlocked wirelessly');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not reach Gaming PC');
+    }
+  };
+
+  window.onBiometricPcPinError = (errorMessage: string) => {
+    refreshBiometricUiState();
+    if (errorMessage && errorMessage !== 'Cancelled') {
+      showToast(errorMessage);
+    }
+  };
+
+  // Expose DOM event handlers on window for clean declarative HTML attributes
+  Object.assign(window, {
+    openQrPairScanner,
+    startQrScanner,
+    stopQrScanner,
+    scanQrImageFile,
+    closePairingOverlayManual,
+    openPairingOverlayManual,
+    requestTvPairPrompt,
+    submitSixDigitPairCode,
+    signInWithGoogleAdmin,
+    toggleFullscreen,
+    dismissApkBanner,
+    toggleTheme,
+    switchTab,
+    switchTvScreen,
+    switchSubTab,
+    sendKey,
+    submitText,
+    askGeminiAi,
+    pasteFromPhoneClipboard,
+    pasteToCastUrl,
+    startVoiceInput,
+    syncGamingWithPc,
+    wakeGamingLaptop,
+    toggleShowHiddenGames,
+    unlockGamingLaptop,
+    unlockPcWithFingerprint,
+    savePinToFingerprint,
+    clearSavedFingerprintPin,
+    launchGamingItem,
+    setGamingItemHidden,
+    runSmartRoutine,
+    toggleDevice,
+    adjustTemp,
+    setAcParams,
+    setLightParams,
+    setBoilerTimer,
+    castToTv,
+    quickCastUrl,
+    launchApp,
+    setLauncherMode,
+    triggerSelfUpdate,
+    switchUser,
+    createUserProfile,
+    refreshPairedDevices,
+    revokePairedDevice,
+    changePairedDeviceRole,
+    createAdminInvite,
+    copyInviteLink,
+  });
+}
+
+function initNativeAndBannerState(): void {
+  const b = document.getElementById('apkInstallBanner');
+  const fsBtn = document.getElementById('fullscreenBtn');
+  const tab5Btn = document.getElementById('tab5ApkDownloadBtn');
+  const isStandalonePwa =
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(display-mode: standalone)').matches;
+  if (IS_NATIVE_APK || isStandalonePwa) {
+    if (b) b.classList.add('hidden');
+    if (fsBtn) fsBtn.style.display = 'none';
+    if (IS_NATIVE_APK && tab5Btn) tab5Btn.style.display = 'none';
+  } else {
+    try {
+      if (sessionStorage.getItem('mytv_hide_apk_banner') === '1' && b) {
+        b.classList.add('hidden');
+      }
+    } catch {
+      // Ignore
+    }
+  }
+}
+
+function initOkButtonHold(): void {
+  const okBtn = document.getElementById('okCenterBtn');
+  if (!okBtn) return;
+  let holdTimer: ReturnType<typeof setTimeout> | null = null;
+  let held = false;
+
+  const startHold = () => {
+    held = false;
+    if (holdTimer) clearTimeout(holdTimer);
+    holdTimer = setTimeout(() => {
+      held = true;
+      void sendKey('hold_ok');
+      showToast('Hold OK: TV Context Menu');
+    }, 420);
+  };
+
+  const endHold = (e?: Event) => {
+    if (holdTimer) clearTimeout(holdTimer);
+    if (!held) {
+      void sendKey('ok');
+    }
+    if (e && e.cancelable) e.preventDefault();
+  };
+
+  okBtn.addEventListener('touchstart', startHold, { passive: true });
+  okBtn.addEventListener('touchend', endHold);
+  okBtn.addEventListener('mousedown', startHold);
+  okBtn.addEventListener('mouseup', endHold);
+}
+
+function initTouchpad(): void {
+  const pad = document.getElementById('touchpad');
+  if (!pad) return;
+  let lastX = 0;
+  let lastY = 0;
+  let moved = false;
+  let held = false;
+  let holdTimer: ReturnType<typeof setTimeout> | null = null;
+  const STEP_PX = 36;
+
+  pad.addEventListener(
+    'touchstart',
+    (e) => {
+      if (e.touches.length === 1) {
+        lastX = e.touches[0].clientX;
+        lastY = e.touches[0].clientY;
+        moved = false;
+        held = false;
+        if (holdTimer) clearTimeout(holdTimer);
+        holdTimer = setTimeout(() => {
+          if (!moved) {
+            held = true;
+            void sendKey('hold_ok');
+            showToast('Hold OK: TV Context Menu');
+          }
+        }, 450);
+      }
+    },
+    { passive: true }
+  );
+
+  pad.addEventListener(
+    'touchmove',
+    (e) => {
+      if (e.touches.length !== 1) return;
+      const dx = e.touches[0].clientX - lastX;
+      const dy = e.touches[0].clientY - lastY;
+      if (Math.abs(dx) >= STEP_PX || Math.abs(dy) >= STEP_PX) {
+        moved = true;
+        if (holdTimer) clearTimeout(holdTimer);
+        const stepX = Math.trunc(dx / STEP_PX);
+        const stepY = Math.trunc(dy / STEP_PX);
+        lastX += stepX * STEP_PX;
+        lastY += stepY * STEP_PX;
+        void remoteService.sendScroll(stepX, stepY);
+      }
+    },
+    { passive: true }
+  );
+
+  pad.addEventListener('touchend', () => {
+    if (holdTimer) clearTimeout(holdTimer);
+    if (!moved && !held) void sendKey('ok');
+  });
+}
+
+function initVisibilityAwarePolling(): void {
+  // PERF-15: Pause background polling when phone screen is off or tab is hidden
+  setInterval(() => {
+    if (document.visibilityState === 'hidden') return;
+    void refreshStatus();
+  }, 6000);
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      if (isPaired) {
+        void refreshStatus();
+      } else if (activePairRequestId && !pairPollTimer) {
+        startPairingPollLoop();
+      }
+    }
+  });
+}
+
+function bootCompanionRemote(): void {
+  if (typeof document === 'undefined') return;
+  registerNativeCallbacksAndGlobals();
+  initNativeAndBannerState();
+  applyRoleVisibility(currentRole);
+  initOkButtonHold();
+  initTouchpad();
+  initVisibilityAwarePolling();
+  void bootstrapConnectionAndAuth();
+}
+
+bootCompanionRemote();

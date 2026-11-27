@@ -1,0 +1,283 @@
+# MyTV
+
+**A bloat-free 4K home screen built around you — not billboards.**
+
+Modern smart TVs bury your favorite apps under rows of sponsored banners, auto-playing promos, and sluggish menus. **MyTV** replaces that clutter with a fast, calm **4K Liquid Glass** interface designed around what *you* actually watch and do in your living room. Beyond organizing your streaming apps and watchlists in one place, MyTV turns your phone into an instant Wi-Fi remote, links your Windows PC to your TV for low-latency high-res streaming, and puts your living-room **smart lights and climate controls** one click away — while automatically hiding optional tabs you don't need.
+
+---
+
+## Table of Contents
+
+1. [Visual Tour](#visual-tour)
+2. [Features at a Glance](#features-at-a-glance)
+3. [Supported TVs & Platforms](#supported-tvs--platforms)
+4. [How to Install (Human Guide)](#how-to-install-human-guide)
+5. [Services & API Keys Reference](#services--api-keys-reference)
+6. [Troubleshooting & Q&A](#troubleshooting--qa)
+7. [For AI Setup Agents](#for-ai-setup-agents)
+8. [Repository Structure](#repository-structure)
+
+---
+
+## Visual Tour
+
+| Home & Personalized Discovery | Optional 4K PC Gaming Zone |
+| :---: | :---: |
+| ![MyTV Home Screen](assets/screenshots/home.webp) | ![MyTV Gaming Screen](assets/screenshots/gaming.webp) |
+| **Optional Living-Room Smart-Home Hub** | **Two-Panel Liquid Glass Settings** |
+| ![MyTV Smart Home Screen](assets/screenshots/smarthome.webp) | ![MyTV Settings Screen](assets/screenshots/settings.webp) |
+| **True-4K Fine Art & Nature Screensaver** | **Phone Companion Remote (iPhone & Android)** |
+| ![MyTV 4K Screensaver](assets/screenshots/screensaver.webp) | ![MyTV Companion Remote](assets/screenshots/remote.webp) |
+
+---
+
+## Features at a Glance
+
+- **User-First, Zero-Bloat 4K Interface**: Clean Top-Bar navigation (**Search**, **Home** with *TV Shows* & *Movies* sub-tabs, **Apps**, and **Settings**), an expandable favorite-apps Side-Shelf, 60fps animations, and automatic sunrise-to-sunset Light & Dark themes.
+- **Always Works When Your Computer Is Off**: Every core TV feature — streaming discovery, AI search, smart-home controls, screensaver, and the phone remote — runs **100% natively inside the TV app** with zero dependency on a home PC.
+- **Unified Watchlists, Critic Scores & AI Search**: Syncs two-way with **Trakt** and **Stremio**, displays **IMDb**, **Rotten Tomatoes**, and **Metacritic** ratings side-by-side, and lets you search by mood or plot description using **Google Gemini AI**.
+- **Phone Companion Remote (`iPhone & Android`)**: Scan a QR code in MyTV Settings to control your TV over local Wi-Fi — complete with D-Pad, swipe trackpad, instant phone keyboard paste, voice search, Smart-Home sliders, and temporary QR guest passes.
+- **4K PC-to-TV Game Streaming *(Optional Tab)***: Streams your **Steam**, **Epic Games**, **Heroic**, and standalone Windows games at **4K 60fps** straight inside MyTV (or switches to HDMI automatically when plugged in), with Bluetooth/USB controller tagging and battery levels. *Don't game on your TV? MyTV removes the Gaming tab automatically.*
+- **Effortless Smart-Home Control *(Optional Tab)***: Dim **WiZ** smart lights, adjust **Sensibo** or **Tuya** air conditioners, set a **Switcher** boiler timer, or trigger *Movie Time* and *Good Night* routines from your couch. *Don't use smart-home appliances? MyTV removes the Smart Home tab automatically.*
+- **Easy Late Activation Anytime**: Skipped Gaming or Smart Home during setup? Turn either tab on later from **Settings -> Home & Appearance -> Interface & Units** or ask your AI agent to set it up whenever you're ready.
+- **True-4K Ambient Screensaver**: Over **1,230 curated 4K UHD** fine-art paintings and nature/space photographs with 8 clock designs and live local weather.
+- **Multi-User Household Profiles & Encrypted Vault**: Separate watchlists and history per family member, backed by hardware `AndroidKeyStore` encryption on your TV and optional zero-knowledge cloud backup.
+- **Shared Short-Form Reels *(Work in Progress)***: Casting YouTube Shorts, TikTok, and Instagram Reels from your phone into a shared family TV queue is currently under active development (*WIP*) and disabled in public builds for now.
+
+---
+
+## Supported TVs & Platforms
+
+- **Android TV & Google TV (`MyTV.apk`)**: Xiaomi, TCL, Sony BRAVIA, Philips, Hisense, Toshiba, Skyworth / JVC, Chromecast with Google TV, Google TV Streamer, Walmart `onn.`, NVIDIA Shield, and AOSP projectors (Android 8 through Android 14+).
+- **Amazon Fire TV (`MyTV.apk`)**: Fire TV sets and Fire TV Sticks (opens cleanly as an app with dedicated HDMI switching while respecting Fire OS's Home button).
+- **LG Smart TVs (`MyTV-webos.ipk`)**: Lightweight web launcher package for LG webOS 3.0 through webOS 24+.
+- **Samsung Smart TVs (`MyTV-tizen.wgt`)**: Lightweight web launcher package for Samsung Tizen 2.3 through Tizen 9+.
+
+---
+
+## How to Install (Human Guide)
+
+MyTV is designed so every household runs on its **own private, free accounts** — never sharing quotas or personal data with anyone else. Even if you have never built an Android app before, an AI coding agent can set up, tailor, and install MyTV on your TV in minutes.
+
+### Step 1 — Optional: Open the Visual MyTV Setup Studio
+
+After downloading or cloning this repository onto your computer, you can open the built-in **MyTV Setup Studio** (styled in MyTV's Liquid Glass interface):
+
+- **Windows**: Double-click **`Setup-MyTV.bat`** (or run `python setup_wizard.py`)
+- **macOS / Linux**: Run **`./setup-mytv.sh`**
+
+Inside Setup Studio, you can toggle whether you want the optional **Smart Home** and **PC Gaming** tabs, auto-fill your city, test and save your free API keys locally, view visual instructions for your TV brand, and copy a customized prompt for your AI agent.
+
+### Step 2 — Install Using an AI Coding Agent (Recommended)
+
+Open this project folder in **Claude Code**, **Google Antigravity**, **Cursor**, **Codex**, or **Windsurf**, and paste this prompt:
+
+> Read `AGENTS.md` and `docs/agents/install-playbook.md` and help me set up and install MyTV on my TV. Ask me which optional tabs (Smart Home and/or PC Gaming) I want enabled or hidden, guide me through any free API keys I need, verify my TV brand safely, and install MyTV.
+
+### Step 3 — What to Expect During Setup
+
+1. **Three Quick Questions**: Your AI agent will ask for your **TV's Wi-Fi IP address**, your **city** (for local weather and sunrise/sunset themes), and whether you want the optional **Smart Home** and/or **PC Gaming** tabs enabled or hidden.
+2. **Guided Free API Keys**: Your agent will help you create a free **TMDB** key (needed for movie/show posters and rows) plus any optional keys you want. Your keys stay strictly on your own computer and are encrypted into your TV's hardware vault.
+3. **Safe TV Inspection & One-Click Approval**: You will turn on *Developer Debugging* on your TV (see [Troubleshooting & Q&A](#troubleshooting--qa) below) and press **Allow** once on your TV screen when the agent connects over Wi-Fi to verify your TV model and install `MyTV`.
+4. **Zero Risk to Your Stock Home Screen**: Installing MyTV changes nothing on your TV until *you* open MyTV Settings and switch Launcher Mode from **Original** to **MyTV** — and switching back to **Original** restores your factory home screen at any time.
+
+---
+
+## Services & API Keys Reference
+
+Every service supported by MyTV offers a **free personal tier**. Click any group below to expand its table and signup links.
+
+<details open>
+<summary><strong>1. Movies, TV Shows, Watchlists &amp; Critic Ratings</strong> (1 Required · 4 Optional)</summary>
+
+<br/>
+
+| Service | What It Does in MyTV | Requirement | Free-Tier Limit | Where to Get It | Config Property |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **TMDB** | 4K backdrops, posters, 38+ genre rows & *"More Like This"* picks | **Required** *(for catalogs)* | Free (~50 req/sec) | [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api) | `tmdb_key` |
+| **Trakt** | Two-way Watchlist, watch progress, episode tracking & personal ratings | **Recommended** | Free personal account | [trakt.tv/oauth/applications/new](https://trakt.tv/oauth/applications/new) *(Redirect URI: `urn:ietf:wg:oauth:2.0:oob`)* | `trakt_client_id` + QR pair on TV |
+| **Stremio** | Syncs your Stremio Library & mid-episode Continue Watching | **Recommended** | Free account | [stremio.com](https://www.stremio.com) | `stremio_email` + sign in on TV |
+| **OMDb** | Adds **Rotten Tomatoes (RT)** & **Metacritic (MC)** scores | **Optional** | 1,000/day *(cached permanently)* | [omdbapi.com/apikey.aspx](https://www.omdbapi.com/apikey.aspx) *(click activation email)* | `omdb_key` |
+| **MDBList** | Aggregates **Rotten Tomatoes** & **Metacritic** ratings | **Optional** | 1,000/day *(cached permanently)* | [mdblist.com/preferences](https://mdblist.com/preferences/) *(sign in directly, not via Trakt)* | `mdblist_key` |
+
+</details>
+
+<details>
+<summary><strong>2. AI Voice &amp; Natural-Language Search</strong> (Optional)</summary>
+
+<br/>
+
+| Service | What It Does in MyTV | Requirement | Free-Tier Limit | Where to Get It | Config Property |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Google Gemini AI** | Search movies & shows by mood, plot description, or natural voice queries | **Optional** | Free tier (`gemini-2.5-flash`) | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) | `gemini_api_key` |
+
+</details>
+
+<details>
+<summary><strong>3. Smart-Home Appliances — Lights, AC &amp; Boiler</strong> (Optional · Enables Smart Home Tab)</summary>
+
+<br/>
+
+*If you leave all Smart-Home settings empty (or set `enable_smarthome=false`), MyTV automatically hides the Smart Home tab.*
+
+| Service | What It Does in MyTV | Requirement | Free-Tier Limit | Where to Get It | Config Property |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **WiZ Smart Lights** | Local Wi-Fi bulb dimming (`10%–100%`), warm/daylight Kelvin & room control | **Optional** | 100% Free & Local (no key needed) | Auto-discovered over Wi-Fi UDP `38899` | `wiz_light_ips` *(or scan on TV)* |
+| **Sensibo Sky** | Living-room smart AC power, mode, target temperature & fan speed | **Optional** | Free personal API | [home.sensibo.com/me/api](https://home.sensibo.com/me/api) | `sensibo_api_key` |
+| **Tuya / Smart Life** | Smart AC power, temperature & mode control | **Optional** | Free IoT Trial / Personal project | [iot.tuya.com](https://iot.tuya.com) | `tuya_access_id`, `tuya_access_secret` |
+| **Switcher** | Local smart water boiler toggle & auto-off countdown timer | **Optional** | Local LAN control | Switcher app device info | `switcher_device_ip`, `switcher_device_id` |
+
+</details>
+
+<details>
+<summary><strong>4. 4K PC-to-TV Game Streaming</strong> (Optional · Enables Gaming Tab)</summary>
+
+<br/>
+
+*If you don't configure a Gaming PC (or set `enable_gaming=false`), MyTV automatically hides the Gaming tab.*
+
+| Component | What It Does in MyTV | Requirement | Cost | Where to Get It | Config / `.env` Property |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Sunshine Host** | Encodes your Windows PC desktop & games at 4K 60fps for MyTV's built-in player | **Optional** | 100% Free & Open Source | [github.com/LizardByte/Sunshine/releases](https://github.com/LizardByte/Sunshine/releases) | Paired on TV via 6-digit code |
+| **MyTV Gaming Agent** | Auto-discovers Steam, Epic, Heroic & standalone PC games, switches HDMI/Wi-Fi & manages Sunshine power | **Optional** | Built into this repo (`tools/gaming/`) | Included in `MyTV-launcher/tools/gaming/` | `MYTV_GAMES_DIRS`, `MYTV_NON_TV_MONITORS` |
+
+</details>
+
+<details>
+<summary><strong>5. Multi-User Household Profiles &amp; Encrypted Cloud Vault</strong> (Optional)</summary>
+
+<br/>
+
+| Service | What It Does in MyTV | Requirement | Free-Tier Limit | Where to Get It | Config Property |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Supabase** | Syncs family profiles, watchlists/history across devices & stores zero-knowledge `AES-256-GCM` key backups | **Optional** | Free (500 MB PostgreSQL) | [supabase.com/dashboard](https://supabase.com/dashboard) *(SQL schema in [`docs/supabase-schema.sql`](docs/supabase-schema.sql))* | `supabase_url`, `supabase_anon_key`, `household_key`, `admin_emails` |
+
+</details>
+
+---
+
+## Troubleshooting & Q&A
+
+<details open>
+<summary><strong>What do I have to do manually vs. what does the AI agent do?</strong></summary>
+
+<br/>
+
+- **What you do yourself**:
+  1. Turn on *Developer / Debugging mode* on your TV once (60 seconds — see below).
+  2. Create your free **TMDB** key (and any optional keys you choose).
+  3. Press **Allow** on your TV remote when the *"Allow USB/Wireless debugging?"* prompt appears on screen.
+  4. *(Optional PC Gaming only)* Install Sunshine on your Windows PC and approve one Administrator setup step.
+- **What your AI agent does automatically**: Checks or installs build tools, configures `config.properties` / `.env`, inspects your TV brand for safety, compiles and installs `MyTV.apk` (with the Phone Remote bundled inside), pushes your keys into hardware encryption, and disconnects cleanly.
+
+</details>
+
+<details>
+<summary><strong>How do I enable Wireless or Network Debugging on my TV?</strong></summary>
+
+<br/>
+
+- **Google TV & Android TV (Sony, TCL, Xiaomi, Philips, Hisense, Walmart `onn.`)**:
+  Open **Settings -> System -> About**, highlight **Android TV OS Build**, and press **OK 7 times** until *Developer mode* unlocks. Go back to **Settings -> System -> Developer options** and turn ON **USB debugging** (and **Network debugging** if shown). Your TV's IP address is under **Settings -> Network & Internet -> your Wi-Fi network**.
+- **Chromecast with Google TV & Android 14 Streamers**:
+  Unlock **Developer options** as above, then open **Wireless debugging**, turn it ON, and select **Pair device with pairing code**. Give the 6-digit pairing code and IP:port on screen to your AI agent.
+- **Amazon Fire TV**:
+  Open **Settings -> My Fire TV -> About**, click your device name 7 times, then enable **ADB Debugging** under **Developer Options**.
+- **LG webOS TVs**:
+  Install **Developer Mode** from the LG Content Store, sign in with a free LG Developer account, turn **Dev Mode Status** ON (the TV restarts), and enable **Key Server**.
+- **Samsung Tizen TVs**:
+  Open the **Apps** screen, press `1 2 3 4 5` on your remote, switch **Developer mode** ON, enter your computer's IP address, and restart the TV.
+
+</details>
+
+<details>
+<summary><strong>What if my AI agent fails to set an API key — how can I add keys myself?</strong></summary>
+
+<br/>
+
+You have three simple fallback options:
+1. **Right on your TV screen**: Open **MyTV -> Settings -> Get Started (Initial Setup & Cloud)** to pair Trakt with a QR code, sign in to Stremio, scan Wi-Fi for WiZ bulbs, and enter API keys directly.
+2. **Using MyTV Setup Studio on your computer**: Launch `Setup-MyTV.bat` (Windows) or `./setup-mytv.sh` (Mac/Linux), open **API Keys & Save**, paste your keys, and click **Save Settings Locally**.
+3. **Editing `config.properties` directly**: Copy `MyTV-launcher/config.example.properties` to `MyTV-launcher/config.properties`, paste your key after `=`, and re-run the build.
+
+</details>
+
+<details>
+<summary><strong>I hid the Gaming or Smart Home tab during setup. How do I add it later?</strong></summary>
+
+<br/>
+
+Both features remain built in and ready whenever you want them:
+- **From your TV remote**: Go to **Settings -> Home & Appearance -> Interface & Units** and set **Gaming Tab Visibility** or **Smart Home Tab Visibility** to *Always Show* or *Automatic*.
+- **With your AI agent**: Tell your agent *"Enable the Gaming tab (or Smart Home tab) in MyTV and help me connect my PC / smart devices"* — the agent simply sets `enable_gaming=true` or `enable_smarthome=true` and syncs your new keys or PC folders.
+
+</details>
+
+<details>
+<summary><strong>Google Play Protect showed "Risky app blocked" or "Built for an older version of Android"</strong></summary>
+
+<br/>
+
+Android 14 TVs display this one-time prompt when installing sideloaded apps that include a remote-button helper. On your TV remote, choose **More details -> Install anyway**. Always install over ADB (via your AI agent) rather than opening the APK inside a TV file-manager app.
+
+</details>
+
+<details>
+<summary><strong>Why didn't my TCL TV switch home screens immediately?</strong></summary>
+
+<br/>
+
+Some TCL Google TV models block background jobs until **Auto-Start** is enabled for MyTV in TCL's **Safety Guard** app (your AI agent also runs the matching `appops` permission command automatically during install). Once allowed, wait up to a minute and press the **Home** button.
+
+</details>
+
+<details>
+<summary><strong>How do I return to my TV's original factory home screen?</strong></summary>
+
+<br/>
+
+MyTV never deletes or modifies system apps. Open **MyTV -> Settings -> System -> Launcher Mode** and choose **Original TV Home** — your factory launcher returns right away. Always switch back to **Original** before uninstalling MyTV.
+
+</details>
+
+---
+
+## For AI Setup Agents
+
+If you are an AI coding assistant (like **Claude Code**, **Google Antigravity**, **Cursor**, **Codex**, **Windsurf**) helping a user install, customize, or adapt MyTV, start here:
+
+- **[`AGENTS.md`](AGENTS.md)** & **[`CLAUDE.md`](CLAUDE.md)** — Agent entry points, human-intake checklist, Smart TV safety protocol, and common local adjustments.
+- **[`docs/agents/install-playbook.md`](docs/agents/install-playbook.md)** — Complete step-by-step build, install, secret-sync, LG/Samsung packaging, and PC gaming commands.
+- **[`docs/agents/tv-brand-adaptation.md`](docs/agents/tv-brand-adaptation.md)** — Guide for inspecting unlisted TV models and extending remote/input adapters safely.
+- **[`docs/supabase-schema.sql`](docs/supabase-schema.sql)** — Optional Dual-Path RLS PostgreSQL schema for Multi-User Profiles and Encrypted Cloud Backup.
+
+---
+
+## Repository Structure
+
+```text
+MyTV/
+├── Setup-MyTV.bat / setup-mytv.sh  # One-click launcher for the Liquid Glass Desktop Setup Studio
+├── setup_wizard.py                 # Cross-platform Python entry point for Setup Studio
+├── assets/screenshots/             # 4K TV & Phone Companion Remote preview images
+├── docs/
+│   ├── agents/                     # Step-by-step AI agent installation & TV-brand adaptation guides
+│   └── supabase-schema.sql         # Optional Supabase Dual-Path RLS & Encrypted Vault SQL schema
+├── MyTV-launcher/                  # Native Android TV / Google TV / Fire OS Launcher (io.mytv)
+│   ├── app/                        # Pure Java 4K Liquid Glass UI, Moonlight core, Smart Home & Secrets
+│   ├── web/                        # Shared ES5 web launcher for LG webOS & Samsung Tizen TVs
+│   ├── webos/ & tizen/             # Zero-SDK .ipk (LG) and .wgt (Samsung) packagers & installers
+│   ├── tests/                      # Automated JUnit & web verification suites
+│   ├── tools/
+│   │   ├── gaming/                 # Optional Windows PC Gaming Agent (laptop_gaming_agent.py) & tests
+│   │   ├── setup_gui/              # Liquid Glass Desktop Setup Studio server, UI & unit tests
+│   │   ├── check.sh                # Full build, unit test, i18n & web compatibility runner
+│   │   ├── send_key.py             # Hardware-encrypted AndroidKeyStore secret sync over ADB
+│   │   └── translate.py            # 26-language localization validator
+│   ├── config.example.properties   # Clean template for local build settings & optional tab flags
+│   └── build.sh                    # Fast zero-Gradle APK builder (MyTV.apk + bundled MyTV-Remote.apk)
+├── MyTV-remote/                    # Phone Companion Remote PWA & Native Android App (io.mytv.remote)
+├── .env.example                    # Environment variable template
+├── AGENTS.md & CLAUDE.md           # Instructions & Smart TV safety rules for AI coding assistants
+└── LICENSE                         # MIT License
+```
