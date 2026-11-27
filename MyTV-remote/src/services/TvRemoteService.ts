@@ -107,6 +107,116 @@ export function formatControllerBadgeLabel(
   return base;
 }
 
+export type RemoteDockTabId = 'remote' | 'gaming' | 'smarthome' | 'cast' | 'apps';
+export type SmartHomeIconKind = 'ac' | 'lightbulb' | 'shower' | 'device';
+
+export interface ResolvedTabVisibility {
+  gaming: boolean;
+  reels: boolean;
+  smarthome: boolean;
+  visibleDockTabs: RemoteDockTabId[];
+  visibleScreenIndices: number[];
+}
+
+export const MYTV_THEME_META = {
+  dark: {
+    themeColor: '#1E1A3B',
+    navColor: '#152536',
+  },
+  light: {
+    themeColor: '#F6F8FE',
+    navColor: '#F3F6FD',
+  },
+} as const;
+
+/**
+ * Returns the Twilight Aurora (Dark) or Luminous Pearl Glass (Light) system bar colors.
+ */
+export function getThemeColorMeta(dark: boolean): { themeColor: string; navColor: string } {
+  return dark ? MYTV_THEME_META.dark : MYTV_THEME_META.light;
+}
+
+/**
+ * Resolves visible TV Top-Bar screen indices and mobile Bottom Dock tabs from `TvStatus.enabledTabs`
+ * so hidden optional TV tabs (Gaming, Smart-Home, Reels) never appear on the phone remote.
+ */
+export function resolveTabVisibility(enabledTabs?: TvStatus['enabledTabs']): ResolvedTabVisibility {
+  const gaming = enabledTabs ? enabledTabs.gaming !== false : true;
+  const reels = enabledTabs ? enabledTabs.reels === true : false;
+  const smarthome = enabledTabs ? enabledTabs.smarthome !== false : true;
+
+  const visibleDockTabs: RemoteDockTabId[] = ['remote'];
+  if (gaming) visibleDockTabs.push('gaming');
+  if (smarthome) visibleDockTabs.push('smarthome');
+  if (reels) visibleDockTabs.push('cast');
+  visibleDockTabs.push('apps');
+
+  const visibleScreenIndices: number[] = [0, 1, 2];
+  if (gaming) visibleScreenIndices.push(3);
+  if (reels) visibleScreenIndices.push(4);
+  if (smarthome) visibleScreenIndices.push(5);
+  visibleScreenIndices.push(6);
+
+  return {
+    gaming,
+    reels,
+    smarthome,
+    visibleDockTabs,
+    visibleScreenIndices,
+  };
+}
+
+/**
+ * Resolves the fallback mobile dock tab when the currently active tab becomes disabled by `enabledTabs`.
+ */
+export function resolveFallbackDockTab(
+  activeTabId: string,
+  visibility: ResolvedTabVisibility
+): RemoteDockTabId {
+  if (visibility.visibleDockTabs.includes(activeTabId as RemoteDockTabId)) {
+    return activeTabId as RemoteDockTabId;
+  }
+  return 'remote';
+}
+
+/**
+ * Maps a Smart-Home device protocol/symbol to its monochrome vector icon kind matching `smarthome.webp`.
+ */
+export function resolveSmartHomeIconKind(
+  device: Pick<SmartHomeDevice, 'protocol' | 'icon' | 'symbol'>
+): SmartHomeIconKind {
+  const proto = (device.protocol || '').toUpperCase();
+  const sym = (device.symbol || device.icon || '').toLowerCase();
+  if (proto === 'SENSIBO_AC' || proto === 'TUYA_AC' || sym === 'ac' || sym === 'snowflake') {
+    return 'ac';
+  }
+  if (proto === 'WIZ_LIGHT' || sym === 'lightbulb' || sym === 'lamp') {
+    return 'lightbulb';
+  }
+  if (proto === 'SWITCHER_BOILER' || sym === 'shower' || sym === 'flame' || sym === 'boiler') {
+    return 'shower';
+  }
+  return 'device';
+}
+
+/**
+ * Formats a game card subtitle below 16:9 artwork matching `GamingScreenRenderer.formatGameSubtitle`.
+ */
+export function formatGameSubtitle(
+  game: Pick<GamingGameItem, 'category' | 'hidden' | 'lastPlayedAt'>
+): string {
+  const cat = (game.category || '').toLowerCase();
+  let base = 'PC Game';
+  if (cat === 'steam') base = 'Steam';
+  else if (cat === 'heroic') base = 'Heroic Games';
+  else if (cat === 'epic' || cat === 'legendary') base = 'Epic Games';
+  if (game.hidden) return `${base} · Hidden`;
+  if (typeof game.lastPlayedAt === 'number' && game.lastPlayedAt > 0) {
+    return `${base} · Recently Played`;
+  }
+  return base;
+}
+
 export interface TvStatus {
   tvModel: string;
   tvBrand: string;

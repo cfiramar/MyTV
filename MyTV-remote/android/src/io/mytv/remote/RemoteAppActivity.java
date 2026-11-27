@@ -19,7 +19,9 @@ import android.security.keystore.KeyPermanentlyInvalidatedException;
 import android.security.keystore.KeyProperties;
 import android.util.Base64;
 import android.view.KeyEvent;
+import android.view.View;
 import android.view.Window;
+import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
@@ -95,20 +97,20 @@ public final class RemoteAppActivity extends Activity {
     private PermissionRequest pendingWebPermissionRequest = null;
     private CancellationSignal activeBiometricSignal;
 
+    private static final int DARK_STATUS_BAR_COLOR = Color.parseColor("#1E1A3B");
+    private static final int DARK_NAV_BAR_COLOR = Color.parseColor("#152536");
+    private static final int LIGHT_STATUS_BAR_COLOR = Color.parseColor("#F6F8FE");
+    private static final int LIGHT_NAV_BAR_COLOR = Color.parseColor("#F3F6FD");
+
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        Window window = getWindow();
-        if (window != null) {
-            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-            window.setStatusBarColor(Color.parseColor("#0B0B0D"));
-            window.setNavigationBarColor(Color.parseColor("#0B0B0D"));
-        }
+        applySystemBarAppearance(true);
 
         webView = new WebView(this);
-        webView.setBackgroundColor(Color.parseColor("#0B0B0D"));
+        webView.setBackgroundColor(DARK_STATUS_BAR_COLOR);
         webView.setVerticalScrollBarEnabled(false);
         webView.setHorizontalScrollBarEnabled(false);
         webView.setOverScrollMode(WebView.OVER_SCROLL_NEVER);
@@ -647,6 +649,12 @@ public final class RemoteAppActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void setSystemBarTheme(final boolean dark) {
+            if (!trustedOriginActive) return;
+            runOnUiThread(() -> applySystemBarAppearance(dark));
+        }
+
+        @JavascriptInterface
         public boolean isBiometricAvailable() {
             if (!trustedOriginActive || Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
                 return false;
@@ -697,6 +705,45 @@ public final class RemoteAppActivity extends Activity {
                 return;
             }
             runOnUiThread(() -> Api28Biometrics.authenticatePin(RemoteAppActivity.this));
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    private void applySystemBarAppearance(boolean dark) {
+        Window window = getWindow();
+        if (window == null) return;
+        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        int statusBg = dark ? DARK_STATUS_BAR_COLOR : LIGHT_STATUS_BAR_COLOR;
+        int navBg = dark ? DARK_NAV_BAR_COLOR : LIGHT_NAV_BAR_COLOR;
+        window.setStatusBarColor(statusBg);
+        window.setNavigationBarColor(navBg);
+        if (webView != null) {
+            webView.setBackgroundColor(statusBg);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowInsetsController ctrl = window.getInsetsController();
+            if (ctrl != null) {
+                int lightMask = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                        | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                ctrl.setSystemBarsAppearance(dark ? 0 : lightMask, lightMask);
+            }
+        } else {
+            View decor = window.getDecorView();
+            if (decor != null) {
+                int flags = decor.getSystemUiVisibility();
+                if (dark) {
+                    flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+                    }
+                } else {
+                    flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+                    }
+                }
+                decor.setSystemUiVisibility(flags);
+            }
         }
     }
 

@@ -15,6 +15,99 @@
         }
         return base;
     }
+    const MYTV_THEME_META = {
+        dark: {
+            themeColor: '#1E1A3B',
+            navColor: '#152536',
+        },
+        light: {
+            themeColor: '#F6F8FE',
+            navColor: '#F3F6FD',
+        },
+    };
+    /**
+     * Returns the Twilight Aurora (Dark) or Luminous Pearl Glass (Light) system bar colors.
+     */
+    function getThemeColorMeta(dark) {
+        return dark ? MYTV_THEME_META.dark : MYTV_THEME_META.light;
+    }
+    /**
+     * Resolves visible TV Top-Bar screen indices and mobile Bottom Dock tabs from `TvStatus.enabledTabs`
+     * so hidden optional TV tabs (Gaming, Smart-Home, Reels) never appear on the phone remote.
+     */
+    function resolveTabVisibility(enabledTabs) {
+        const gaming = enabledTabs ? enabledTabs.gaming !== false : true;
+        const reels = enabledTabs ? enabledTabs.reels === true : false;
+        const smarthome = enabledTabs ? enabledTabs.smarthome !== false : true;
+        const visibleDockTabs = ['remote'];
+        if (gaming)
+            visibleDockTabs.push('gaming');
+        if (smarthome)
+            visibleDockTabs.push('smarthome');
+        if (reels)
+            visibleDockTabs.push('cast');
+        visibleDockTabs.push('apps');
+        const visibleScreenIndices = [0, 1, 2];
+        if (gaming)
+            visibleScreenIndices.push(3);
+        if (reels)
+            visibleScreenIndices.push(4);
+        if (smarthome)
+            visibleScreenIndices.push(5);
+        visibleScreenIndices.push(6);
+        return {
+            gaming,
+            reels,
+            smarthome,
+            visibleDockTabs,
+            visibleScreenIndices,
+        };
+    }
+    /**
+     * Resolves the fallback mobile dock tab when the currently active tab becomes disabled by `enabledTabs`.
+     */
+    function resolveFallbackDockTab(activeTabId, visibility) {
+        if (visibility.visibleDockTabs.includes(activeTabId)) {
+            return activeTabId;
+        }
+        return 'remote';
+    }
+    /**
+     * Maps a Smart-Home device protocol/symbol to its monochrome vector icon kind matching `smarthome.webp`.
+     */
+    function resolveSmartHomeIconKind(device) {
+        const proto = (device.protocol || '').toUpperCase();
+        const sym = (device.symbol || device.icon || '').toLowerCase();
+        if (proto === 'SENSIBO_AC' || proto === 'TUYA_AC' || sym === 'ac' || sym === 'snowflake') {
+            return 'ac';
+        }
+        if (proto === 'WIZ_LIGHT' || sym === 'lightbulb' || sym === 'lamp') {
+            return 'lightbulb';
+        }
+        if (proto === 'SWITCHER_BOILER' || sym === 'shower' || sym === 'flame' || sym === 'boiler') {
+            return 'shower';
+        }
+        return 'device';
+    }
+    /**
+     * Formats a game card subtitle below 16:9 artwork matching `GamingScreenRenderer.formatGameSubtitle`.
+     */
+    function formatGameSubtitle(game) {
+        const cat = (game.category || '').toLowerCase();
+        let base = 'PC Game';
+        if (cat === 'steam')
+            base = 'Steam';
+        else if (cat === 'heroic')
+            base = 'Heroic Games';
+        else if (cat === 'epic' || cat === 'legendary')
+            base = 'Epic Games';
+        if (game.hidden)
+            return `${base} · Hidden`;
+        if (typeof game.lastPlayedAt === 'number' && game.lastPlayedAt > 0) {
+            return `${base} · Recently Played`;
+        }
+        return base;
+    }
     /**
      * Thrown when a protected Companion Remote endpoint returns HTTP 401 (unpaired, revoked, or 30-day Guest expired).
      */
@@ -994,6 +1087,7 @@
     let pairPollTimer = null;
     let showHiddenGames = false;
     let localThemeOverride = null;
+    let selectedSmartDeviceId = '';
     // Diff signatures to avoid wiping DOM innerHTML on unchanged 6-second polls (PERF-15)
     let lastShelfSig = '';
     let lastSmartHomeSig = '';
@@ -1681,6 +1775,19 @@
     function applyTheme(dark) {
         const mode = dark ? 'dark' : 'light';
         document.documentElement.setAttribute('data-theme', mode);
+        const meta = getThemeColorMeta(dark);
+        const metaEl = document.getElementById('themeColorMeta');
+        if (metaEl) {
+            metaEl.content = meta.themeColor;
+        }
+        if (nativeBridge && typeof nativeBridge.setSystemBarTheme === 'function') {
+            try {
+                nativeBridge.setSystemBarTheme(dark);
+            }
+            catch {
+                // Ignore native bridge mismatch on older APKs
+            }
+        }
         const icon = document.getElementById('themeIcon');
         if (icon) {
             icon.innerHTML = dark
@@ -1693,7 +1800,7 @@
         localThemeOverride = !currentDark;
         applyTheme(localThemeOverride);
         await sendKey('theme');
-        showToast(localThemeOverride ? 'Dark Liquid Glass' : 'Light Liquid Glass');
+        showToast(localThemeOverride ? 'Dark Twilight Aurora' : 'Light Pearl Glass');
     }
     function switchTab(tabId) {
         document.querySelectorAll('.tab-pane').forEach((p) => p.classList.remove('active'));
@@ -1771,10 +1878,10 @@
                     box.innerHTML = `
           <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
             <div style="min-width:0;">
-              <div style="font-weight:700; color:var(--text-main);">${escapeHtml(top.name)}</div>
-              <div style="font-size:12px; color:var(--text-dim); margin-top:2px;">${escapeHtml(summary)}</div>
+              <div style="font-weight:700; color:var(--ink);">${escapeHtml(top.name)}</div>
+              <div style="font-size:11.5px; color:var(--ink-72); margin-top:2px;">${escapeHtml(summary)}</div>
             </div>
-            <button class="btn btn-accent btn-chip" onclick="quickCastUrl('${escapeAttr(top.deepLink)}', '${escapeAttr(top.name)}')">Open on TV</button>
+            <button class="btn pill-focus btn-chip" style="flex-shrink:0;" onclick="quickCastUrl('${escapeAttr(top.deepLink)}', '${escapeAttr(top.name)}')">Open on TV</button>
           </div>
         `;
                 }
@@ -1964,22 +2071,19 @@
         const art = g.imageUrl
             ? `<img src="${escapeAttr(g.imageUrl)}" alt="${escapeAttr(g.title)}" loading="lazy" onerror="this.style.display='none'" />`
             : '';
-        const catLabel = g.category === 'steam' ? 'Steam' : 'PC Game';
-        const widthStyle = compact ? 'min-width:210px; flex-shrink:0;' : '';
+        const subLabel = formatGameSubtitle(g);
+        const hideBtn = !compact
+            ? `<button class="game-hide-btn" onclick="setGamingItemHidden('${escapeAttr(g.id)}', ${!g.hidden}, event)">${g.hidden ? 'Unhide' : 'Hide'}</button>`
+            : '';
         return `
-    <div class="game-card-16x9" style="${widthStyle}" onclick="launchGamingItem('${escapeAttr(g.id)}', '${escapeAttr(g.title)}')">
-      ${art}
-      <div class="game-card-overlay">
-        <div style="min-width:0;">
-          <div class="game-card-title">${escapeHtml(g.title)}${g.hidden ? ' (Hidden)' : ''}</div>
-          <div class="game-card-sub">${catLabel}</div>
-        </div>
-        ${!compact
-            ? `<button class="btn btn-chip" style="background:rgba(0,0,0,0.55); color:#fff; border-color:rgba(255,255,255,0.22); padding:5px 9px;" onclick="setGamingItemHidden('${escapeAttr(g.id)}', ${!g.hidden}, event)">
-                ${g.hidden ? 'Unhide' : 'Hide'}
-              </button>`
-            : ''}
+    <div class="game-item ${compact ? 'compact' : ''}" onclick="launchGamingItem('${escapeAttr(g.id)}', '${escapeAttr(g.title)}')">
+      <div class="game-art-16x9">
+        <svg class="icon icon-tile" viewBox="0 0 24 24"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/><rect x="2" y="6" width="20" height="12" rx="4"/></svg>
+        ${art}
+        ${hideBtn}
       </div>
+      <div class="game-title">${escapeHtml(g.title)}</div>
+      <div class="game-sub">${escapeHtml(subLabel)}</div>
     </div>
   `;
     }
@@ -2062,12 +2166,169 @@
         }
     }
     async function toggleDevice(deviceId) {
+        selectedSmartDeviceId = deviceId;
         try {
             const updated = await remoteService.toggleSmartHomeDevice(deviceId);
+            lastSmartHomeSig = '';
             renderStatus(updated);
         }
         catch (err) {
             showToast(err instanceof Error ? err.message : 'Device action failed');
+        }
+    }
+    function selectSmartDevice(deviceId, ev) {
+        if (ev)
+            ev.stopPropagation();
+        selectedSmartDeviceId = deviceId;
+        lastSmartHomeSig = '';
+        if (currentStatus && Array.isArray(currentStatus.smartHome)) {
+            renderSmartHomeSection(currentStatus.smartHome);
+        }
+    }
+    function smartHomeIconSvg(kind) {
+        if (kind === 'ac') {
+            return '<svg class="icon icon-tile" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="8" rx="2"/><line x1="6" y1="9" x2="18" y2="9"/><path d="M8 16c-.8 1-.8 2 0 3"/><path d="M12 16c-.8 1-.8 2 0 3"/><path d="M16 16c-.8 1-.8 2 0 3"/></svg>';
+        }
+        if (kind === 'lightbulb') {
+            return '<svg class="icon icon-tile" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>';
+        }
+        if (kind === 'shower') {
+            return '<svg class="icon icon-tile" viewBox="0 0 24 24"><path d="M4 4h4a5 5 0 0 1 5 5v1H7a3 3 0 0 1 3-3"/><path d="M6 10h12"/><line x1="8" y1="14" x2="7.5" y2="16.5"/><line x1="12" y1="14" x2="12" y2="16.5"/><line x1="16" y1="14" x2="16.5" y2="16.5"/><line x1="10" y1="18.5" x2="9.5" y2="20.5"/><line x1="14" y1="18.5" x2="14.5" y2="20.5"/></svg>';
+        }
+        return '<svg class="icon icon-tile" viewBox="0 0 24 24"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>';
+    }
+    function renderSmartDeviceTile(d, isSelected) {
+        const isOn = Boolean(d.isOn || d.on);
+        const statusTxt = d.statusText || d.status || (isOn ? 'On' : 'Off');
+        const iconKind = resolveSmartHomeIconKind(d);
+        return `
+    <div class="sh-tile-item ${isOn ? 'is-on' : ''} ${isSelected ? 'is-selected' : ''}" onclick="toggleDevice('${escapeAttr(d.id)}')">
+      <div class="sh-tile-face">
+        ${smartHomeIconSvg(iconKind)}
+        <button class="sh-tile-tune" onclick="selectSmartDevice('${escapeAttr(d.id)}', event)" title="Adjust ${escapeAttr(d.name)}" aria-label="Adjust ${escapeAttr(d.name)}">
+          <svg class="icon icon-sm" style="width:13px;height:13px;" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+        </button>
+      </div>
+      <div class="sh-tile-meta">
+        <div class="sh-tile-name">${escapeHtml(d.name)}</div>
+        <div class="sh-tile-status">${escapeHtml(statusTxt)}</div>
+      </div>
+    </div>
+  `;
+    }
+    function renderSelectedSmartDeviceControls(d) {
+        const isOn = Boolean(d.isOn || d.on);
+        const statusTxt = d.statusText || d.status || (isOn ? 'On' : 'Off');
+        const temp = d.targetTempCelsius || d.targetTemp || 23;
+        const mode = (d.acMode || 'cool').toLowerCase();
+        const fan = (d.fanLevel || 'auto').toLowerCase();
+        const dim = d.brightness || 100;
+        const ct = d.colorTempK || 2700;
+        const timer = d.timerMinutes || 15;
+        const proto = (d.protocol || '').toUpperCase();
+        let controlsRows = '';
+        if (proto === 'SENSIBO_AC' || proto === 'TUYA_AC') {
+            controlsRows = `
+      <div class="tv-row">
+        <div class="device-controls-row">
+          <span class="controls-label">Temp</span>
+          <button class="btn btn-chip" onclick="adjustTemp('${escapeAttr(d.id)}', -1, event)">-1°C</button>
+          <span style="font-size:13.5px; font-weight:700; min-width:40px; text-align:center;">${temp}°C</span>
+          <button class="btn btn-chip" onclick="adjustTemp('${escapeAttr(d.id)}', 1, event)">+1°C</button>
+        </div>
+        <div class="device-controls-row">
+          <span class="controls-label">Mode</span>
+          ${['cool', 'heat', 'dry', 'fan']
+                .map((m) => `
+            <button class="btn btn-chip ${mode === m ? 'pill-focus' : ''}" onclick="setAcParams('${escapeAttr(d.id)}', '${m}', ${temp}, '${fan}', event)">${m.charAt(0).toUpperCase() + m.slice(1)}</button>
+          `)
+                .join('')}
+        </div>
+        <div class="device-controls-row">
+          <span class="controls-label">Fan</span>
+          ${['auto', 'low', 'medium', 'high']
+                .map((f) => `
+            <button class="btn btn-chip ${fan === f ? 'pill-focus' : ''}" onclick="setAcParams('${escapeAttr(d.id)}', '${mode}', ${temp}, '${f}', event)">${f.charAt(0).toUpperCase() + f.slice(1)}</button>
+          `)
+                .join('')}
+        </div>
+      </div>
+    `;
+        }
+        else if (proto === 'WIZ_LIGHT') {
+            controlsRows = `
+      <div class="tv-row">
+        <div class="device-controls-row">
+          <span class="controls-label">Dim</span>
+          ${[10, 20, 50, 75, 100]
+                .map((pct) => `
+            <button class="btn btn-chip ${isOn && dim === pct ? 'pill-focus' : ''}" onclick="setLightParams('${escapeAttr(d.id)}', ${pct}, ${ct}, event)">${pct}%</button>
+          `)
+                .join('')}
+        </div>
+        <div class="device-controls-row">
+          <span class="controls-label">Tone</span>
+          <button class="btn btn-chip ${isOn && ct <= 3000 ? 'pill-focus' : ''}" onclick="setLightParams('${escapeAttr(d.id)}', ${dim}, 2700, event)">Warm</button>
+          <button class="btn btn-chip ${isOn && ct > 3000 && ct < 5000 ? 'pill-focus' : ''}" onclick="setLightParams('${escapeAttr(d.id)}', ${dim}, 4200, event)">Daylight</button>
+          <button class="btn btn-chip ${isOn && ct >= 5000 ? 'pill-focus' : ''}" onclick="setLightParams('${escapeAttr(d.id)}', ${dim}, 6000, event)">Cool</button>
+        </div>
+      </div>
+    `;
+        }
+        else if (proto === 'SWITCHER_BOILER') {
+            controlsRows = `
+      <div class="tv-row">
+        <div class="device-controls-row">
+          <span class="controls-label">Timer</span>
+          ${[15, 30, 45, 60]
+                .map((m) => `
+            <button class="btn btn-chip ${isOn && timer === m ? 'pill-focus' : ''}" onclick="setBoilerTimer('${escapeAttr(d.id)}', ${m}, event)">${m}m</button>
+          `)
+                .join('')}
+        </div>
+      </div>
+    `;
+        }
+        return `
+    <div class="tv-row is-active">
+      <div class="tv-row-head">
+        <div class="tv-row-main">
+          <span class="dot ${isOn ? 'dot-emerald' : 'dot-amber'}"></span>
+          <div style="min-width:0;">
+            <div class="tv-row-title">${escapeHtml(d.name)}</div>
+            <div class="tv-row-sub">${escapeHtml(statusTxt)}</div>
+          </div>
+        </div>
+        <button class="btn btn-chip ${isOn ? 'btn-blue' : 'pill-focus'}" onclick="toggleDevice('${escapeAttr(d.id)}')" style="flex-shrink:0;">
+          ${isOn ? 'Turn Off' : 'Turn On'}
+        </button>
+      </div>
+    </div>
+    ${controlsRows}
+  `;
+    }
+    function renderSmartHomeSection(devices) {
+        const shGrid = document.getElementById('smartHomeGrid');
+        const controlsPanel = document.getElementById('smartDeviceControlsPanel');
+        if (!shGrid)
+            return;
+        if (!devices || devices.length === 0) {
+            shGrid.innerHTML = '';
+            if (controlsPanel) {
+                controlsPanel.style.display = 'flex';
+                controlsPanel.innerHTML =
+                    '<div class="tv-row"><div class="tv-row-sub">No Smart-Home devices connected yet. Tap Scan WiZ or configure in TV Settings.</div></div>';
+            }
+            return;
+        }
+        const activeDev = devices.find((d) => d.id === selectedSmartDeviceId) || devices[0];
+        selectedSmartDeviceId = activeDev.id;
+        shGrid.innerHTML = devices
+            .map((d) => renderSmartDeviceTile(d, d.id === activeDev.id))
+            .join('');
+        if (controlsPanel) {
+            controlsPanel.style.display = 'flex';
+            controlsPanel.innerHTML = renderSelectedSmartDeviceControls(activeDev);
         }
     }
     async function adjustTemp(deviceId, tempDelta, ev) {
@@ -2114,81 +2375,6 @@
         catch (err) {
             showToast(err instanceof Error ? err.message : 'Boiler update failed');
         }
-    }
-    function renderSmartDeviceCard(d) {
-        const isOn = Boolean(d.isOn || d.on);
-        const statusTxt = d.statusText || d.status || (isOn ? 'On' : 'Off');
-        const temp = d.targetTempCelsius || d.targetTemp || 23;
-        const mode = (d.acMode || 'cool').toLowerCase();
-        const fan = (d.fanLevel || 'auto').toLowerCase();
-        const dim = d.brightness || 100;
-        const ct = d.colorTempK || 2700;
-        const timer = d.timerMinutes || 45;
-        const proto = d.protocol || '';
-        let controlsHtml = '';
-        if (proto === 'SENSIBO_AC' || proto === 'TUYA_AC') {
-            controlsHtml = `
-      <div class="device-controls-row">
-        <button class="btn btn-chip" onclick="adjustTemp('${escapeAttr(d.id)}', -1, event)">-1°C</button>
-        <span style="font-size:13px; font-weight:700; padding:0 4px;">${temp}°C</span>
-        <button class="btn btn-chip" onclick="adjustTemp('${escapeAttr(d.id)}', 1, event)">+1°C</button>
-        <button class="btn btn-chip ${mode === 'cool' ? 'pill-focus' : ''}" onclick="setAcParams('${escapeAttr(d.id)}', 'cool', ${temp}, '${fan}', event)">Cool</button>
-        <button class="btn btn-chip ${mode === 'heat' ? 'pill-focus' : ''}" onclick="setAcParams('${escapeAttr(d.id)}', 'heat', ${temp}, '${fan}', event)">Heat</button>
-        <button class="btn btn-chip ${mode === 'dry' ? 'pill-focus' : ''}" onclick="setAcParams('${escapeAttr(d.id)}', 'dry', ${temp}, '${fan}', event)">Dry</button>
-        <button class="btn btn-chip ${mode === 'fan' ? 'pill-focus' : ''}" onclick="setAcParams('${escapeAttr(d.id)}', 'fan', ${temp}, '${fan}', event)">Fan</button>
-      </div>
-      <div class="device-controls-row">
-        <span style="font-size:11px; color:var(--text-dim);">Fan:</span>
-        ${['auto', 'low', 'medium', 'high']
-                .map((f) => `
-          <button class="btn btn-chip ${fan === f ? 'pill-focus' : ''}" onclick="setAcParams('${escapeAttr(d.id)}', '${mode}', ${temp}, '${f}', event)">${f.charAt(0).toUpperCase() + f.slice(1)}</button>
-        `)
-                .join('')}
-      </div>
-    `;
-        }
-        else if (proto === 'WIZ_LIGHT') {
-            controlsHtml = `
-      <div class="device-controls-row">
-        ${[10, 20, 50, 75, 100]
-                .map((pct) => `
-          <button class="btn btn-chip ${isOn && dim === pct ? 'pill-focus' : ''}" onclick="setLightParams('${escapeAttr(d.id)}', ${pct}, ${ct}, event)">${pct}%</button>
-        `)
-                .join('')}
-      </div>
-      <div class="device-controls-row">
-        <button class="btn btn-chip ${isOn && ct <= 3000 ? 'pill-focus' : ''}" onclick="setLightParams('${escapeAttr(d.id)}', ${dim}, 2700, event)">Warm 2700K</button>
-        <button class="btn btn-chip ${isOn && ct > 3000 && ct < 5000 ? 'pill-focus' : ''}" onclick="setLightParams('${escapeAttr(d.id)}', ${dim}, 4200, event)">Daylight 4200K</button>
-        <button class="btn btn-chip ${isOn && ct >= 5000 ? 'pill-focus' : ''}" onclick="setLightParams('${escapeAttr(d.id)}', ${dim}, 6000, event)">Cool 6000K</button>
-      </div>
-    `;
-        }
-        else if (proto === 'SWITCHER_BOILER') {
-            controlsHtml = `
-      <div class="device-controls-row">
-        <span style="font-size:11px; color:var(--text-dim);">Auto-Off Timer:</span>
-        ${[15, 30, 45, 60]
-                .map((m) => `
-          <button class="btn btn-chip ${isOn && timer === m ? 'pill-focus' : ''}" onclick="setBoilerTimer('${escapeAttr(d.id)}', ${m}, event)">${m}m</button>
-        `)
-                .join('')}
-      </div>
-    `;
-        }
-        return `
-    <div class="glass device-card ${isOn ? 'on' : ''}">
-      <div class="device-top">
-        <div class="device-info" onclick="toggleDevice('${escapeAttr(d.id)}')" style="cursor:pointer;">
-          <div class="device-name">${escapeHtml(d.name)}</div>
-          <div class="device-status">${escapeHtml(statusTxt)}</div>
-        </div>
-        <button class="btn power-toggle ${isOn ? 'pill-focus' : ''}" onclick="toggleDevice('${escapeAttr(d.id)}')">
-          ${isOn ? 'On' : 'Off'}
-        </button>
-      </div>
-      ${controlsHtml}
-    </div>
-  `;
     }
     /* ==========================================================================
        CAST, APPS, PROFILES, PAIRED DEVICES ADMIN & SYSTEM
@@ -2309,14 +2495,15 @@
             const youTag = d.isCurrentDevice ? ' · This Phone' : '';
             const emailSub = d.googleEmail ? ` · ${escapeHtml(d.googleEmail)}` : '';
             return `
-        <div class="glass device-card" style="padding:12px;">
-          <div class="device-top">
-            <div class="device-info">
-              <div class="device-name" style="font-size:13.5px;">
+        <div class="tv-row ${d.isCurrentDevice ? 'is-active' : ''}">
+          <div class="device-admin-row">
+            <div style="min-width:0; flex:1;">
+              <div class="tv-row-title">
+                <span class="dot ${d.expired ? 'dot-amber' : 'dot-emerald'}"></span>
                 <span>${escapeHtml(d.deviceName)}</span>
-                <span class="status-pill ${d.role === 'ADMIN' ? 'connected' : ''}" style="padding:2px 8px; font-size:10.5px;">${escapeHtml(roleLabel)}</span>
+                <span class="status-pill ${d.role === 'ADMIN' ? 'connected' : ''}" style="padding:2px 8px; font-size:10px;">${escapeHtml(roleLabel)}</span>
               </div>
-              <div class="device-status">${escapeHtml(d.deviceId)}${youTag}${emailSub}</div>
+              <div class="tv-row-sub">${escapeHtml(d.deviceId)}${youTag}${emailSub}</div>
             </div>
             <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
               <select aria-label="Device Role" class="role-select" onchange="changePairedDeviceRole('${escapeAttr(d.deviceId)}', this.value)">
@@ -2324,7 +2511,7 @@
                 <option value="HOUSEHOLD" ${d.role === 'HOUSEHOLD' ? 'selected' : ''}>Household</option>
                 <option value="ADMIN" ${d.role === 'ADMIN' ? 'selected' : ''}>Admin</option>
               </select>
-              <button class="btn btn-chip" style="border-color:rgba(255,69,58,0.5); color:var(--danger);" onclick="revokePairedDevice('${escapeAttr(d.deviceId)}')">
+              <button class="btn btn-chip btn-danger" onclick="revokePairedDevice('${escapeAttr(d.deviceId)}')">
                 Revoke
               </button>
             </div>
@@ -2364,11 +2551,13 @@
             if (box) {
                 box.style.display = 'flex';
                 box.innerHTML = `
-        <div style="min-width:0; flex:1;">
-          <div style="font-weight:700; font-size:13px;">${escapeHtml(inv.role)} Invite Code: <span style="letter-spacing:0.12em; color:var(--accent);">${escapeHtml(inv.code)}</span></div>
-          <div class="tv-sub" style="margin-top:2px;">Shown on TV for 5 min · Share link or code</div>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <div style="min-width:0; flex:1;">
+            <div class="tv-row-title">${escapeHtml(inv.role)} Invite: <span style="letter-spacing:0.12em;">${escapeHtml(inv.code)}</span></div>
+            <div class="tv-row-sub">Shown on TV for 5 min · Share link or code</div>
+          </div>
+          <button class="btn pill-focus btn-chip" onclick="copyInviteLink('${escapeAttr(inv.pairUrl)}')">Copy Link</button>
         </div>
-        <button class="btn btn-accent btn-chip" onclick="copyInviteLink('${escapeAttr(inv.pairUrl)}')">Copy Link</button>
       `;
             }
             showToast(`${inv.role} invite code: ${inv.code}`);
@@ -2400,26 +2589,29 @@
         if (st.authRole && st.authRole !== currentRole) {
             applyRoleVisibility(st.authRole);
         }
-        if (localThemeOverride === null && typeof st.darkMode === 'boolean') {
-            applyTheme(st.darkMode);
+        if (typeof st.darkMode === 'boolean') {
+            if (localThemeOverride === null) {
+                applyTheme(st.darkMode);
+            }
+            else if (st.darkMode === localThemeOverride) {
+                localThemeOverride = null;
+            }
         }
         if (st.enabledTabs) {
-            const showGaming = st.enabledTabs.gaming !== false;
-            const showReels = st.enabledTabs.reels !== false;
-            const showSmartHome = st.enabledTabs.smarthome !== false;
+            const vis = resolveTabVisibility(st.enabledTabs);
             const setElVisible = (selector, visible) => {
                 document.querySelectorAll(selector).forEach((el) => {
                     el.style.display = visible ? '' : 'none';
                 });
             };
-            setElVisible('.tv-screen-pill[data-screen="3"], .dock-tab[data-tab="gaming"]', showGaming);
-            setElVisible('.tv-screen-pill[data-screen="4"], .dock-tab[data-tab="cast"]', showReels);
-            setElVisible('.tv-screen-pill[data-screen="5"], .dock-tab[data-tab="smarthome"]', showSmartHome);
-            const activePane = document.querySelector('.tab-pane.active')?.id || '';
-            if ((activePane === 'tab-gaming' && !showGaming) ||
-                (activePane === 'tab-cast' && !showReels) ||
-                (activePane === 'tab-smarthome' && !showSmartHome)) {
-                switchTab('remote');
+            setElVisible('.tv-screen-pill[data-screen="3"], .dock-tab[data-tab="gaming"]', vis.gaming);
+            setElVisible('.tv-screen-pill[data-screen="4"], .dock-tab[data-tab="cast"]', vis.reels);
+            setElVisible('.tv-screen-pill[data-screen="5"], .dock-tab[data-tab="smarthome"]', vis.smarthome);
+            const activePaneId = document.querySelector('.tab-pane.active')?.id || 'tab-remote';
+            const activeTabId = activePaneId.replace(/^tab-/, '');
+            const fallbackTab = resolveFallbackDockTab(activeTabId, vis);
+            if (fallbackTab !== activeTabId) {
+                switchTab(fallbackTab);
             }
         }
         const scrIdx = typeof st.activeScreen === 'number' ? st.activeScreen : 1;
@@ -2455,19 +2647,24 @@
             const ctrlPill = document.getElementById('controllerStatusPill');
             if (ctrlText && ctrlPill) {
                 ctrlText.textContent = st.controllerSummary;
-                ctrlPill.classList.toggle('connected', !st.controllerSummary.startsWith('No '));
+                ctrlPill.classList.toggle('connected', !st.controllerSummary.startsWith('No ') && !st.controllerSummary.startsWith('0 '));
             }
         }
         const traktTitle = document.getElementById('traktStatusTitle');
         const traktSub = document.getElementById('traktStatusSub');
+        const traktDot = document.getElementById('traktStatusDot');
         if (traktTitle && traktSub) {
             if (st.traktConnected) {
                 traktTitle.textContent = `Trakt Connected: @${st.traktUser || 'trakt'}`;
-                traktSub.textContent = 'Private Watch List, Ratings & Favorites synced';
+                traktSub.textContent = 'Watch List, Ratings & Favorites synced';
+                if (traktDot)
+                    traktDot.className = 'dot dot-emerald';
             }
             else {
                 traktTitle.textContent = 'Connect Private Trakt Account';
                 traktSub.textContent = 'Tap to open trakt.tv/activate code on TV';
+                if (traktDot)
+                    traktDot.className = 'dot dot-amber';
             }
         }
         const favGrid = document.getElementById('favoriteAppsGrid');
@@ -2484,12 +2681,11 @@
                     .join('');
             }
         }
-        const shGrid = document.getElementById('smartHomeGrid');
-        if (shGrid && Array.isArray(st.smartHome)) {
-            const shSig = JSON.stringify(st.smartHome);
+        if (Array.isArray(st.smartHome)) {
+            const shSig = JSON.stringify({ devices: st.smartHome, selected: selectedSmartDeviceId });
             if (shSig !== lastSmartHomeSig) {
                 lastSmartHomeSig = shSig;
-                shGrid.innerHTML = st.smartHome.map((d) => renderSmartDeviceCard(d)).join('');
+                renderSmartHomeSection(st.smartHome);
             }
         }
         const reelsList = document.getElementById('sharedReelsList');
@@ -2499,17 +2695,17 @@
                 lastReelsSig = reelsSig;
                 if (st.sharedReels.length === 0) {
                     reelsList.innerHTML =
-                        '<div class="glass reel-item"><span class="tv-sub">No Shared Reels yet — paste a link above!</span></div>';
+                        '<div class="glass reel-item"><span class="tv-sub">No Shared Reels yet — paste a link above.</span></div>';
                 }
                 else {
                     reelsList.innerHTML = st.sharedReels
                         .map((r) => `
           <div class="glass reel-item">
             <div style="overflow:hidden;">
-              <div style="font-weight:700; font-size:13.5px;">${escapeHtml(r.title || 'Shared Reel')}</div>
+              <div style="font-weight:700; font-size:13px;">${escapeHtml(r.title || 'Shared Reel')}</div>
               <div class="tv-sub">From ${escapeHtml(r.sender || 'Family')} · ${escapeHtml(r.platform || 'video')}</div>
             </div>
-            <button class="btn btn-accent btn-chip" onclick="quickCastUrl('${escapeAttr(r.url)}', '${escapeAttr(r.title || 'Shared Reel')}')">Play</button>
+            <button class="btn pill-focus btn-chip" onclick="quickCastUrl('${escapeAttr(r.url)}', '${escapeAttr(r.title || 'Shared Reel')}')">Play</button>
           </div>
         `)
                         .join('');
@@ -2678,6 +2874,7 @@
             setGamingItemHidden,
             runSmartRoutine,
             toggleDevice,
+            selectSmartDevice,
             adjustTemp,
             setAcParams,
             setLightParams,

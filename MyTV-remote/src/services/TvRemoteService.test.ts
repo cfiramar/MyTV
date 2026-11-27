@@ -5,6 +5,11 @@ import {
   RemoteForbiddenError,
   RemoteUnauthorizedError,
   formatControllerBadgeLabel,
+  formatGameSubtitle,
+  getThemeColorMeta,
+  resolveFallbackDockTab,
+  resolveSmartHomeIconKind,
+  resolveTabVisibility,
 } from './TvRemoteService';
 
 const MOCK_STATUS: TvStatus = {
@@ -892,5 +897,47 @@ describe('TvRemoteService', () => {
         saveReel: true,
       }),
     });
+  });
+
+  it('respects enabledTabs dynamically across TV Top-Bar screens and Bottom Dock tabs', () => {
+    const publicMinimal = resolveTabVisibility({ gaming: false, reels: false, smarthome: false });
+    expect(publicMinimal.visibleDockTabs).toEqual(['remote', 'apps']);
+    expect(publicMinimal.visibleScreenIndices).toEqual([0, 1, 2, 6]);
+    expect(resolveFallbackDockTab('gaming', publicMinimal)).toBe('remote');
+    expect(resolveFallbackDockTab('smarthome', publicMinimal)).toBe('remote');
+    expect(resolveFallbackDockTab('cast', publicMinimal)).toBe('remote');
+    expect(resolveFallbackDockTab('apps', publicMinimal)).toBe('apps');
+
+    const fullPersonal = resolveTabVisibility({ gaming: true, reels: true, smarthome: true });
+    expect(fullPersonal.visibleDockTabs).toEqual(['remote', 'gaming', 'smarthome', 'cast', 'apps']);
+    expect(fullPersonal.visibleScreenIndices).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(resolveFallbackDockTab('cast', fullPersonal)).toBe('cast');
+
+    const defaultVisibility = resolveTabVisibility(undefined);
+    expect(defaultVisibility.reels).toBe(false);
+    expect(defaultVisibility.visibleDockTabs).toEqual(['remote', 'gaming', 'smarthome', 'apps']);
+  });
+
+  it('maps Smart-Home icons, Gaming subtitles, and Twilight Aurora / Pearl Glass theme colors', () => {
+    expect(resolveSmartHomeIconKind({ protocol: 'SENSIBO_AC' })).toBe('ac');
+    expect(resolveSmartHomeIconKind({ protocol: 'TUYA_AC' })).toBe('ac');
+    expect(resolveSmartHomeIconKind({ protocol: 'WIZ_LIGHT' })).toBe('lightbulb');
+    expect(resolveSmartHomeIconKind({ protocol: 'SWITCHER_BOILER' })).toBe('shower');
+    expect(resolveSmartHomeIconKind({ protocol: 'CUSTOM', symbol: 'ac' })).toBe('ac');
+    expect(resolveSmartHomeIconKind({ protocol: 'UNKNOWN' })).toBe('device');
+
+    expect(formatGameSubtitle({ category: 'steam', hidden: false, lastPlayedAt: 1700000 })).toBe(
+      'Steam · Recently Played'
+    );
+    expect(formatGameSubtitle({ category: 'heroic', hidden: false, lastPlayedAt: 0 })).toBe(
+      'Heroic Games'
+    );
+    expect(formatGameSubtitle({ category: 'epic', hidden: true, lastPlayedAt: 1700000 })).toBe(
+      'Epic Games · Hidden'
+    );
+    expect(formatGameSubtitle({ category: 'standalone', hidden: false })).toBe('PC Game');
+
+    expect(getThemeColorMeta(true)).toEqual({ themeColor: '#1E1A3B', navColor: '#152536' });
+    expect(getThemeColorMeta(false)).toEqual({ themeColor: '#F6F8FE', navColor: '#F3F6FD' });
   });
 });
