@@ -688,6 +688,8 @@ public final class Stage2ModularizationAndBridgeTests {
                     "MyTV-Remote manifest declares CAMERA permission for native Camera2 QR scanner");
             assertTrue(xml.contains("android.permission.VIBRATE"),
                     "MyTV-Remote manifest declares VIBRATE permission for gentle QR scan feedback");
+            assertTrue(xml.contains("android:windowSoftInputMode=\"adjustResize\""),
+                    "MyTV-Remote manifest uses adjustResize so phone keyboard lifts modals cleanly");
         }
         File remoteActivity = new File("../MyTV-remote/android/src/io/mytv/remote/RemoteAppActivity.java");
         if (remoteActivity.isFile()) {
@@ -696,6 +698,8 @@ public final class Stage2ModularizationAndBridgeTests {
                     "RemoteAppActivity exposes openNativeQrScanner() native Camera2 bridge");
             assertTrue(javaSrc.contains("pickCameraAnalysisSize("),
                     "RemoteAppActivity selects hardware-supported YUV_420_888 analysis size");
+            assertTrue(javaSrc.contains("installImeInsetsResizeListener()"),
+                    "RemoteAppActivity installs IME WindowInsets overlap listener for Android 11-16 keyboard lift");
             int setContentIdx = javaSrc.indexOf("setContentView(rootContainer);");
             int applyBarIdx = javaSrc.indexOf("applySystemBarAppearance(true);");
             assertTrue(setContentIdx > 0 && applyBarIdx > setContentIdx,
@@ -733,6 +737,21 @@ public final class Stage2ModularizationAndBridgeTests {
                     && !scrollBody.contains("wheel("),
                     "HomeView.onRemoteScroll must route through onRemoteKey (never clamping wheel()) so touchpad swipe UP reaches Top-Bar tabs");
         }
+        // Stremio official TV QR Link API parsers
+        StremioAccountClient.LinkCodeResult linkRes = StremioAccountClient.parseLinkCodeResponse(
+                "{\"result\":{\"success\":true,\"code\":\"FWG4\",\"link\":\"https://link.stremio.com/FWG4\"}}");
+        assertTrue(linkRes != null && linkRes.isValid()
+                        && "FWG4".equals(linkRes.code)
+                        && "https://link.stremio.com/FWG4".equals(linkRes.link),
+                "StremioAccountClient.parseLinkCodeResponse parses official link.stremio.com QR code response");
+        assertTrue(StremioAccountClient.parseLinkCodeResponse("{\"error\":{\"code\":500}}") == null,
+                "StremioAccountClient.parseLinkCodeResponse returns null on error payload");
+        assertTrue("".equals(StremioAccountClient.parseLinkReadAuthKey(
+                "{\"error\":{\"code\":101,\"message\":\"Invalid or expired token\"}}")),
+                "StremioAccountClient.parseLinkReadAuthKey treats code 101 as pending");
+        assertTrue("strem_auth_xyz123".equals(StremioAccountClient.parseLinkReadAuthKey(
+                "{\"result\":{\"authKey\":\"strem_auth_xyz123\"}}")),
+                "StremioAccountClient.parseLinkReadAuthKey extracts approved authKey");
     }
 
     private static void collectAllNodes(SettingsTree.Node node, List<SettingsTree.Node> out) {

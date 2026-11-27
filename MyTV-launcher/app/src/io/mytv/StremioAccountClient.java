@@ -32,8 +32,33 @@ import java.util.TimeZone;
 public final class StremioAccountClient {
     private static final String TAG = "MyTV";
     private static final String API_BASE = "https://api.strem.io/api";
+    private static final String LINK_API_BASE = "https://link.stremio.com/api/v2";
     private static final String PREF_NAME = "stremio_account";
     private static final int TIMEOUT_MS = 10_000;
+    private static final long QR_POLL_INTERVAL_MS = 3_500L;
+    private static final long QR_EXPIRY_MS = 300_000L;
+
+    private static final Object QR_LOCK = new Object();
+    private static volatile boolean qrSigningIn = false;
+    private static volatile int qrSessionGeneration = 0;
+    private static volatile String qrCode = "";
+    private static volatile String qrLink = "";
+    private static volatile String qrMessage = "";
+
+    /** Result returned by Stremio's official TV link-code creation endpoint ({@code /api/v2/create}). */
+    public static final class LinkCodeResult {
+        public final String code;
+        public final String link;
+
+        public LinkCodeResult(String code, String link) {
+            this.code = code != null ? code.trim() : "";
+            this.link = link != null ? link.trim() : "";
+        }
+
+        public boolean isValid() {
+            return !code.isEmpty() && !link.isEmpty();
+        }
+    }
 
     /**
      * Value object representing an item in the user's Stremio Library ("libraryItem").
@@ -251,6 +276,218 @@ public final class StremioAccountClient {
         return "";
     }
 
+    /** Current 4-character Stremio TV link code (e.g. {@code "FWG4"}), or {@code ""} when idle. */
+    public static String qrCode() {
+        return qrCode;
+    }
+
+    /** Current Stremio TV link URL (e.g. {@code "https://link.stremio.com/FWG4"}), or {@code ""} when idle. */
+    public static String qrLink() {
+        return qrLink;
+    }
+
+    /** Last error/status message from Stremio QR sign-in, or {@code ""} when none. */
+    public static String qrMessage() {
+        return qrMessage;
+    }
+
+    /** Cancels any active Stremio QR polling loop immediately. */
+    public static void cancelQrSignIn() {
+        synchronized (QR_LOCK) {
+            qrSessionGeneration++;
+            qrSigningIn = false;
+        }
+    }
+
+    /**
+     * Pure parser for {@code GET https://link.stremio.com/api/v2/create?type=Create}.
+     * Uses pure-Java parsing (no Android {@code org.json} dependency) so it runs identically on
+     * Android TV and headless Desktop JVM tests. Returns {@code null} if malformed or unsuccessful.
+     */
+    public static LinkCodeResult parseLinkCodeResponse(String json) {
+        String resultBlock = extractResultObjectBlock(json);
+        if (resultBlock.isEmpty()) return null;
+        String code = extractJsonStringValue(resultBlock, "code");
+        if (code.isEmpty()) return null;
+        String link = extractJsonStringValue(resultBlock, "link");
+        if (link.isEmpty()) {
+            link = "https://link.stremio.com/" + code;
+        }
+        LinkCodeResult out = new LinkCodeResult(code, link);
+        return out.isValid() ? out : null;
+    }
+
+    /**
+     * Pure parser for {@code GET https://link.stremio.com/api/v2/read?type=Read&code=...}.
+     * Returns the approved {@code authKey}, or {@code ""} while still pending ({@code error.code == 101}).
+     */
+    public static String parseLinkReadAuthKey(String json) {
+        String resultBlock = extractResultObjectBlock(json);
+        if (resultBlock.isEmpty()) return "";
+        return extractJsonStringValue(resultBlock, "authKey");
+    }
+
+    private static String extractResultObjectBlock(String json) {
+        if (json == null || json.trim().isEmpty()) return "";
+        int keyIdx = json.indexOf("\"result\"");
+        if (keyIdx < 0) return "";
+        int colon = json.indexOf(':', keyIdx + 8);
+        if (colon < 0) return "";
+        int i = colon + 1;
+        while (i < json.length() && Character.isWhitespace(json.charAt(i))) i++;
+        if (i >= json.length() || json.charAt(i) != '{') return "";
+        int depth = 0;
+        boolean inStr = false;
+        boolean esc = false;
+        for (int j = i; j < json.length(); j++) {
+            char ch = json.charAt(j);
+            if (inStr) {
+                if (esc) {
+                    esc = false;
+                } else if (ch == '\\') {
+                    esc = true;
+                } else if (ch == '"') {
+                    inStr = false;
+                }
+            } else {
+                if (ch == '"') {
+                    inStr = true;
+                } else if (ch == '{') {
+                    depth++;
+                } else if (ch == '}') {
+                    depth--;
+                    if (depth == 0) {
+                        return json.substring(i, j + 1);
+                    }
+                }
+            }
+        }
+        return "";
+    }
+
+    private static String extractJsonStringValue(String obj, String fieldName) {
+        if (obj == null || fieldName == null || fieldName.isEmpty()) return "";
+        String needle = "\"" + fieldName + "\"";
+        int idx = obj.indexOf(needle);
+        while (idx >= 0) {
+            int pos = idx + needle.length();
+            while (pos < obj.length() && Character.isWhitespace(obj.charAt(pos))) pos++;
+            if (pos < obj.length() && obj.charAt(pos) == ':') {
+                pos++;
+                while (pos < obj.length() && Character.isWhitespace(obj.charAt(pos))) pos++;
+                if (pos < obj.length() && obj.charAt(pos) == '"') {
+                    StringBuilder sb = new StringBuilder();
+                    pos++;
+                    boolean esc = false;
+                    while (pos < obj.length()) {
+                        char c = obj.charAt(pos++);
+                        if (esc) {
+                            esc = false;
+                            if (c == 'n') sb.append('\n');
+                            else if (c == 'r') sb.append('\r');
+                            else if (c == 't') sb.append('\t');
+                            else sb.append(c);
+                        } else if (c == '\\') {
+                            esc = true;
+                        } else if (c == '"') {
+                            return sb.toString().trim();
+                        } else {
+                            sb.append(c);
+                        }
+                    }
+                    return "";
+                }
+            }
+            idx = obj.indexOf(needle, idx + needle.length());
+        }
+        return "";
+    }
+
+    /** Resolves the Stremio account email for a valid {@code authKey} via {@code /api/getUser} (best effort). */
+    public static String fetchUserEmailByAuthKey(String authKey) {
+        if (authKey == null || authKey.trim().isEmpty()) return "";
+        try {
+            JSONObject body = new JSONObject();
+            body.put("type", "GetUser");
+            body.put("authKey", authKey.trim());
+            String resp = postJson(API_BASE + "/getUser", body.toString());
+            if (resp == null || resp.isEmpty()) return "";
+            JSONObject root = new JSONObject(resp);
+            JSONObject res = root.optJSONObject("result");
+            if (res != null) {
+                String email = res.optString("email", "").trim();
+                if (!email.isEmpty()) return email;
+            }
+        } catch (Exception ignored) {
+        }
+        return "";
+    }
+
+    /**
+     * Starts Stremio's official QR / browser account linking flow ({@code link.stremio.com}) in a background
+     * daemon thread and invokes {@code changed} on code generation, completion, or expiry/error.
+     */
+    public static void signInWithQr(Context c, Runnable changed) {
+        final int gen;
+        synchronized (QR_LOCK) {
+            qrSessionGeneration++;
+            gen = qrSessionGeneration;
+            qrSigningIn = true;
+            qrCode = "";
+            qrLink = "";
+            qrMessage = "";
+        }
+        final Context app = c.getApplicationContext();
+        Thread t = new Thread(() -> {
+            try {
+                String createJson = getJson(LINK_API_BASE + "/create?type=Create");
+                LinkCodeResult created = parseLinkCodeResponse(createJson);
+                if (created == null || !created.isValid()) {
+                    qrMessage = "Could not reach link.stremio.com — try Email & Password.";
+                    return;
+                }
+                if (qrSessionGeneration != gen) return;
+                qrCode = created.code;
+                qrLink = created.link;
+                if (changed != null) changed.run();
+
+                long deadline = System.currentTimeMillis() + QR_EXPIRY_MS;
+                String encodedCode = java.net.URLEncoder.encode(created.code, "UTF-8");
+                while (qrSessionGeneration == gen && System.currentTimeMillis() < deadline) {
+                    Thread.sleep(QR_POLL_INTERVAL_MS);
+                    if (qrSessionGeneration != gen) return;
+                    String readJson = getJson(LINK_API_BASE + "/read?type=Read&code=" + encodedCode);
+                    String authKey = parseLinkReadAuthKey(readJson);
+                    if (!authKey.isEmpty()) {
+                        String email = fetchUserEmailByAuthKey(authKey);
+                        saveAuthKey(app, authKey, email);
+                        return;
+                    }
+                }
+                if (qrSessionGeneration == gen) {
+                    qrMessage = "Stremio link code expired. Open again for a fresh code.";
+                }
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                if (qrSessionGeneration == gen) {
+                    qrMessage = "Stremio QR login failed: " + e.getMessage();
+                }
+            } finally {
+                synchronized (QR_LOCK) {
+                    if (qrSessionGeneration == gen) {
+                        qrSigningIn = false;
+                    }
+                }
+                if (qrSessionGeneration == gen && changed != null) {
+                    changed.run();
+                }
+            }
+        }, "stremio-qr-auth");
+        t.setDaemon(true);
+        t.start();
+    }
+
     /**
      * Fetches the user's Stremio Library items from api.strem.io/api/datastoreGet,
      * falling back to cached library JSON if offline.
@@ -406,6 +643,29 @@ public final class StremioAccountClient {
             return sdf.parse(clean).getTime();
         } catch (Exception e) {
             return 0L;
+        }
+    }
+
+    private static String getJson(String urlStr) throws Exception {
+        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+        try {
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(TIMEOUT_MS);
+            conn.setReadTimeout(TIMEOUT_MS);
+            conn.setInstanceFollowRedirects(false);
+            conn.setRequestProperty("Accept", "application/json");
+            conn.setRequestProperty("User-Agent", "MyTV/1.5");
+            int code = conn.getResponseCode();
+            if (code < 200 || code >= 300) return null;
+            try (InputStream in = conn.getInputStream()) {
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                byte[] buf = new byte[4096];
+                int n;
+                while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                return new String(out.toByteArray(), StandardCharsets.UTF_8);
+            }
+        } finally {
+            conn.disconnect();
         }
     }
 

@@ -261,6 +261,54 @@ export interface FocusedInputCue {
   canCopy: boolean;
 }
 
+export interface LiveMirrorDecision {
+  shouldMirror: boolean;
+  mode: 'focused_input' | 'search' | 'none';
+  value: string;
+}
+
+/**
+ * Decides whether a phone keystroke or clipboard paste should mirror immediately to the TV
+ * without requiring the user to press a separate Paste or Confirm button.
+ */
+export function resolveLiveMirrorDecision(
+  currentValue: string,
+  lastMirroredValue: string,
+  hasFocusedInput: boolean,
+  onSearchScreen: boolean
+): LiveMirrorDecision {
+  const safeVal = typeof currentValue === 'string' ? currentValue : '';
+  if (!hasFocusedInput && !onSearchScreen) {
+    return { shouldMirror: false, mode: 'none', value: safeVal };
+  }
+  if (safeVal === lastMirroredValue) {
+    return { shouldMirror: false, mode: hasFocusedInput ? 'focused_input' : 'search', value: safeVal };
+  }
+  return {
+    shouldMirror: true,
+    mode: hasFocusedInput ? 'focused_input' : 'search',
+    value: safeVal,
+  };
+}
+
+/**
+ * Computes the keyboard lift offset in CSS pixels from `window.visualViewport` metrics so bottom
+ * sheets always rise cleanly above mobile software keyboards on iOS Safari and Android Chrome while
+ * staying 0 when the native APK container has already resized the WebView.
+ */
+export function computeKeyboardOffsetPx(
+  layoutInnerHeight: number,
+  visualViewportHeight: number,
+  visualViewportOffsetTop: number = 0
+): number {
+  if (!Number.isFinite(layoutInnerHeight) || !Number.isFinite(visualViewportHeight)) {
+    return 0;
+  }
+  const top = Number.isFinite(visualViewportOffsetTop) ? visualViewportOffsetTop : 0;
+  const raw = Math.round(layoutInnerHeight - visualViewportHeight - top);
+  return raw > 48 ? raw : 0;
+}
+
 /**
  * Builds a deterministic signature for a live TV focused input snapshot so the Companion Remote
  * only pushes TV-originated updates into the phone keyboard when the TV text actually changes.

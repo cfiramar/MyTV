@@ -125,6 +125,37 @@
         return base;
     }
     /**
+     * Decides whether a phone keystroke or clipboard paste should mirror immediately to the TV
+     * without requiring the user to press a separate Paste or Confirm button.
+     */
+    function resolveLiveMirrorDecision(currentValue, lastMirroredValue, hasFocusedInput, onSearchScreen) {
+        const safeVal = typeof currentValue === 'string' ? currentValue : '';
+        if (!hasFocusedInput && !onSearchScreen) {
+            return { shouldMirror: false, mode: 'none', value: safeVal };
+        }
+        if (safeVal === lastMirroredValue) {
+            return { shouldMirror: false, mode: hasFocusedInput ? 'focused_input' : 'search', value: safeVal };
+        }
+        return {
+            shouldMirror: true,
+            mode: hasFocusedInput ? 'focused_input' : 'search',
+            value: safeVal,
+        };
+    }
+    /**
+     * Computes the keyboard lift offset in CSS pixels from `window.visualViewport` metrics so bottom
+     * sheets always rise cleanly above mobile software keyboards on iOS Safari and Android Chrome while
+     * staying 0 when the native APK container has already resized the WebView.
+     */
+    function computeKeyboardOffsetPx(layoutInnerHeight, visualViewportHeight, visualViewportOffsetTop = 0) {
+        if (!Number.isFinite(layoutInnerHeight) || !Number.isFinite(visualViewportHeight)) {
+            return 0;
+        }
+        const top = Number.isFinite(visualViewportOffsetTop) ? visualViewportOffsetTop : 0;
+        const raw = Math.round(layoutInnerHeight - visualViewportHeight - top);
+        return raw > 48 ? raw : 0;
+    }
+    /**
      * Builds a deterministic signature for a live TV focused input snapshot so the Companion Remote
      * only pushes TV-originated updates into the phone keyboard when the TV text actually changes.
      */
@@ -1179,6 +1210,11 @@
     let lastSyncedTvInputSig = '';
     let isSearchInputDirty = false;
     let fastInputPollTimer = null;
+    let lastMirroredTvText = '';
+    let lastLocalEditAtMs = 0;
+    let liveMirrorTimer = null;
+    let liveMirrorInFlight = false;
+    let liveMirrorQueuedText = null;
     // Diff signatures to avoid wiping DOM innerHTML on unchanged 6-second polls (PERF-15)
     let lastShelfSig = '';
     let lastSmartHomeSig = '';
@@ -2013,31 +2049,36 @@
         const titleEl = document.getElementById('searchSheetTitle');
         const subEl = document.getElementById('searchSheetSub');
         const primaryLabel = document.getElementById('searchPrimaryLabel');
-        const secondaryLabel = document.getElementById('searchSecondaryLabel');
+        const clearBtn = document.getElementById('clearTvInputBtn');
+        const geminiBtn = document.getElementById('geminiSearchBtn');
         const input = document.getElementById('remoteTextInput');
+        const activelyTyping = liveMirrorInFlight || Date.now() - lastLocalEditAtMs < 1400;
         if (active && activeFocusedInput) {
             const appName = (activeFocusedInput.appLabel || '').trim() || 'TV';
             if (titleEl)
-                titleEl.textContent = `Editing in ${appName}`;
+                titleEl.textContent = `Typing in ${appName}`;
             if (subEl) {
                 subEl.style.display = 'block';
                 subEl.textContent = activeFocusedInput.isPassword
-                    ? 'Password field on TV (hidden for privacy)'
-                    : 'Live TV text synced · Edit or copy';
+                    ? 'Password field · Typing mirrors live to TV'
+                    : 'Live sync · Typing and pasting mirror straight to TV';
             }
             if (primaryLabel)
                 primaryLabel.textContent = 'Done';
-            if (secondaryLabel)
-                secondaryLabel.textContent = 'Update TV';
+            if (clearBtn)
+                clearBtn.style.display = 'inline-flex';
+            if (geminiBtn)
+                geminiBtn.style.display = 'none';
             if (input) {
                 input.type = activeFocusedInput.isPassword ? 'password' : 'text';
                 input.placeholder = activeFocusedInput.isPassword
                     ? 'Type password for TV...'
                     : activeFocusedInput.hint || `Type in ${appName}...`;
-                const decision = resolveTvInputSyncDecision(lastSyncedTvInputSig, activeFocusedInput, isSearchInputDirty);
+                const decision = resolveTvInputSyncDecision(lastSyncedTvInputSig, activeFocusedInput, isSearchInputDirty || activelyTyping);
                 if (decision.shouldSync) {
                     input.value = decision.nextValue;
                     lastSyncedTvInputSig = decision.nextSig;
+                    lastMirroredTvText = decision.nextValue;
                 }
             }
         }
@@ -2049,8 +2090,10 @@
                 subEl.style.display = 'none';
             if (primaryLabel)
                 primaryLabel.textContent = 'Search';
-            if (secondaryLabel)
-                secondaryLabel.textContent = 'Paste TV';
+            if (clearBtn)
+                clearBtn.style.display = 'none';
+            if (geminiBtn)
+                geminiBtn.style.display = 'inline-flex';
             if (input) {
                 input.type = 'text';
                 input.placeholder = 'Type, search, or paste to TV...';
@@ -2059,16 +2102,114 @@
         updateCopyTvInputButtonVisibility();
         updateFastInputPollingState();
     }
+    function flushLiveTvMirror(textToSend) {
+        const hasFocused = Boolean(activeFocusedInput?.active);
+        const onSearch = Boolean(currentStatus && currentStatus.activeScreen === 0);
+        const decision = resolveLiveMirrorDecision(textToSend, lastMirroredTvText, hasFocused, onSearch);
+        if (!decision.shouldMirror)
+            return;
+        if (liveMirrorInFlight) {
+            liveMirrorQueuedText = decision.value;
+            return;
+        }
+        liveMirrorInFlight = true;
+        const sentValue = decision.value;
+        const subEl = document.getElementById('searchSheetSub');
+        void remoteService
+            .updateTvInputField(sentValue, false)
+            .then((ok) => {
+            if (ok) {
+                lastMirroredTvText = sentValue;
+                isSearchInputDirty = false;
+                if (activeFocusedInput?.active && !activeFocusedInput.isPassword) {
+                    activeFocusedInput = { ...activeFocusedInput, text: sentValue };
+                    lastSyncedTvInputSig = buildTvInputSyncSignature(activeFocusedInput);
+                }
+                if (subEl && activeFocusedInput?.active) {
+                    const appName = (activeFocusedInput.appLabel || '').trim() || 'TV';
+                    subEl.textContent = activeFocusedInput.isPassword
+                        ? `Synced live to ${appName} password field`
+                        : `Synced live to ${appName}`;
+                }
+            }
+        })
+            .finally(() => {
+            liveMirrorInFlight = false;
+            if (liveMirrorQueuedText !== null) {
+                const nextVal = liveMirrorQueuedText;
+                liveMirrorQueuedText = null;
+                if (nextVal !== lastMirroredTvText) {
+                    flushLiveTvMirror(nextVal);
+                }
+            }
+        });
+    }
+    function scheduleLiveTvMirror(immediate = false) {
+        const input = document.getElementById('remoteTextInput');
+        if (!input)
+            return;
+        const val = input.value;
+        if (liveMirrorTimer) {
+            clearTimeout(liveMirrorTimer);
+            liveMirrorTimer = null;
+        }
+        if (immediate) {
+            flushLiveTvMirror(val);
+            return;
+        }
+        liveMirrorTimer = setTimeout(() => {
+            liveMirrorTimer = null;
+            const latest = document.getElementById('remoteTextInput');
+            if (latest)
+                flushLiveTvMirror(latest.value);
+        }, 55);
+    }
+    function clearTvInputField() {
+        const input = document.getElementById('remoteTextInput');
+        if (input) {
+            input.value = '';
+            input.focus();
+        }
+        lastLocalEditAtMs = Date.now();
+        isSearchInputDirty = true;
+        updateCopyTvInputButtonVisibility();
+        scheduleLiveTvMirror(true);
+    }
     function openSearchSheet() {
         const input = document.getElementById('remoteTextInput');
-        if (activeFocusedInput?.active && input && !isSearchInputDirty) {
-            input.value = activeFocusedInput.isPassword ? '' : activeFocusedInput.text || '';
+        isSearchInputDirty = false;
+        lastLocalEditAtMs = 0;
+        if (activeFocusedInput?.active && input) {
+            const initial = activeFocusedInput.isPassword ? '' : activeFocusedInput.text || '';
+            input.value = initial;
+            lastMirroredTvText = initial;
             lastSyncedTvInputSig = buildTvInputSyncSignature(activeFocusedInput);
+        }
+        else if (currentStatus && currentStatus.activeScreen === 0 && input && !input.value) {
+            lastMirroredTvText = '';
         }
         updateCopyTvInputButtonVisibility();
         openSheet('search');
         updateFastInputPollingState();
-        void refreshStatus();
+        // Refresh status immediately so any text already on the TV populates the phone box right away
+        void refreshStatus().then(() => {
+            const el = document.getElementById('remoteTextInput');
+            if (el && activeFocusedInput?.active && !isSearchInputDirty && Date.now() - lastLocalEditAtMs > 1200) {
+                const freshVal = activeFocusedInput.isPassword ? '' : activeFocusedInput.text || '';
+                if (el.value !== freshVal) {
+                    el.value = freshVal;
+                    lastMirroredTvText = freshVal;
+                    lastSyncedTvInputSig = buildTvInputSyncSignature(activeFocusedInput);
+                    updateCopyTvInputButtonVisibility();
+                    try {
+                        el.setSelectionRange(freshVal.length, freshVal.length);
+                    }
+                    catch {
+                        // Ignore non-selectable input types
+                    }
+                }
+            }
+        });
         setTimeout(() => {
             const el = document.getElementById('remoteTextInput');
             if (el) {
@@ -2272,9 +2413,17 @@
             const input = document.getElementById('remoteTextInput');
             if (clip && input) {
                 input.value = clip;
+                lastLocalEditAtMs = Date.now();
                 isSearchInputDirty = true;
                 updateCopyTvInputButtonVisibility();
-                showToast('Pasted from clipboard');
+                if (activeFocusedInput?.active || (currentStatus && currentStatus.activeScreen === 0)) {
+                    scheduleLiveTvMirror(true);
+                    showToast('Pasted straight to TV');
+                }
+                else {
+                    await remoteService.sendText(clip, false);
+                    showToast('Pasted to TV clipboard');
+                }
             }
         }
         catch {
@@ -3282,6 +3431,7 @@
             switchSubTab,
             sendKey,
             submitText,
+            clearTvInputField,
             copyTvInputToPhone,
             askGeminiAi,
             pasteFromPhoneClipboard,
@@ -3486,11 +3636,26 @@
         if (savedMode === 'keys' || savedMode === 'pad') {
             setPadMode(savedMode);
         }
-        // Enter key submits TV search or pairing code naturally from mobile keyboard
+        // Live keystroke & paste mirroring straight to TV + Enter/Done submits
         const remoteInputEl = document.getElementById('remoteTextInput');
         remoteInputEl?.addEventListener('input', () => {
+            lastLocalEditAtMs = Date.now();
             isSearchInputDirty = true;
             updateCopyTvInputButtonVisibility();
+            scheduleLiveTvMirror(false);
+        });
+        remoteInputEl?.addEventListener('paste', () => {
+            lastLocalEditAtMs = Date.now();
+            isSearchInputDirty = true;
+            setTimeout(() => {
+                updateCopyTvInputButtonVisibility();
+                if (activeFocusedInput?.active || (currentStatus && currentStatus.activeScreen === 0)) {
+                    scheduleLiveTvMirror(true);
+                }
+                else if (remoteInputEl && remoteInputEl.value.trim()) {
+                    void remoteService.sendText(remoteInputEl.value.trim(), false);
+                }
+            }, 0);
         });
         remoteInputEl?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
@@ -3528,11 +3693,25 @@
             }
         });
     }
+    function initKeyboardViewportLift() {
+        if (typeof window === 'undefined' || !window.visualViewport)
+            return;
+        const vv = window.visualViewport;
+        const updateOffset = () => {
+            const kbOffset = computeKeyboardOffsetPx(window.innerHeight, vv.height, vv.offsetTop);
+            document.documentElement.style.setProperty('--kb-offset', `${kbOffset}px`);
+        };
+        vv.addEventListener('resize', updateOffset);
+        vv.addEventListener('scroll', updateOffset);
+        window.addEventListener('resize', updateOffset);
+        updateOffset();
+    }
     function bootCompanionRemote() {
         if (typeof document === 'undefined')
             return;
         registerNativeCallbacksAndGlobals();
         initNativeAndBannerState();
+        initKeyboardViewportLift();
         applyRoleVisibility(currentRole);
         initOkButtonHold();
         initTouchpad();

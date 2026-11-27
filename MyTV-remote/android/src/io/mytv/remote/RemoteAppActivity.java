@@ -49,6 +49,7 @@ import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
@@ -191,6 +192,7 @@ public final class RemoteAppActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT
         ));
         setContentView(rootContainer);
+        installImeInsetsResizeListener();
         applySystemBarAppearance(true);
         handleIncomingIntent(getIntent());
         triggerBackgroundTvDiscovery("");
@@ -1447,6 +1449,9 @@ public final class RemoteAppActivity extends Activity {
         if (webView != null) {
             webView.setBackgroundColor(statusBg);
         }
+        if (rootContainer != null) {
+            rootContainer.setBackgroundColor(statusBg);
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             try {
                 WindowInsetsController ctrl = window.getInsetsController();
@@ -1484,6 +1489,33 @@ public final class RemoteAppActivity extends Activity {
             }
             decor.setSystemUiVisibility(flags);
         }
+    }
+
+    /**
+     * Raises the WebView cleanly above the software keyboard on Android 11–16 even when OEM edge-to-edge
+     * mode ignores {@code adjustResize}, computing exact overlap so {@code adjustResize} never double-pads.
+     */
+    private void installImeInsetsResizeListener() {
+        if (rootContainer == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return;
+        rootContainer.setOnApplyWindowInsetsListener((v, insets) -> {
+            int imeBottom = insets.getInsets(WindowInsets.Type.ime()).bottom;
+            int overlap = 0;
+            if (imeBottom > 0 && nativeQrOverlay == null) {
+                View root = v.getRootView();
+                int rootH = root != null ? root.getHeight() : 0;
+                int[] loc = new int[2];
+                v.getLocationInWindow(loc);
+                int viewBottom = loc[1] + v.getHeight();
+                int keyboardTop = rootH - imeBottom;
+                if (rootH > 0 && viewBottom > keyboardTop) {
+                    overlap = viewBottom - keyboardTop;
+                }
+            }
+            if (v.getPaddingBottom() != overlap) {
+                v.setPadding(0, 0, 0, overlap);
+            }
+            return insets;
+        });
     }
 
     private static boolean isPrintableAscii(String s) {

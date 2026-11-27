@@ -460,6 +460,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private int settingsRightIndex = 0;
     private boolean reorderSettingsGenre = false;
     private android.app.AlertDialog traktAuthDialog;
+    private android.app.AlertDialog stremioAuthDialog;
 
     // Interactive Liquid Glass Up/Down Sleep Timer Modal state
     private boolean sleepModalOpen = false;
@@ -2291,9 +2292,9 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         if (activeScreen == SCREEN_SEARCH && replaceInput) {
             if (submitSearch) {
                 zone = Z_CARDS;
-                performUnifiedSearch(safe);
+                performUnifiedSearch(safe.trim());
             } else {
-                searchQuery = safe.trim();
+                searchQuery = safe;
                 rebuildScreenRows();
                 heroDirty = true;
                 heroLayer.invalidate();
@@ -10318,27 +10319,100 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             }
             return;
         }
+        showToast("Requesting Stremio QR link code…");
+        StremioAccountClient.signInWithQr(c, () -> handler.post(() -> {
+            if (StremioAccountClient.isConfigured(c)) {
+                if (stremioAuthDialog != null) {
+                    try {
+                        stremioAuthDialog.dismiss();
+                    } catch (RuntimeException ignored) {
+                    }
+                    stremioAuthDialog = null;
+                }
+                rebuildSettingsTree();
+                startSyncModal(
+                        Ui.tr("Connecting Stremio Account"),
+                        Ui.tr("Authenticating & importing Stremio Library…"),
+                        25);
+                recs.forceRefreshNow();
+                reload();
+                return;
+            }
+            String err = StremioAccountClient.qrMessage();
+            if (err != null && !err.isEmpty()) {
+                if (stremioAuthDialog != null) {
+                    try {
+                        stremioAuthDialog.dismiss();
+                    } catch (RuntimeException ignored) {
+                    }
+                    stremioAuthDialog = null;
+                }
+                showToast(err);
+                openStremioEmailPasswordDialog();
+                return;
+            }
+            String code = StremioAccountClient.qrCode();
+            String linkUrl = StremioAccountClient.qrLink();
+            if (code != null && !code.isEmpty()) {
+                try {
+                    if (stremioAuthDialog != null) {
+                        try {
+                            stremioAuthDialog.dismiss();
+                        } catch (RuntimeException ignored) {
+                        }
+                        stremioAuthDialog = null;
+                    }
+                    String targetUrl = (linkUrl != null && !linkUrl.isEmpty())
+                            ? linkUrl
+                            : ("https://link.stremio.com/" + code);
+                    android.widget.LinearLayout container =
+                            modalRenderer.buildTraktOAuthDialogView(activity, targetUrl, code, k);
+                    stremioAuthDialog = new android.app.AlertDialog.Builder(
+                            activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                            .setTitle(Ui.tr("Connect Stremio Account (Library Sync)"))
+                            .setView(container)
+                            .setNeutralButton("Email & Password", (d, w) -> {
+                                StremioAccountClient.cancelQrSignIn();
+                                stremioAuthDialog = null;
+                                openStremioEmailPasswordDialog();
+                            })
+                            .setNegativeButton(Ui.tr("Cancel"), (d, w) -> StremioAccountClient.cancelQrSignIn())
+                            .create();
+                    stremioAuthDialog.setOnDismissListener(d -> StremioAccountClient.cancelQrSignIn());
+                    stremioAuthDialog.show();
+                } catch (RuntimeException e) {
+                    openStremioEmailPasswordDialog();
+                }
+            }
+        }));
+    }
+
+    private void openStremioEmailPasswordDialog() {
+        final Context c = getContext().getApplicationContext();
         try {
             android.widget.LinearLayout layout = new android.widget.LinearLayout(activity);
             layout.setOrientation(android.widget.LinearLayout.VERTICAL);
-            int pad = Math.round(28 * k);
-            layout.setPadding(pad, pad, pad, pad);
+            int pad = Math.round(24 * k);
+            layout.setPadding(pad, Math.round(12 * k), pad, Math.round(12 * k));
 
             final android.widget.EditText emailInput = new android.widget.EditText(activity);
+            emailInput.setId(android.view.View.generateViewId());
             emailInput.setHint(Ui.tr("Stremio Email"));
             emailInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+            emailInput.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_NEXT);
             emailInput.setSingleLine(true);
-            layout.addView(emailInput);
 
             // Rule 4: Censor the password and add a Show / Hide Password button
             final android.widget.EditText passInput = new android.widget.EditText(activity);
+            passInput.setId(android.view.View.generateViewId());
             passInput.setHint(Ui.tr("Stremio Password"));
             passInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
             passInput.setTransformationMethod(android.text.method.PasswordTransformationMethod.getInstance());
+            passInput.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
             passInput.setSingleLine(true);
-            layout.addView(passInput);
 
             final android.widget.Button showHideBtn = new android.widget.Button(activity);
+            showHideBtn.setId(android.view.View.generateViewId());
             showHideBtn.setText(Ui.tr("Show Password"));
             final boolean[] showingPass = {false};
             showHideBtn.setOnClickListener(v -> {
@@ -10353,19 +10427,61 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
                 }
                 passInput.setSelection(Math.min(sel, passInput.getText().length()));
             });
+
+            // Guarantee confirming email always advances directly into password field (never skips/dismisses)
+            emailInput.setNextFocusDownId(passInput.getId());
+            passInput.setNextFocusUpId(emailInput.getId());
+            passInput.setNextFocusDownId(showHideBtn.getId());
+            showHideBtn.setNextFocusUpId(passInput.getId());
+            emailInput.setOnEditorActionListener((v, actionId, event) -> {
+                if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_NEXT
+                        || actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+                        || actionId == android.view.inputmethod.EditorInfo.IME_ACTION_GO
+                        || (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
+                    passInput.requestFocus();
+                    return true;
+                }
+                return false;
+            });
+
+            layout.addView(emailInput);
+            layout.addView(passInput);
             layout.addView(showHideBtn);
 
-            new android.app.AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            final android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(
+                    activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                     .setTitle(Ui.tr("Connect Stremio Account (Library Sync)"))
                     .setMessage(Ui.tr("Sign in with your Stremio account to sync your Stremio Library (Watch List) and playback progress directly into MyTV."))
                     .setView(layout)
-                    .setPositiveButton(Ui.tr("Sign In & Sync"), (d, w) -> {
+                    .setPositiveButton(Ui.tr("Sign In & Sync"), null)
+                    .setNegativeButton(Ui.tr("Cancel"), null)
+                    .create();
+            dialog.setOnShowListener(di -> {
+                // Anchor dialog in upper TV viewport so Android TV on-screen keyboard never covers email/password/buttons
+                android.view.Window win = dialog.getWindow();
+                if (win != null) {
+                    android.view.WindowManager.LayoutParams lp = win.getAttributes();
+                    lp.gravity = android.view.Gravity.TOP | android.view.Gravity.CENTER_HORIZONTAL;
+                    lp.y = Math.round(28 * k);
+                    win.setAttributes(lp);
+                    win.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+                }
+                android.widget.Button okBtn = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE);
+                if (okBtn != null) {
+                    okBtn.setOnClickListener(v -> {
                         final String email = emailInput.getText().toString().trim();
                         final String pass = passInput.getText().toString();
-                        if (email.isEmpty() || pass.isEmpty()) {
+                        if (email.isEmpty()) {
                             showToast(Ui.tr("Please enter your Stremio email and password"));
+                            emailInput.requestFocus();
                             return;
                         }
+                        if (pass.isEmpty()) {
+                            showToast(Ui.tr("Please enter your Stremio email and password"));
+                            passInput.requestFocus();
+                            return;
+                        }
+                        dialog.dismiss();
                         startSyncModal(
                                 Ui.tr("Connecting Stremio Account"),
                                 Ui.tr("Authenticating & importing Stremio Library…"),
@@ -10386,11 +10502,12 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
                                 }
                             });
                         });
-                    })
-                    .setNegativeButton(Ui.tr("Cancel"), null)
-                    .show();
+                    });
+                }
+            });
+            dialog.show();
         } catch (RuntimeException e) {
-            AppLog.w("openStremioAuthDialog failed: " + e.getMessage());
+            AppLog.w("openStremioEmailPasswordDialog failed: " + e.getMessage());
         }
     }
 

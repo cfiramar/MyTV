@@ -4,11 +4,13 @@ import {
   TvStatus,
   RemoteForbiddenError,
   RemoteUnauthorizedError,
+  computeKeyboardOffsetPx,
   formatControllerBadgeLabel,
   formatFocusedInputCue,
   formatGameSubtitle,
   getThemeColorMeta,
   resolveFallbackDockTab,
+  resolveLiveMirrorDecision,
   resolveSmartHomeIconKind,
   resolveTabVisibility,
   resolveTouchpadTapAction,
@@ -1014,5 +1016,41 @@ describe('TvRemoteService', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: '', submit: false, replaceInput: true }),
     });
+  });
+
+  it('mirrors every keystroke/paste live to TV and lifts bottom sheets cleanly above phone keyboard', () => {
+    // Live keystroke & paste mirroring when a TV input field is focused
+    expect(resolveLiveMirrorDecision('m', '', true, false)).toEqual({
+      shouldMirror: true,
+      mode: 'focused_input',
+      value: 'm',
+    });
+    expect(resolveLiveMirrorDecision('mean girls', 'mean gilrs', true, false)).toEqual({
+      shouldMirror: true,
+      mode: 'focused_input',
+      value: 'mean girls',
+    });
+    // Clearing field mirrors empty string immediately
+    expect(resolveLiveMirrorDecision('', 'mean girls', true, false)).toEqual({
+      shouldMirror: true,
+      mode: 'focused_input',
+      value: '',
+    });
+    // Unchanged value skips redundant HTTP calls
+    expect(resolveLiveMirrorDecision('mean girls', 'mean girls', true, false).shouldMirror).toBe(false);
+    // On MyTV Search screen without external focusedInput, mirrors directly into Search
+    expect(resolveLiveMirrorDecision('severance', 'severanc', false, true)).toEqual({
+      shouldMirror: true,
+      mode: 'search',
+      value: 'severance',
+    });
+    // Outside input fields & Search, does not mirror unsolicited typing
+    expect(resolveLiveMirrorDecision('hello', '', false, false).shouldMirror).toBe(false);
+
+    // Keyboard viewport lift math (iOS Safari / Android Chrome vs already-resized Native APK)
+    expect(computeKeyboardOffsetPx(844, 510, 0)).toBe(334);
+    expect(computeKeyboardOffsetPx(844, 510, 12)).toBe(322);
+    expect(computeKeyboardOffsetPx(510, 510, 0)).toBe(0);
+    expect(computeKeyboardOffsetPx(844, 820, 0)).toBe(0);
   });
 });
