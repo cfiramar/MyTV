@@ -738,12 +738,74 @@
 
     .modal-visual {
       width: 100%;
-      border-radius: 16px;
+      border-radius: 14px;
       overflow: hidden;
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      background: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: #0b101b;
     }
-    .modal-visual svg { display: block; width: 100%; height: auto; }
+    .modal-visual img {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 360px;
+      object-fit: contain;
+      background: #0b101b;
+      cursor: zoom-in;
+    }
+
+    /* Full-screen Saved & Handed Off completion overlay */
+    .done-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1100;
+      background: rgba(9, 13, 24, 0.82);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .done-overlay.open { display: flex; }
+    .done-card {
+      width: 100%;
+      max-width: 560px;
+      border-radius: 26px;
+      background: linear-gradient(145deg, rgba(40, 32, 70, 0.95), rgba(16, 44, 62, 0.96));
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      box-shadow: 0 30px 90px rgba(0, 0, 0, 0.65);
+      padding: 32px 30px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    .done-check {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: rgba(52, 211, 153, 0.18);
+      border: 1.5px solid rgba(52, 211, 153, 0.55);
+      color: #6ee7b7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .done-card h2 { font-size: 22px; font-weight: 600; color: #ffffff; }
+    .done-card p { font-size: 14px; color: var(--ink-72); line-height: 1.55; }
+    .done-summary {
+      width: 100%;
+      text-align: left;
+      padding: 13px 16px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      font-size: 13px;
+      color: var(--ink-90);
+      display: grid;
+      gap: 6px;
+    }
 
     .modal-steps {
       padding-left: 20px;
@@ -819,7 +881,7 @@
         <svg class="icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
         <span>MyTV Setup Studio</span>
       </div>
-      <div class="tv-flow-hint">1. Pick your options &amp; free keys &nbsp;&middot;&nbsp; 2. Click Save &amp; Copy AI Prompt &nbsp;&middot;&nbsp; 3. Paste into your AI agent</div>
+      <div class="tv-flow-hint">1. Choose your TV options &amp; free API keys &nbsp;&middot;&nbsp; 2. Click Save &amp; Continue &nbsp;&middot;&nbsp; 3. Your AI agent finishes installing MyTV</div>
     </div>
 
     <div class="tv-topbar-right">
@@ -924,22 +986,14 @@
             </span>
             <span class="rail-item-val">5 Guides</span>
           </button>
-
-          <button class="rail-item" data-cat="cat-finish" data-title="Finish &amp; Hand Off to AI" onclick="selectCategory('cat-finish')">
-            <span class="rail-item-left">
-              <svg class="icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-              <span>Finish &amp; Hand Off to AI</span>
-            </span>
-            <span class="rail-item-val"><span class="dot dot-green"></span>Next Step</span>
-          </button>
         </div>
 
-        <!-- Single unmistakable action at bottom of Left Rail -->
+        <!-- Single unmistakable Save & Handoff button at bottom of Left Rail -->
         <div class="rail-finish-box">
-          <div class="rail-finish-note">Done configuring? Click once to save your settings &amp; keys privately on this PC and copy the prompt for your AI agent.</div>
-          <button type="button" class="rail-finish-btn" onclick="saveEverythingAndCopyPrompt()">
-            <svg class="icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            <span>Finish: Save &amp; Copy AI Prompt</span>
+          <div class="rail-finish-note">Finished choosing options &amp; keys? Click Save — your choices stay private on this PC and your AI agent will resume automatically.</div>
+          <button type="button" class="rail-finish-btn" onclick="completeSetupAndHandoff()">
+            <svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>Save &amp; Continue Setup</span>
           </button>
         </div>
       </aside>
@@ -1167,10 +1221,11 @@
                   <div>
                     <div class="tv-row-title">
                       <span>OMDb &amp; MDBList Keys</span>
-                      <button type="button" class="help-q-btn" title="How to get OMDb and MDBList keys" onclick="openGuide('omdb')">?</button>
+                      <button type="button" class="help-q-btn" title="How to get a free OMDb key" onclick="openGuide('omdb')">?</button>
+                      <button type="button" class="help-q-btn" title="How to get a free MDBList key" onclick="openGuide('mdblist')">?</button>
                       <span class="tag">Optional</span>
                     </div>
-                    <div class="tv-row-sub">Adds Rotten Tomatoes &amp; Metacritic scores alongside IMDb (1,000/day free each; cached permanently).</div>
+                    <div class="tv-row-sub">Adds Rotten Tomatoes &amp; Metacritic scores alongside IMDb (1,000/day free each; cached permanently). Click the first <strong>?</strong> for OMDb or the second <strong>?</strong> for MDBList.</div>
                   </div>
                 </div>
                 <div style="display:flex; gap:6px;">
@@ -1457,56 +1512,33 @@
               </div>
             </div>
           </div>
-
-          <!-- CATEGORY 11: FINISH & HAND OFF TO AI -->
-          <div id="cat-finish" class="cat-pane">
-            <div class="tv-row is-primary">
-              <div class="tv-row-head">
-                <div class="tv-row-main">
-                  <svg class="icon tv-row-icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                  <div>
-                    <div class="tv-row-title">Ready to Install? Hand Off to Your AI Agent</div>
-                    <div class="tv-row-sub">Clicking <strong>Save &amp; Copy AI Prompt</strong> does two things in one step: (1) saves every choice &amp; API key privately into git-ignored local files on this PC (<code>config.properties</code> &amp; <code>.env</code>), and (2) copies the prompt below so you can paste it into Claude Code, Google Antigravity, Cursor, or Codex opened inside this folder.</div>
-                  </div>
-                </div>
-              </div>
-              <div class="tv-row-controls stack">
-                <textarea id="agentPromptBox" readonly></textarea>
-                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
-                  <button type="button" class="tv-btn tv-btn-white" onclick="saveEverythingAndCopyPrompt()">Save Everything &amp; Copy Prompt</button>
-                  <button type="button" class="tv-btn" onclick="saveEverythingOnly()">Save Settings Only (Manual / No AI Agent)</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="mini-grid">
-              <div class="mini-step">
-                <div class="mini-step-title">1 &middot; Open Folder in AI Agent</div>
-                <p>Open the MyTV folder in Claude Code, Antigravity, Cursor, or Codex, paste the copied prompt, and press Enter.</p>
-              </div>
-              <div class="mini-step">
-                <div class="mini-step-title">2 &middot; Reads Your Saved Keys Safely</div>
-                <p>The agent reads your saved local config files (never printing secrets in chat) and helps with any missing key.</p>
-              </div>
-              <div class="mini-step">
-                <div class="mini-step-title">3 &middot; Safe Brand Check &amp; Install</div>
-                <p>You approve "Allow Debugging" once on your TV while the agent verifies brand safety, builds, and installs MyTV.</p>
-              </div>
-              <div class="mini-step">
-                <div class="mini-step-title">4 &middot; Nothing Changes Until You Switch</div>
-                <p>Installing MyTV leaves your stock TV untouched until you choose MyTV inside Settings — and Original restores stock anytime.</p>
-              </div>
-            </div>
-          </div>
         </form>
       </section>
     </div>
   </main>
 
   <footer class="tv-footer">
-    <span>Up / Down Browse Categories &nbsp;&middot;&nbsp; Click ? Next to Any Key for Step-by-Step Guide &nbsp;&middot;&nbsp; Ctrl+S Save</span>
+    <span>Up / Down Browse Categories &nbsp;&middot;&nbsp; Click ? Next to Any Key for Real Screenshot Guide &nbsp;&middot;&nbsp; Ctrl+S Save</span>
     <span>All API keys remain private on this computer (never uploaded)</span>
   </footer>
+
+  <!-- =====================================================================
+       SAVED & HANDED OFF COMPLETION OVERLAY
+       ===================================================================== -->
+  <div id="doneOverlay" class="done-overlay">
+    <div class="done-card" role="dialog" aria-modal="true">
+      <div class="done-check">
+        <svg class="icon" style="width:28px;height:28px;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <h2>Saved! Return to Your AI Agent</h2>
+      <p id="doneMessage">Your choices and private API keys have been saved locally to <code>config.properties</code>, <code>.env</code>, and <code>MyTV-launcher/.setup_handoff.json</code>. Your AI agent will now automatically read your preferences and install MyTV on your TV.</p>
+      <div id="doneSummary" class="done-summary"></div>
+      <div style="display:flex; gap:10px; margin-top:6px;">
+        <button type="button" class="tv-btn tv-btn-white" onclick="window.close()">Close This Tab</button>
+        <button id="doneKeepEditingBtn" type="button" class="tv-btn" onclick="document.getElementById('doneOverlay').classList.remove('open')">Back to Setup</button>
+      </div>
+    </div>
+  </div>
 
   <!-- =====================================================================
        API KEY STEP-BY-STEP VISUAL GUIDE MODAL
@@ -1796,45 +1828,46 @@
       return settings;
     }
 
-    async function refreshPrompt() {
-      const data = await api('/api/prompt', 'POST', {
-        tv_platform: document.getElementById('tvPlatform').value,
-        tv_ip: document.getElementById('tvIp').value,
-        city: document.getElementById('cityInput').value,
-        enable_smarthome: document.getElementById('toggleSmartHome').checked,
-        smarthome_devices: [],
-        enable_gaming: document.getElementById('toggleGaming').checked,
-        games_dirs: gameFolders.join(';'),
-        custom_smarthome: customSmartHome.map(item => ({
-          brand: item.brand,
-          has_key: Boolean(item.api_key || item.has_key)
-        }))
-      });
-      if (data.ok) {
-        document.getElementById('agentPromptBox').value = data.prompt;
-      }
+    function refreshPrompt() {
+      // No-op: Setup Studio writes MyTV-launcher/.setup_handoff.json directly for the AI agent on Save.
     }
 
     async function saveEverythingOnly() {
-      const res = await api('/api/save', 'POST', { settings: collectAllSettings() });
+      const res = await api('/api/save', 'POST', {
+        tv_platform: document.getElementById('tvPlatform').value,
+        settings: collectAllSettings()
+      });
       if (res.ok) {
         applyLoadedState(res.state);
-        showToast('Saved all settings & keys privately to local config.properties & .env');
+        showToast('Saved privately to local config.properties, .env & .setup_handoff.json');
       }
       return res;
     }
 
-    async function saveEverythingAndCopyPrompt() {
-      await saveEverythingOnly();
-      await refreshPrompt();
-      const box = document.getElementById('agentPromptBox');
-      try {
-        await navigator.clipboard.writeText(box.value);
-        showToast('Saved locally & copied AI prompt — paste into your AI agent!');
-      } catch (_) {
-        selectCategory('cat-finish');
-        box.select();
-        showToast('Saved locally — press Ctrl+C to copy the prompt');
+    async function completeSetupAndHandoff() {
+      const tvPlatform = document.getElementById('tvPlatform').value;
+      const res = await api('/api/complete', 'POST', {
+        tv_platform: tvPlatform,
+        settings: collectAllSettings()
+      });
+      if (res.ok) {
+        applyLoadedState(res.state);
+        const v = (res.state && res.state.values) || {};
+        const ck = (res.state && res.state.configured_keys) || {};
+        const customList = (res.state && res.state.custom_smarthome) || [];
+        const savedKeyCount = Object.values(ck).filter(Boolean).length;
+        const summaryLines = [
+          `<div><strong>TV Platform:</strong> ${escapeHtml(tvPlatform.replace('_', ' '))}${v.tv_ip ? ' &middot; ' + escapeHtml(v.tv_ip) : ''}</div>`,
+          `<div><strong>Location:</strong> ${v.city ? escapeHtml(v.city) : 'Not set yet (agent can ask)'}</div>`,
+          `<div><strong>Optional Tabs:</strong> Smart-Home ${v.enable_smarthome === 'true' ? 'Enabled' : 'Hidden'} &middot; PC Gaming ${v.enable_gaming === 'true' ? 'Enabled' : 'Hidden'}</div>`,
+          `<div><strong>Saved Private API Keys:</strong> ${savedKeyCount} configured${customList.length ? ' + ' + customList.length + ' custom Smart-Home brand(s)' : ''}</div>`
+        ];
+        document.getElementById('doneSummary').innerHTML = summaryLines.join('');
+        document.getElementById('doneKeepEditingBtn').style.display = res.will_close ? 'none' : 'inline-flex';
+        document.getElementById('doneOverlay').classList.add('open');
+        if (res.will_close) {
+          setTimeout(() => { try { window.close(); } catch (_) {} }, 900);
+        }
       }
     }
 
@@ -1942,216 +1975,123 @@
     }
 
     /* =====================================================================
-       API KEY VISUAL GUIDES (Clean Annotated Portal Mockups — Zero PII!)
+       REAL API PORTAL & OFFICIAL DOCS SCREENSHOT GUIDES (Zero Personal Info)
        ===================================================================== */
-    function portalMockSvg(urlText, sidebarItems, activeIdx, cardTitle, fields, callout) {
-      const sideRows = sidebarItems.map((label, i) => `
-        <rect x="16" y="${54 + i * 28}" width="136" height="22" rx="6" fill="${i === activeIdx ? '#2563eb' : 'transparent'}"/>
-        <text x="26" y="${69 + i * 28}" fill="${i === activeIdx ? '#ffffff' : '#94a3b8'}" font-size="11.5" font-weight="${i === activeIdx ? '700' : '500'}" font-family="Inter,Segoe UI,sans-serif">${label}</text>
-      `).join('');
-
-      const fieldRows = fields.map((f, i) => `
-        <text x="176" y="${96 + i * 50}" fill="#94a3b8" font-size="11" font-weight="600" font-family="Inter,Segoe UI,sans-serif">${f.label}</text>
-        <rect x="176" y="${103 + i * 50}" width="420" height="28" rx="7" fill="#0b1220" stroke="${f.highlight ? '#34d399' : '#334155'}" stroke-width="${f.highlight ? '1.8' : '1'}"/>
-        <text x="188" y="${121 + i * 50}" fill="${f.highlight ? '#a7f3d0' : '#e2e8f0'}" font-size="12" font-family="Consolas,monospace">${f.value}</text>
-        ${f.badge ? `<circle cx="614" cy="${117 + i * 50}" r="11" fill="#ffffff"/><text x="614" y="${121 + i * 50}" text-anchor="middle" fill="#0f172a" font-size="11" font-weight="800" font-family="Inter,sans-serif">${f.badge}</text>` : ''}
-      `).join('');
-
-      return `
-        <svg viewBox="0 0 650 225" xmlns="http://www.w3.org/2000/svg">
-          <rect width="650" height="225" fill="#0f172a"/>
-          <rect width="650" height="36" fill="#1e293b"/>
-          <circle cx="18" cy="18" r="5" fill="#ef4444" opacity="0.75"/>
-          <circle cx="34" cy="18" r="5" fill="#f59e0b" opacity="0.75"/>
-          <circle cx="50" cy="18" r="5" fill="#22c55e" opacity="0.75"/>
-          <rect x="74" y="8" width="430" height="20" rx="10" fill="#0f172a"/>
-          <text x="88" y="21.5" fill="#94a3b8" font-size="11" font-family="Inter,Segoe UI,sans-serif">${urlText}</text>
-          <rect x="0" y="36" width="162" height="189" fill="#111b2e"/>
-          <line x1="162" y1="36" x2="162" y2="225" stroke="#1e293b" stroke-width="1"/>
-          ${sideRows}
-          <text x="176" y="66" fill="#ffffff" font-size="15" font-weight="700" font-family="Inter,Segoe UI,sans-serif">${cardTitle}</text>
-          ${fieldRows}
-          <rect x="176" y="196" width="458" height="21" rx="6" fill="rgba(52,211,153,0.14)"/>
-          <text x="186" y="210" fill="#a7f3d0" font-size="10.2" font-weight="600" font-family="Inter,Segoe UI,sans-serif">${callout}</text>
-        </svg>
-      `;
-    }
-
     const API_GUIDES = {
       tmdb: {
         title: 'How to Get Your Free TMDB API Key',
         sub: 'Required for movies, shows, posters, backdrops, and recommendations (~50 requests/sec free)',
         url: 'https://www.themoviedb.org/settings/api',
-        visual: portalMockSvg(
-          'themoviedb.org/settings/api',
-          ['Profile', 'Account', 'API', 'Sessions'],
-          2,
-          'API — Developer Key (Personal / Non-Commercial)',
-          [
-            { label: 'API Key (v3 auth) — Copy this value', value: 'a1b2c3d4e5f60718293a4b5c6d7e8f90', highlight: true, badge: '4' },
-            { label: 'API Read Access Token (v4) — Also supported', value: 'eyJhbGciOiJIUzI1NiJ9.example_token...', highlight: false, badge: '' }
-          ],
-          'Tip: Pick "Developer" (not Commercial) and enter "MyTV" as the app name.'
-        ),
+        image: '/guides/tmdb.webp',
+        alt: 'Official TMDB API Getting Started page',
         steps: [
           'Create a free account at <strong>themoviedb.org</strong> and confirm your email.',
-          'Open your Profile avatar &rarr; <strong>Settings &rarr; API</strong>, click <strong>Create</strong>, and choose <strong>Developer</strong> (Personal / Non-Commercial).',
+          'Click your Profile avatar &rarr; <strong>Settings &rarr; API</strong>, click <strong>Create</strong>, and choose <strong>Developer</strong> (Personal / Non-Commercial).',
           'For application name enter <code>MyTV</code>, URL <code>http://localhost</code>, and a brief summary like <em>"Personal home TV catalog"</em>.',
-          'Copy the <strong>API Key (v3 auth)</strong> (highlighted above), paste it in Setup Studio, and click <strong>Verify Key</strong>.'
+          'Copy the <strong>API Key (v3 auth)</strong> (or v4 Read Access Token), paste it in Setup Studio, and click <strong>Verify Key</strong>.'
         ],
-        tip: 'Both the 32-character v3 API Key and the longer v4 Read Access Token work seamlessly with MyTV.'
+        tip: 'Click the screenshot above to open it full-size. Both the 32-character v3 API Key and the v4 Read Access Token work with MyTV.'
       },
       trakt: {
         title: 'How to Create a Free Trakt Client ID',
         sub: 'Recommended for 2-way Watchlist, episode progress, and personal ratings',
         url: 'https://trakt.tv/oauth/applications/new',
-        visual: portalMockSvg(
-          'trakt.tv/oauth/applications/new',
-          ['Profile', 'Settings', 'Your API Apps', 'Connected'],
-          2,
-          'New Trakt API Application',
-          [
-            { label: 'Redirect URI (must match exactly)', value: 'urn:ietf:wg:oauth:2.0:oob', highlight: true, badge: '1' },
-            { label: 'Client ID (shown after clicking Save App)', value: '8f3e2d1c0b9a87654321fedcba987654...', highlight: true, badge: '2' }
-          ],
-          'After installing MyTV, sign in on your TV with a 1-second QR code — no passwords typed on TV.'
-        ),
+        image: '/guides/trakt.webp',
+        alt: 'Official Trakt OAuth Application documentation',
         steps: [
           'Sign in to <strong>trakt.tv</strong> and open <strong>Settings &rarr; Your API Apps &rarr; New Application</strong>.',
           'Enter Name: <code>MyTV</code> and paste <code>urn:ietf:wg:oauth:2.0:oob</code> into <strong>Redirect URI</strong>.',
           'Click <strong>Save App</strong>, then copy the generated <strong>Client ID</strong> (you do not need the Client Secret).'
         ],
-        tip: 'MyTV uses Trakt OAuth Device Pairing, so you only paste the Client ID here and scan a QR code on your TV.'
+        tip: 'MyTV uses Trakt OAuth Device Pairing, so you only paste the Client ID here and scan a QR code on your TV after install.'
       },
       omdb: {
-        title: 'How to Get Free OMDb & MDBList Critic Keys',
-        sub: 'Optional — adds Rotten Tomatoes & Metacritic scores beside IMDb ratings (1,000/day free each)',
+        title: 'How to Get a Free OMDb Critic Ratings Key',
+        sub: 'Optional — adds Rotten Tomatoes & Metacritic scores beside IMDb ratings (1,000/day free)',
         url: 'https://www.omdbapi.com/apikey.aspx',
-        visual: portalMockSvg(
-          'omdbapi.com/apikey.aspx  &  mdblist.com/preferences',
-          ['OMDb Free Key', 'Email Activate', 'MDBList Prefs'],
-          0,
-          'Generate Free Critic Rating Keys',
-          [
-            { label: 'OMDb: Select "FREE! (1,000 daily limit)" -> Emailed Key', value: '9a8b7c6d', highlight: true, badge: '1' },
-            { label: 'MDBList: Preferences -> API Key -> Create New Key', value: 'sample-mdblist-key-12345', highlight: true, badge: '2' }
-          ],
-          'Important: OMDb emails an activation link — click it once before the key starts working!'
-        ),
+        image: '/guides/omdb.webp',
+        alt: 'Live OMDb Generate API Key public form',
         steps: [
-          '<strong>OMDb</strong>: Open <strong>omdbapi.com/apikey.aspx</strong>, select <strong>FREE! (1,000 daily limit)</strong>, enter your email, and submit.',
-          'Open the email from OMDb, <strong>click the activation link inside the email</strong>, and copy the 8-character key.',
-          '<strong>MDBList (optional extra)</strong>: Sign in at <strong>mdblist.com/preferences</strong>, click <strong>New API Key</strong>, and copy it.'
+          'Open <strong>omdbapi.com/apikey.aspx</strong> and select <strong>FREE! (1,000 daily limit)</strong> as shown above.',
+          'Enter your email, name, and a short description (e.g. <em>"Personal TV ratings"</em>), then click <strong>Submit</strong>.',
+          'Open the email from OMDb, <strong>click the activation link inside the email</strong>, and copy your 8-character key here.'
         ],
-        tip: 'MyTV permanently caches ratings per movie/show on your TV, so 1,000 daily requests is far more than a household ever uses.'
+        tip: 'Important: The OMDb key will not work until you click the activation link OMDb emails you. MyTV caches ratings permanently on your TV.'
+      },
+      mdblist: {
+        title: 'How to Get a Free MDBList API Key',
+        sub: 'Optional — extra Rotten Tomatoes & Metacritic ratings source (1,000/day free)',
+        url: 'https://mdblist.com/preferences/',
+        image: '/guides/mdblist.webp',
+        alt: 'Official MDBList API documentation showing free tier',
+        steps: [
+          'Sign in directly at <strong>mdblist.com/preferences</strong> (avoid signing in via Trakt if it fails — use direct account login).',
+          'Scroll to the <strong>API Key</strong> section, click <strong>New API Key</strong>, and copy it into Setup Studio.'
+        ],
+        tip: 'MDBList gives 1,000 free requests/day — plenty for a household since MyTV caches every title\'s critic scores locally.'
       },
       gemini: {
         title: 'How to Get a Free Google Gemini API Key',
         sub: 'Optional — enables natural-language plot & mood search on your TV',
         url: 'https://aistudio.google.com/app/apikey',
-        visual: portalMockSvg(
-          'aistudio.google.com/app/apikey',
-          ['Prompts', 'API Keys', 'Usage'],
-          1,
-          'Google AI Studio — API Keys',
-          [
-            { label: 'Click "Create API key" -> Copy Generated Key', value: 'AIzaSyExampleKeyPlaceholder123456789', highlight: true, badge: '1' },
-            { label: 'Model Used by MyTV (Free Tier)', value: 'gemini-2.5-flash (zero billing required)', highlight: false, badge: '' }
-          ],
-          'No credit card is required for the Google AI Studio free tier.'
-        ),
+        image: '/guides/gemini.webp',
+        alt: 'Official Google AI Studio Gemini API keys page',
         steps: [
-          'Sign in with your Google account at <strong>aistudio.google.com/app/apikey</strong>.',
+          'Open <strong>aistudio.google.com/app/apikey</strong> (or click <strong>Create or view a Gemini API Key</strong> as shown above) and sign in with Google.',
           'Click <strong>Create API key</strong> (select or create a free project if prompted).',
           'Copy the key starting with <code>AIza...</code> and paste it into Setup Studio.'
         ],
-        tip: 'You can leave this blank if you only need standard title/actor search.'
+        tip: 'No credit card is required for Google AI Studio\'s free tier. Leave blank if you only need standard title/actor search.'
       },
       wiz: {
         title: 'How WiZ Smart Bulbs Connect (Zero API Key)',
         sub: '100% local Wi-Fi UDP discovery — no cloud account or token needed',
         url: 'https://www.wizconnected.com',
-        visual: portalMockSvg(
-          'MyTV -> Settings -> Smart-Home -> Scan WiZ Bulbs',
-          ['Local Wi-Fi', 'UDP Port 38899', 'Auto-Discover'],
-          0,
-          'Automatic Local Bulb Discovery',
-          [
-            { label: 'Recommended: Leave IP field blank & scan inside MyTV', value: 'TV broadcasts UDP discovery on your home Wi-Fi', highlight: true, badge: '1' },
-            { label: 'Optional Manual Override (comma-separated IPs)', value: '192.168.1.40, 192.168.1.41', highlight: false, badge: '' }
-          ],
-          'Make sure your TV and WiZ bulbs are connected to the same home Wi-Fi network.'
-        ),
+        image: '/guides/wiz.webp',
+        alt: 'MyTV Smart-Home TV screen controlling WiZ lights and AC',
         steps: [
-          'Ensure your WiZ bulbs are already paired to your home Wi-Fi using the official WiZ mobile app.',
-          'Leave the IP field blank to auto-discover them on your TV, or enter comma-separated local bulb IPs from your router.'
+          'Make sure your WiZ bulbs are already connected to your home Wi-Fi using the official WiZ mobile app.',
+          'Leave the IP field blank to auto-discover bulbs directly on your TV via Wi-Fi UDP, or enter comma-separated bulb IPs from your router.'
         ],
-        tip: 'WiZ commands go straight from your TV to your bulbs over local LAN — instant response even without internet.'
+        tip: 'WiZ commands go directly from your TV to your bulbs over local LAN — instant response even without internet.'
       },
       sensibo: {
         title: 'How to Get Your Sensibo Sky API Key',
         sub: 'Optional — controls Sensibo AC power, Cool/Heat mode, temperature, and fan speed',
         url: 'https://home.sensibo.com/me/api',
-        visual: portalMockSvg(
-          'home.sensibo.com/me/api',
-          ['Dashboard', 'Account', 'API Keys'],
-          2,
-          'Sensibo Web App — API Key',
-          [
-            { label: 'New API Key Name -> Click "Add API Key"', value: 'MyTV', highlight: false, badge: '1' },
-            { label: 'Generated API Key (copy immediately)', value: 'ExampleSensiboApiKeyToken123456', highlight: true, badge: '2' }
-          ],
-          'MyTV automatically detects all Sensibo pods linked to your account.'
-        ),
+        image: '/guides/sensibo.webp',
+        alt: 'Official Sensibo Support Center API Authentication guide',
         steps: [
-          'Sign in to your Sensibo account at <strong>home.sensibo.com/me/api</strong>.',
+          'Sign in to your Sensibo account at <strong>home.sensibo.com/me/api</strong> (linked from Account Settings as shown above).',
           'Enter <code>MyTV</code> as the API key name and click <strong>Add API Key</strong>.',
           'Copy the generated key immediately and paste it into Setup Studio.'
         ],
-        tip: 'Your Sensibo key is encrypted into Android KeyStore on the TV — it never leaves your home devices.'
+        tip: 'MyTV automatically discovers all Sensibo pods linked to your account and encrypts your key inside Android KeyStore.'
       },
       tuya: {
         title: 'How to Get Tuya / Smart Life Cloud Credentials',
         sub: 'Optional — controls Tuya / Smart Life ACs and smart switches',
         url: 'https://iot.tuya.com',
-        visual: portalMockSvg(
-          'iot.tuya.com -> Cloud -> Development',
-          ['Overview', 'Cloud', 'Devices', 'Authorizations'],
-          1,
-          'Tuya IoT Core Project — Authorization Keys',
-          [
-            { label: 'Access ID / Client ID', value: 'exampletuyaclientid01', highlight: true, badge: '1' },
-            { label: 'Access Secret / Client Secret', value: 'example_tuya_secret_placeholder_99', highlight: true, badge: '2' }
-          ],
-          'Remember to link your Smart Life / Tuya mobile app under Devices -> Link App Account.'
-        ),
+        image: '/guides/tuya.webp',
+        alt: 'Official Tuya Developer documentation showing Access ID, Access Secret, and Link Tuya App Account',
         steps: [
           'Create a free developer account at <strong>iot.tuya.com</strong> and open <strong>Cloud &rarr; Create Cloud Project</strong>.',
           'Enable the <strong>IoT Core</strong> API service (free trial tier) and select your region data center.',
-          'Under <strong>Devices &rarr; Link Tuya App Account</strong>, scan the QR code with your Smart Life / Tuya phone app.',
-          'Open the project <strong>Overview</strong> tab and copy both <strong>Access ID</strong> and <strong>Access Secret</strong>.'
+          'Under <strong>Devices &rarr; Link Tuya App Account &rarr; Add App Account</strong> (steps 1–3 in the screenshot above), scan the QR code with Smart Life / Tuya.',
+          'Open the project <strong>Overview</strong> tab and copy both <strong>Access ID/Client ID</strong> and <strong>Access Secret/Client Secret</strong>.'
         ],
-        tip: 'Have another brand like Philips Hue, Home Assistant, or Govee? Use the "Other Smart-Home Brand" box right below!'
+        tip: 'Have another brand like Philips Hue, Home Assistant, or Govee? Add it in the "Other Smart-Home Brand" box right below!'
       },
       supabase: {
         title: 'How to Set Up Free Supabase Profiles & Encrypted Vault',
         sub: 'Optional — multi-user household profiles, watch history sync & zero-knowledge key backup',
         url: 'https://supabase.com/dashboard',
-        visual: portalMockSvg(
-          'supabase.com/dashboard -> Project Settings -> API',
-          ['SQL Editor', 'Table Editor', 'Project Settings', 'API'],
-          3,
-          'Supabase Project API Settings',
-          [
-            { label: 'Project URL', value: 'https://exampleprojectid.supabase.co', highlight: true, badge: '1' },
-            { label: 'Project API Keys -> anon / public key', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example...', highlight: true, badge: '2' }
-          ],
-          'Run docs/supabase-schema.sql once in SQL Editor, then run the 4-line SQL generated here.'
-        ),
+        image: '/guides/supabase.webp',
+        alt: 'Official Supabase Docs Find and Use Your Keys page',
         steps: [
           'Create a free project at <strong>supabase.com/dashboard</strong> (500 MB free forever).',
           'Open <strong>SQL Editor</strong> and run the contents of <code>docs/supabase-schema.sql</code> once.',
-          'Open <strong>Project Settings &rarr; API</strong> and copy <strong>Project URL</strong> and the <strong>anon public</strong> key here.',
+          'Open <strong>Settings &rarr; API Keys</strong> (as shown above) and copy your <strong>Project URL</strong> and <strong>anon / publishable</strong> key here.',
           'Click <strong>Generate Key &amp; SQL</strong> in Setup Studio and run the generated 4-line SQL snippet in Supabase SQL Editor.'
         ],
         tip: 'Completely optional! Without Supabase, MyTV still works 100% locally on your TV.'
@@ -2163,7 +2103,8 @@
       if (!g) return;
       document.getElementById('guideTitle').textContent = g.title;
       document.getElementById('guideSub').textContent = g.sub;
-      document.getElementById('guideVisual').innerHTML = g.visual;
+      document.getElementById('guideVisual').innerHTML =
+        `<a href="${g.image}" target="_blank" rel="noopener" title="Click to open full-size screenshot"><img src="${g.image}" alt="${escapeHtml(g.alt || g.title)}" /></a>`;
       document.getElementById('guideSteps').innerHTML = g.steps.map(s => `<li>${s}</li>`).join('');
       document.getElementById('guideTip').textContent = g.tip;
       document.getElementById('guideLink').href = g.url;

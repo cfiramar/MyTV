@@ -16,6 +16,7 @@ What:
 from __future__ import annotations
 
 import argparse
+import datetime
 import hashlib
 import json
 import os
@@ -92,6 +93,7 @@ class SetupConfigStore:
         self.launcher_dir = self.repo_root / "MyTV-launcher"
         self.config_path = self.launcher_dir / "config.properties"
         self.config_example = self.launcher_dir / "config.example.properties"
+        self.handoff_path = self.launcher_dir / ".setup_handoff.json"
         self.dotenv_path = self.repo_root / ".env"
         self.dotenv_example = self.repo_root / ".env.example"
 
@@ -240,6 +242,33 @@ class SetupConfigStore:
             self._upsert_kv_file(self.config_path, cfg_updates)
         if env_updates:
             self._upsert_kv_file(self.dotenv_path, env_updates)
+
+    def write_handoff_summary(self, tv_platform: str = "android_tv") -> Path:
+        """Writes a non-secret JSON summary (`MyTV-launcher/.setup_handoff.json`) for the AI agent to read."""
+        self.ensure_files_exist()
+        masked = self.load_masked_state()
+        handoff = {
+            "saved_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "tv_platform": tv_platform,
+            "values": masked["values"],
+            "configured_keys": masked["configured_keys"],
+            "custom_smarthome": masked["custom_smarthome"],
+            "secrets_location": {
+                "config_properties": "MyTV-launcher/config.properties",
+                "dotenv": ".env",
+            },
+            "agent_notes": [
+                "Never print or echo raw secret values from config.properties or .env in chat.",
+                "If custom_smarthome is non-empty, inspect SmartHomeManager.java and add modular support for those brands.",
+                "If values.enable_gaming == 'true', run laptop_gaming_agent.py --list-monitors automatically to populate MYTV_NON_TV_MONITORS.",
+            ],
+        }
+        self.handoff_path.write_text(
+            json.dumps(handoff, indent=2) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        return self.handoff_path
 
 
 class AgentPromptBuilder:
@@ -569,11 +598,14 @@ def create_setup_http_server(
     repo_root: Path,
     port: int = 8765,
     sandbox: bool = False,
+    wait_for_save: bool = False,
 ) -> Tuple[ThreadingHTTPServer, str]:
     """Creates a loopback-only (`127.0.0.1`) HTTP server with per-session CSRF token protection.
 
     When `sandbox=True`, all config reads/writes go to an isolated temporary directory and TV ADB
     probing is simulated so the user can test every button safely without touching their TV or real files.
+    When `wait_for_save=True`, `POST /api/complete` persists `.setup_handoff.json` and gracefully stops
+    the server so a launching AI agent can immediately resume installation.
     """
     session_token = secrets.token_urlsafe(24)
     effective_root = repo_root
@@ -587,7 +619,10 @@ def create_setup_http_server(
         effective_root = tmp_dir
 
     store = SetupConfigStore(effective_root)
-    static_html_path = Path(__file__).resolve().parent / "static" / "index.html"
+    static_dir = Path(__file__).resolve().parent / "static"
+    static_html_path = static_dir / "index.html"
+    guides_dir = static_dir / "guides"
+    server_holder: Dict[str, Optional[ThreadingHTTPServer]] = {"httpd": None}
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, fmt: str, *args: Any) -> None:
@@ -623,12 +658,44 @@ def create_setup_http_server(
                 self.wfile.write(body)
                 return
 
+            if parsed.path.startswith("/guides/"):
+                fname = parsed.path[len("/guides/"):]
+                if not re.match(r"^[a-z0-9_-]+\.(png|webp|jpg)$", fname):
+                    self._send_json(404, {"ok": False, "error": "Guide image not found"})
+                    return
+                img_path = guides_dir / fname
+                if not img_path.is_file():
+                    self._send_json(404, {"ok": False, "error": "Guide image not found"})
+                    return
+                mime = {
+                    ".png": "image/png",
+                    ".webp": "image/webp",
+                    ".jpg": "image/jpeg",
+                }[img_path.suffix.lower()]
+                data = img_path.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", mime)
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+                return
+
             if parsed.path == "/api/state":
                 if not self._check_csrf():
                     return
                 state = store.load_masked_state()
                 tools = EnvironmentInspector.check_local_tools()
-                self._send_json(200, {"ok": True, "sandbox": sandbox, "state": state, "tools": tools})
+                self._send_json(
+                    200,
+                    {
+                        "ok": True,
+                        "sandbox": sandbox,
+                        "wait_for_save": wait_for_save,
+                        "state": state,
+                        "tools": tools,
+                    },
+                )
                 return
 
             self._send_json(404, {"ok": False, "error": "Not found"})
@@ -650,7 +717,33 @@ def create_setup_http_server(
             parsed = urllib.parse.urlparse(self.path)
             if parsed.path == "/api/save":
                 store.save_settings(body.get("settings") or {})
-                self._send_json(200, {"ok": True, "state": store.load_masked_state()})
+                tv_plat = str(body.get("tv_platform", "android_tv"))
+                handoff = store.write_handoff_summary(tv_platform=tv_plat)
+                self._send_json(
+                    200,
+                    {
+                        "ok": True,
+                        "state": store.load_masked_state(),
+                        "handoff_file": str(handoff),
+                    },
+                )
+                return
+            if parsed.path == "/api/complete":
+                store.save_settings(body.get("settings") or {})
+                tv_plat = str(body.get("tv_platform", "android_tv"))
+                handoff = store.write_handoff_summary(tv_platform=tv_plat)
+                self._send_json(
+                    200,
+                    {
+                        "ok": True,
+                        "state": store.load_masked_state(),
+                        "handoff_file": str(handoff),
+                        "will_close": wait_for_save,
+                    },
+                )
+                if wait_for_save and server_holder["httpd"] is not None:
+                    httpd_ref = server_holder["httpd"]
+                    threading.Timer(0.6, httpd_ref.shutdown).start()
                 return
             if parsed.path == "/api/prompt":
                 prompt = AgentPromptBuilder.build_prompt(
@@ -703,6 +796,7 @@ def create_setup_http_server(
         httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     except OSError:
         httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    server_holder["httpd"] = httpd
     return httpd, session_token
 
 
@@ -711,14 +805,23 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8765, help="Local port on 127.0.0.1 (default: 8765)")
     parser.add_argument("--no-browser", action="store_true", help="Do not open web browser automatically")
     parser.add_argument("--sandbox", action="store_true", help="Run in isolated test mode (never touches real config files or TV)")
+    parser.add_argument("--wait-for-save", action="store_true", help="Exit cleanly right after the user clicks Save so an AI agent can resume")
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[3]
-    server, _ = create_setup_http_server(repo_root, port=args.port, sandbox=args.sandbox)
+    server, _ = create_setup_http_server(
+        repo_root,
+        port=args.port,
+        sandbox=args.sandbox,
+        wait_for_save=args.wait_for_save,
+    )
     actual_port = server.server_address[1]
     url = f"http://127.0.0.1:{actual_port}/"
-    print(f"MyTV Setup Studio running locally at {url}")
-    print("Press Ctrl+C to close when you are done.")
+    print(f"MyTV Setup Studio running locally at {url}", flush=True)
+    if args.wait_for_save:
+        print("Waiting for user to complete setup and click Save...", flush=True)
+    else:
+        print("Press Ctrl+C to close when you are done.", flush=True)
     if not args.no_browser:
         threading.Timer(0.35, lambda: webbrowser.open(url)).start()
     try:
@@ -727,6 +830,10 @@ def main() -> None:
         print("\nClosing MyTV Setup Studio.")
     finally:
         server.server_close()
+        if args.wait_for_save:
+            handoff = repo_root / "MyTV-launcher" / ".setup_handoff.json"
+            if handoff.is_file():
+                print(f"SETUP_SAVED handoff={handoff}", flush=True)
 
 
 if __name__ == "__main__":

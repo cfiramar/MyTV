@@ -1,6 +1,8 @@
-# Local configuration, credentials, and signing keys stay on your machine
+# Local configuration, credentials, and signing keys stay ONLY on your machine (never committed)
 config.properties
 **/config.properties
+.setup_handoff.json
+**/.setup_handoff.json
 keys.txt
 **/keys.txt
 .env
@@ -10,15 +12,19 @@ keys.txt
 *.idsig
 **/*.idsig
 
-# Local AI session memory & private developer rules (never committed)
-memory/
-.agents/
+# Local ephemeral agent worktrees, runtime state, and scratchpads
+.agents/worktrees/
+.agents/teamwork/
+parallel work/
 CLAUDE.local.md
 **/CLAUDE.local.md
 AGENTS.local.md
 **/AGENTS.local.md
 GEMINI.local.md
 **/GEMINI.local.md
+MyTV-launcher/tools/gaming/.state/
+.pytest_cache/
+**/.pytest_cache/
 
 # Build output
 out/

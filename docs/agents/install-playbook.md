@@ -4,17 +4,19 @@ Follow this structured runbook when helping a human user install, configure, or 
 
 ---
 
-## 1. Pre-Flight Human Intake (Always Ask First)
+## 1. Pre-Flight Human Intake (Launch Setup Studio Automatically!)
 
-Before modifying files or connecting to devices, check whether `MyTV-launcher/config.properties` or `.env` already has values saved by the user via `Setup-MyTV` (`setup_wizard.py`). Ask the user only what is still missing:
-
-1. **TV Platform & Wi-Fi IP**: Which TV OS (`Android TV / Google TV`, `Amazon Fire TV`, `LG webOS`, or `Samsung Tizen`) and what is its LAN IPv4 address?
-2. **City / Location**: Which city should be used for local weather and automatic sunrise/sunset Light & Dark themes?
-3. **Optional Smart Home Tab (`enable_smarthome`)**:
-   - Does the user want the **Smart Home** tab enabled (e.g., WiZ lights, Sensibo AC, Tuya AC, Switcher boiler), or should MyTV **remove/hide** the Smart Home tab (`enable_smarthome=false`)?
-4. **Optional PC Gaming Tab (`enable_gaming`)**:
-   - Does the user want to stream games from a Windows PC to the TV (`enable_gaming=true` + Phase B setup), or should MyTV **remove/hide** the Gaming tab (`enable_gaming=false`)?
-   - If enabled, ask which folder(s) on their Windows PC hold standalone games (e.g., `C:\Games`; Steam, Epic, and Heroic libraries are auto-detected).
+1. **Open MyTV Setup Studio for the User**:
+   - If `MyTV-launcher/.setup_handoff.json` does not exist yet (or the user wants to change choices), launch:
+     ```bash
+     python setup_wizard.py --wait-for-save
+     ```
+   - This opens the TV-styled GUI in the user's browser so they can select their TV OS, TV IP, city, optional **Smart Home** & **PC Gaming** tabs, standalone game folders (via native OS folder explorer), custom Smart-Home brands, and free API keys (with built-in `?` real screenshot guides).
+   - Wait for the user to click **Save & Continue Setup**. The server saves secrets privately to git-ignored `MyTV-launcher/config.properties` & `.env`, writes the non-secret summary **`MyTV-launcher/.setup_handoff.json`**, and exits cleanly (`0`).
+2. **Read `MyTV-launcher/.setup_handoff.json`**:
+   - Inspect `tv_platform`, `values` (`tv_ip`, `city`, `enable_smarthome`, `enable_gaming`, `games_dirs`), `configured_keys` booleans, and `custom_smarthome`.
+   - Ask the user in chat **only** for anything still missing.
+   - If `custom_smarthome` contains custom brands (e.g. `Philips Hue`, `Home Assistant`, `Govee`, `SwitchBot`), inspect `SmartHomeManager.java` and add modular support for them using any saved `custom_smarthome_key_<slug>` secret (never print secrets in chat).
 
 ---
 

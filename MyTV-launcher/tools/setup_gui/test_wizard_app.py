@@ -220,6 +220,58 @@ class MyTvSetupStudioTests(unittest.TestCase):
                 server.shutdown()
                 server.server_close()
 
+    def test_complete_endpoint_writes_non_secret_handoff_and_shuts_down_when_waiting(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            launcher = root / "MyTV-launcher"
+            launcher.mkdir()
+            (launcher / "config.example.properties").write_text("city=\ntmdb_key=\n", encoding="utf-8")
+            (root / ".env.example").write_text("CITY=\n", encoding="utf-8")
+
+            server, token = create_setup_http_server(root, port=0, wait_for_save=True)
+            port = server.server_address[1]
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                req = urllib.request.Request(
+                    f"http://127.0.0.1:{port}/api/complete",
+                    data=json.dumps(
+                        {
+                            "tv_platform": "android_tv",
+                            "settings": {
+                                "city": "Berlin",
+                                "tmdb_key": "never_leak_this_key",
+                                "enable_gaming": "false",
+                                "enable_smarthome": "true",
+                                "custom_smarthome": [{"brand": "Philips Hue", "api_key": "hue_secret_123"}],
+                            },
+                        }
+                    ).encode("utf-8"),
+                    headers={"X-MyTV-Setup-Token": token, "Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=3) as resp:
+                    payload = json.loads(resp.read().decode("utf-8"))
+                self.assertTrue(payload["ok"])
+                self.assertTrue(payload["will_close"])
+
+                handoff_file = launcher / ".setup_handoff.json"
+                self.assertTrue(handoff_file.is_file())
+                handoff_raw = handoff_file.read_text(encoding="utf-8")
+                self.assertNotIn("never_leak_this_key", handoff_raw)
+                self.assertNotIn("hue_secret_123", handoff_raw)
+                handoff = json.loads(handoff_raw)
+                self.assertEqual("android_tv", handoff["tv_platform"])
+                self.assertEqual("Berlin", handoff["values"]["city"])
+                self.assertTrue(handoff["configured_keys"]["tmdb_key"])
+                self.assertEqual("Philips Hue", handoff["custom_smarthome"][0]["brand"])
+                self.assertTrue(handoff["custom_smarthome"][0]["has_key"])
+
+                thread.join(timeout=3)
+                self.assertFalse(thread.is_alive())
+            finally:
+                server.server_close()
+
 
 if __name__ == "__main__":
     unittest.main()

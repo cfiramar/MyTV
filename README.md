@@ -57,29 +57,18 @@ Modern smart TVs bury your favorite apps under rows of sponsored banners, auto-p
 
 ## How to Install (Human Guide)
 
-MyTV is designed so every household runs on its **own private, free accounts** — never sharing quotas or personal data with anyone else. Even if you have never built an Android app before, an AI coding agent can set up, tailor, and install MyTV on your TV in minutes.
+You don't need to manually download files, edit configuration files, or know how to build Android apps. Just paste **one single prompt** into your AI coding agent (**Claude Code**, **Google Antigravity**, **Cursor**, **Codex**, or **Windsurf**):
 
-### Step 1 — Optional: Open the Visual MyTV Setup Studio
+> Clone this MyTV GitHub repository (`<paste this page's GitHub URL>`), read `AGENTS.md` and `docs/agents/install-playbook.md`, open the visual MyTV Setup Studio (`python setup_wizard.py --wait-for-save`) so I can choose my options and free API keys comfortably, wait for me to click Save, and then install MyTV on my TV.
 
-After downloading or cloning this repository onto your computer, you can open the built-in **MyTV Setup Studio** (styled in MyTV's Liquid Glass interface):
+### What Happens Next (Zero Guesswork)
 
-- **Windows**: Double-click **`Setup-MyTV.bat`** (or run `python setup_wizard.py`)
-- **macOS / Linux**: Run **`./setup-mytv.sh`**
+1. **Your AI Agent Downloads MyTV & Opens Setup Studio**: Your agent clones the repository and automatically opens **MyTV Setup Studio** in your browser (styled just like the MyTV TV app).
+2. **Pick Your Preferences & Free Keys Visually**: Inside Setup Studio, choose your TV OS, city, optional **Smart-Home** and **PC Gaming** tabs (with a native folder picker for standalone game folders and custom Smart-Home brand support), and paste your free **TMDB** key (plus any optional keys — every key has a **`?`** icon with real screenshots showing exactly where to get it).
+3. **Click `Save` — No Prompt Copying Needed**: When you click **Save & Continue Setup**, Setup Studio saves your keys privately on your computer (never uploaded anywhere), writes a local non-secret summary (`MyTV-launcher/.setup_handoff.json`), closes automatically, and wakes your AI agent right back up.
+4. **Safe TV Install & Full Reversibility**: You turn on *Developer Debugging* on your TV once (see [Troubleshooting & Q&A](#troubleshooting--qa) below) and press **Allow** on your TV screen. Installing MyTV changes nothing on your TV until *you* open MyTV Settings and switch Launcher Mode from **Original** to **MyTV** — and switching back to **Original** restores your factory home screen anytime.
 
-Inside Setup Studio, you can toggle whether you want the optional **Smart Home** and **PC Gaming** tabs, pick standalone game folders with your native OS explorer, auto-fill your city, follow built-in `?` visual guides to create and save free API keys locally, list any extra Smart-Home brand you want your AI agent to add support for, and click **Finish: Save & Copy AI Prompt** once you are done.
-
-### Step 2 — Install Using an AI Coding Agent (Recommended)
-
-Open this project folder in **Claude Code**, **Google Antigravity**, **Cursor**, **Codex**, or **Windsurf**, and paste this prompt:
-
-> Read `AGENTS.md` and `docs/agents/install-playbook.md` and help me set up and install MyTV on my TV. Ask me which optional tabs (Smart Home and/or PC Gaming) I want enabled or hidden, guide me through any free API keys I need, verify my TV brand safely, and install MyTV.
-
-### Step 3 — What to Expect During Setup
-
-1. **Three Quick Questions**: Your AI agent will ask for your **TV's Wi-Fi IP address**, your **city** (for local weather and sunrise/sunset themes), and whether you want the optional **Smart Home** and/or **PC Gaming** tabs enabled or hidden.
-2. **Guided Free API Keys**: Your agent will help you create a free **TMDB** key (needed for movie/show posters and rows) plus any optional keys you want. Your keys stay strictly on your own computer and are encrypted into your TV's hardware vault.
-3. **Safe TV Inspection & One-Click Approval**: You will turn on *Developer Debugging* on your TV (see [Troubleshooting & Q&A](#troubleshooting--qa) below) and press **Allow** once on your TV screen when the agent connects over Wi-Fi to verify your TV model and install `MyTV`.
-4. **Zero Risk to Your Stock Home Screen**: Installing MyTV changes nothing on your TV until *you* open MyTV Settings and switch Launcher Mode from **Original** to **MyTV** — and switching back to **Original** restores your factory home screen at any time.
+*(Prefer to open Setup Studio manually after cloning? Double-click **`Setup-MyTV.bat`** on Windows or run **`./setup-mytv.sh`** on macOS/Linux.)*
 
 ---
 

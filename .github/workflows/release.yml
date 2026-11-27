@@ -67,14 +67,14 @@ jobs:
         run: |
           (cd MyTV-launcher && bash ./build.sh --generic && python3 webos/build.py --generic && python3 tizen/build.py --generic)
           python3 -c '
-          import zipfile, os
+          import glob, zipfile, os
           items = [
               "Setup-MyTV.bat", "setup-mytv.sh", "setup_wizard.py", "README.md", "AGENTS.md", "CLAUDE.md",
               ".env.example", "MyTV-launcher/config.example.properties",
               "MyTV-launcher/tools/setup_gui/wizard_app.py",
               "MyTV-launcher/tools/setup_gui/static/index.html",
               "docs/supabase-schema.sql", "docs/agents/install-playbook.md", "docs/agents/tv-brand-adaptation.md",
-          ]
+          ] + sorted(glob.glob("MyTV-launcher/tools/setup_gui/static/guides/*"))
           with zipfile.ZipFile("MyTV-Setup-Studio.zip", "w", zipfile.ZIP_DEFLATED) as zf:
               for p in items:
                   if os.path.isfile(p):

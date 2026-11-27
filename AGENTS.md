@@ -9,17 +9,21 @@ For step-by-step terminal commands, also read:
 
 ---
 
-## 1. Guiding Your Human User (Intake & Optional Tabs)
+## 1. Guiding Your Human User (Visual Setup Studio First!)
 
-1. **Always Start with a Brief Human Intake**:
-   - Check whether the user already saved choices in `MyTV-launcher/config.properties` or `.env` (for example via the visual **MyTV Setup Studio**: `Setup-MyTV.bat` / `./setup-mytv.sh` / `python setup_wizard.py`).
-   - Ask the user for any missing basics:
-     1. Their **TV OS & Wi-Fi IP address** (`Android TV / Google TV`, `Amazon Fire TV`, `LG webOS`, or `Samsung Tizen`).
-     2. Their **city** (for Open-Meteo weather and sunrise/sunset themes).
-     3. Whether they want the optional **Smart Home** tab (`enable_smarthome=true` vs `enable_smarthome=false`) and optional **PC Gaming** tab (`enable_gaming=true` vs `enable_gaming=false`). If a user does not use smart-home devices or PC game streaming on their TV, set the corresponding flag to `false` (or leave `auto` with no keys) so [`FeatureTabs.java`](MyTV-launcher/app/src/io/mytv/FeatureTabs.java) cleanly removes those tabs from both the TV Top-Bar and the Phone Companion Remote.
+1. **Launch Visual MyTV Setup Studio for the User First**:
+   - Unless `MyTV-launcher/.setup_handoff.json` or `MyTV-launcher/config.properties` already exists with the user's choices, immediately launch the visual TV-styled **MyTV Setup Studio** for the user:
+     ```bash
+     python setup_wizard.py --wait-for-save
+     ```
+   - This automatically opens the GUI in the user's browser and blocks cleanly until the user clicks **Save & Continue Setup**.
+   - When the command exits, read **`MyTV-launcher/.setup_handoff.json`** (non-secret JSON summary containing `tv_platform`, `values`, `configured_keys` booleans, and `custom_smarthome` brand names). Do **not** make the user copy or edit any prompt.
+   - Ask in chat only for anything still missing (e.g., if `tv_ip` or `tmdb_key` is still empty).
+   - If the user listed custom Smart-Home brands in `custom_smarthome`, inspect `SmartHomeManager.java` and add modular support for those brands (reading any saved private key from `custom_smarthome_key_<slug>` in `config.properties` / `.env` without ever printing the secret).
+   - If the user disabled optional tabs (`enable_smarthome=false` or `enable_gaming=false`), [`FeatureTabs.java`](MyTV-launcher/app/src/io/mytv/FeatureTabs.java) cleanly removes those tabs from both the TV Top-Bar and the Phone Companion Remote.
    - *(Note: Shared Reels is currently Work in Progress and disabled (`ENABLE_REELS = "false"`) in public builds.)*
 2. **Private Free-Tier API Keys**:
-   - Guide the user to create their own free **TMDB** key (`tmdb_key`, required for catalogs) plus any optional keys they want (see [`README.md`](README.md) or open Setup Studio).
+   - Guide the user to create their own free **TMDB** key (`tmdb_key`, required for catalogs) plus any optional keys they want (Setup Studio includes built-in `?` screenshot guides for every service).
    - **Strict Secret Hygiene**: Never print, echo, or commit secret values from `config.properties`, `.env`, or `keys.txt`. All runtime secrets are encrypted at rest on the TV via `AndroidKeyStore` (`AES/GCM/NoPadding` in [`Secrets.java`](MyTV-launcher/app/src/io/mytv/Secrets.java)) using `python3 MyTV-launcher/tools/send_key.py <TV_IP> --sync-config`.
 
 ---
