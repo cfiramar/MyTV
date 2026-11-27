@@ -752,6 +752,37 @@ public final class Stage2ModularizationAndBridgeTests {
         assertTrue("strem_auth_xyz123".equals(StremioAccountClient.parseLinkReadAuthKey(
                 "{\"result\":{\"authKey\":\"strem_auth_xyz123\"}}")),
                 "StremioAccountClient.parseLinkReadAuthKey extracts approved authKey");
+
+        // Mirrored TV modals + TV Wake-Up bridge security & cooldown invariants
+        assertTrue(TvRemoteBridge.isSafeExternalModalUrl("https://trakt.tv/activate"),
+                "HTTPS Trakt URL allowed in mirrored QR modal");
+        assertTrue(TvRemoteBridge.isSafeExternalModalUrl("https://link.stremio.com/FWG4"),
+                "HTTPS Stremio URL allowed in mirrored QR modal");
+        assertTrue(!TvRemoteBridge.isSafeExternalModalUrl("javascript:alert(1)"),
+                "javascript: scheme rejected in mirrored modal URL");
+        assertTrue(!TvRemoteBridge.isSafeExternalModalUrl("http://insecure.example/x"),
+                "Non-HTTPS scheme rejected in mirrored modal URL");
+
+        assertTrue(TvRemoteBridge.shouldDispatchAdbWake(false, false, false, 0L, 10_000L),
+                "Non-interactive TV triggers loopback ADB KEYCODE_WAKEUP");
+        assertTrue(TvRemoteBridge.shouldDispatchAdbWake(true, true, false, 0L, 10_000L),
+                "Active screensaver triggers loopback ADB KEYCODE_WAKEUP");
+        assertTrue(!TvRemoteBridge.shouldDispatchAdbWake(true, false, true, 0L, 10_000L),
+                "Already-awake non-dreaming TV skips redundant ADB wakeup");
+        assertTrue(!TvRemoteBridge.shouldDispatchAdbWake(false, false, true, 9_500L, 10_000L),
+                "ADB wakeup respects 2-second cooldown");
+
+        // RBAC enforcement on /api/wake and /api/modal
+        assertTrue(RemoteAuthManager.isAuthorized(RemoteAuthManager.Role.GUEST, "/api/wake", "POST", "", false),
+                "GUEST may wake TV via /api/wake");
+        assertTrue(RemoteAuthManager.isAuthorized(RemoteAuthManager.Role.GUEST, "/api/modal", "POST", "dismiss", false),
+                "GUEST may dismiss standard TV modal");
+        assertTrue(!RemoteAuthManager.isAuthorized(RemoteAuthManager.Role.GUEST, "/api/modal", "POST", "pair_admin", false),
+                "GUEST must NEVER approve pairing prompts via /api/modal");
+        assertTrue(!RemoteAuthManager.isAuthorized(RemoteAuthManager.Role.HOUSEHOLD, "/api/modal", "POST", "pair_guest", false),
+                "HOUSEHOLD must NEVER approve pairing prompts via /api/modal");
+        assertTrue(RemoteAuthManager.isAuthorized(RemoteAuthManager.Role.ADMIN, "/api/modal", "POST", "pair_admin", false),
+                "ADMIN may approve pairing prompts via /api/modal");
     }
 
     private static void collectAllNodes(SettingsTree.Node node, List<SettingsTree.Node> out) {

@@ -67,6 +67,8 @@ public final class RemoteControlServer {
         default boolean isDarkMode() { return true; }
         default String getSearchQuery() { return ""; }
         default TvInputFieldSync.InputSnapshot getFocusedInput() { return null; }
+        default TvRemoteBridge.ActiveModal getActiveModal() { return TvRemoteBridge.ActiveModal.INACTIVE; }
+        default void onRemoteModalAction(String actionId) {}
     }
 
     static final String NATIVE_REMOTE_ORIGIN = "http://remote.soartv.local";
@@ -535,13 +537,30 @@ public final class RemoteControlServer {
         }
 
         switch (path) {
+            case "/api/wake": {
+                TvRemoteBridge.wakeTvFromRemote(appContext, true);
+                sendJson(out, "200 OK", "{\"ok\":true,\"woken\":true}", corsOrigin);
+                break;
+            }
+            case "/api/modal": {
+                final String actionId = req.optString("actionId", "").trim();
+                TvRemoteBridge.wakeTvFromRemote(appContext, false);
+                mainHandler.post(() -> {
+                    Host h = host;
+                    if (h != null && !actionId.isEmpty()) h.onRemoteModalAction(actionId);
+                });
+                sendJson(out, "200 OK", "{\"ok\":true}", corsOrigin);
+                break;
+            }
             case "/api/key": {
+                TvRemoteBridge.wakeTvFromRemote(appContext, false);
                 String key = req.optString("key", "").toLowerCase(Locale.ROOT);
                 dispatchKeyAction(key);
                 sendJson(out, "200 OK", "{\"ok\":true}", corsOrigin);
                 break;
             }
             case "/api/scroll": {
+                TvRemoteBridge.wakeTvFromRemote(appContext, false);
                 final int dx = req.optInt("dx", 0);
                 final int dy = req.optInt("dy", 0);
                 mainHandler.post(() -> {
@@ -552,6 +571,7 @@ public final class RemoteControlServer {
                 break;
             }
             case "/api/text": {
+                TvRemoteBridge.wakeTvFromRemote(appContext, false);
                 final String text = req.optString("text", "");
                 final boolean submit = req.optBoolean("submit", false);
                 final boolean replaceInput = req.optBoolean("replaceInput", false);
@@ -579,6 +599,7 @@ public final class RemoteControlServer {
                 break;
             }
             case "/api/voice": {
+                TvRemoteBridge.wakeTvFromRemote(appContext, false);
                 final String transcript = req.optString("transcript", req.optString("text", "")).trim();
                 mainHandler.post(() -> {
                     Host h = host;
@@ -618,6 +639,7 @@ public final class RemoteControlServer {
                 break;
             }
             case "/api/cast": {
+                TvRemoteBridge.wakeTvFromRemote(appContext, false);
                 final String url = req.optString("url", "").trim();
                 if (!isAllowedCastUrl(url)) {
                     sendJson(out, "400 Bad Request", "{\"error\":\"invalid_cast_url\"}", corsOrigin);
@@ -711,6 +733,7 @@ public final class RemoteControlServer {
                 break;
             }
             case "/api/app": {
+                TvRemoteBridge.wakeTvFromRemote(appContext, false);
                 final String pkg = req.optString("pkg", "");
                 mainHandler.post(() -> {
                     Intent launch = HomeApps.launchIntent(appContext.getPackageManager(), pkg);
@@ -771,6 +794,9 @@ public final class RemoteControlServer {
             }
             case "/api/gaming": {
                 final String action = req.optString("action", "status").toLowerCase(Locale.ROOT);
+                if (!"status".equals(action)) {
+                    TvRemoteBridge.wakeTvFromRemote(appContext, false);
+                }
                 final String gameId = req.optString("gameId", "steam_bigpicture").trim();
                 final String pin = req.optString("pin", "").trim();
                 final boolean hidden = req.optBoolean("hidden", true);
@@ -823,6 +849,9 @@ public final class RemoteControlServer {
         if ("/api/smarthome".equals(path)) {
             String act = req.optString("action", "");
             return !act.isEmpty() ? act : req.optString("deviceId", "");
+        }
+        if ("/api/modal".equals(path)) {
+            return req.optString("actionId", "");
         }
         return req.optString("action", "");
     }
@@ -935,6 +964,10 @@ public final class RemoteControlServer {
         focusedJson.put("revision", focused.revision);
         focusedJson.put("updatedAtMs", focused.updatedAtMs);
         out.put("focusedInput", focusedJson);
+
+        TvRemoteBridge.ActiveModal modal = h != null ? h.getActiveModal() : TvRemoteBridge.ActiveModal.INACTIVE;
+        RemoteAuthManager.Role callerRole = caller != null ? caller.role : RemoteAuthManager.Role.GUEST;
+        out.put("activeModal", (modal != null ? modal : TvRemoteBridge.ActiveModal.INACTIVE).toJsonForRole(callerRole));
 
         out.put("traktConnected", Trakt.hasOAuth(appContext));
         out.put("traktUser", Trakt.user(appContext));

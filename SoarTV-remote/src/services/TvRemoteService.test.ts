@@ -11,6 +11,7 @@ import {
   getThemeColorMeta,
   resolveFallbackDockTab,
   resolveLiveMirrorDecision,
+  resolveMirroredModalVisibility,
   resolveSmartHomeIconKind,
   resolveTabVisibility,
   resolveTouchpadTapAction,
@@ -1052,5 +1053,48 @@ describe('TvRemoteService', () => {
     expect(computeKeyboardOffsetPx(844, 510, 12)).toBe(322);
     expect(computeKeyboardOffsetPx(510, 510, 0)).toBe(0);
     expect(computeKeyboardOffsetPx(844, 820, 0)).toBe(0);
+  });
+
+  it('mirrors active TV user-action/QR modals cleanly and posts /api/wake and /api/modal commands', async () => {
+    const qrModal = {
+      active: true,
+      id: 'stremio_qr:FWG4',
+      kind: 'qr_link',
+      title: 'Connect Stremio Account',
+      url: 'https://link.stremio.com/FWG4',
+      code: 'FWG4',
+    };
+    expect(resolveMirroredModalVisibility(qrModal, '', false)).toEqual({
+      visible: true,
+      modalId: 'stremio_qr:FWG4',
+    });
+    // Locally dismissing stops re-popping for the same modal ID
+    expect(resolveMirroredModalVisibility(qrModal, 'stremio_qr:FWG4', false).visible).toBe(false);
+    // A new modal ID pops up cleanly
+    expect(
+      resolveMirroredModalVisibility({ ...qrModal, id: 'trakt_qr:ABCD' }, 'stremio_qr:FWG4', false).visible
+    ).toBe(true);
+    // Suppressed while pairing sheet is active or TV modal closed
+    expect(resolveMirroredModalVisibility(qrModal, '', true).visible).toBe(false);
+    expect(resolveMirroredModalVisibility({ active: false }, '', false).visible).toBe(false);
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true }),
+    });
+    const service = new TvRemoteService('http://192.168.1.50:8484', mockFetch);
+    expect(await service.wakeTv()).toBe(true);
+    expect(mockFetch).toHaveBeenCalledWith('http://192.168.1.50:8484/api/wake', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(await service.executeModalAction('lg_choice:0')).toBe(true);
+    expect(mockFetch).toHaveBeenCalledWith('http://192.168.1.50:8484/api/modal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actionId: 'lg_choice:0' }),
+    });
   });
 });

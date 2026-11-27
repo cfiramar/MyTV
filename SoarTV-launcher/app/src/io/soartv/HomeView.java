@@ -2271,6 +2271,285 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     }
 
     @Override
+    public TvRemoteBridge.ActiveModal getActiveModal() {
+        // 1. Trakt OAuth QR dialog -> one-tap open browser & auto-copy activation code on phone
+        if (traktAuthDialog != null && traktAuthDialog.isShowing()) {
+            String code = Trakt.code();
+            if (code != null && !code.trim().isEmpty()) {
+                String rawUrl = Trakt.url();
+                String activateUrl = (rawUrl != null && !rawUrl.trim().isEmpty())
+                        ? (rawUrl.startsWith("http") ? rawUrl.trim() : ("https://" + rawUrl.trim()))
+                        : "https://trakt.tv/activate";
+                return new TvRemoteBridge.ActiveModal(
+                        true,
+                        "trakt_qr:" + code.trim(),
+                        TvRemoteBridge.KIND_QR_LINK,
+                        "Connect Trakt Account",
+                        "Open Trakt on your phone and enter the code below — no camera needed.",
+                        activateUrl,
+                        code.trim(),
+                        "Open Trakt & Copy Code",
+                        java.util.Collections.singletonList(
+                                new TvRemoteBridge.ModalAction("dismiss", "Cancel on TV", "secondary")),
+                        false
+                );
+            }
+        }
+        // 2. Stremio QR Link dialog -> one-tap open link.stremio.com/XXXX directly on phone
+        if (stremioAuthDialog != null && stremioAuthDialog.isShowing()) {
+            String code = StremioAccountClient.qrCode();
+            if (code != null && !code.trim().isEmpty()) {
+                String link = StremioAccountClient.qrLink();
+                String targetUrl = (link != null && !link.trim().isEmpty())
+                        ? link.trim()
+                        : ("https://link.stremio.com/" + code.trim());
+                return new TvRemoteBridge.ActiveModal(
+                        true,
+                        "stremio_qr:" + code.trim(),
+                        TvRemoteBridge.KIND_QR_LINK,
+                        "Connect Stremio Account",
+                        "Approve in your phone browser to sync your Stremio Library — no camera needed.",
+                        targetUrl,
+                        code.trim(),
+                        "Approve on Stremio",
+                        java.util.Arrays.asList(
+                                new TvRemoteBridge.ModalAction("stremio_manual", "Use Email & Password", "secondary"),
+                                new TvRemoteBridge.ModalAction("dismiss", "Cancel on TV", "secondary")),
+                        false
+                );
+            }
+        }
+        // 3. New Remote Pairing approval prompt on TV (ADMIN-only remote approval)
+        if (activePendingPairing != null) {
+            String codeFmt = HomeInputRouter.formatSixDigitCode(activePendingPairing.sixDigitCode);
+            return new TvRemoteBridge.ActiveModal(
+                    true,
+                    "pair_prompt:" + activePendingPairing.requestId,
+                    TvRemoteBridge.KIND_ACTIONS,
+                    "New Remote Detected",
+                    activePendingPairing.deviceName + " wants to connect to this TV.",
+                    "",
+                    codeFmt,
+                    "",
+                    java.util.Arrays.asList(
+                            new TvRemoteBridge.ModalAction("pair_guest", "Allow Guest (30d)", "primary"),
+                            new TvRemoteBridge.ModalAction("pair_household", "Allow Household", "secondary"),
+                            new TvRemoteBridge.ModalAction("pair_admin", "Make Admin", "blue"),
+                            new TvRemoteBridge.ModalAction("dismiss", "Dismiss", "danger")),
+                    true
+            );
+        }
+        // 4. Liquid Glass Choice / Confirmation modal on TV (e.g. Restart, Confirmations, Controller Actions)
+        if (lgModalOpen && !lgModalIsInput && lgChoiceLabels != null && lgChoiceLabels.length > 0) {
+            List<TvRemoteBridge.ModalAction> actions = new ArrayList<>();
+            for (int i = 0; i < lgChoiceLabels.length; i++) {
+                String lbl = lgChoiceLabels[i];
+                if (lbl == null || lbl.trim().isEmpty()) continue;
+                actions.add(new TvRemoteBridge.ModalAction("lg_choice:" + i, lbl.trim(), i == 0 ? "primary" : "secondary"));
+            }
+            actions.add(new TvRemoteBridge.ModalAction("dismiss", "Cancel", "secondary"));
+            return new TvRemoteBridge.ActiveModal(
+                    true,
+                    "lg_choice:" + lgModalTitle + ":" + lgChoiceLabels.length,
+                    TvRemoteBridge.KIND_ACTIONS,
+                    lgModalTitle != null && !lgModalTitle.isEmpty() ? lgModalTitle : "TV Prompt",
+                    lgModalSubtitle != null ? lgModalSubtitle : "",
+                    "",
+                    "",
+                    "",
+                    actions,
+                    false
+            );
+        }
+        // 5. Sleep Timer interactive modal
+        if (sleepModalOpen && sleepModalState != null) {
+            int mins = sleepModalState.getMinutes();
+            boolean on = sleepModalState.isEnabled();
+            String sub = on
+                    ? ("Sleeps in " + SleepTimer.formatDurationLabel(mins))
+                    : "Sleep timer currently off";
+            return new TvRemoteBridge.ActiveModal(
+                    true,
+                    "sleep_timer:" + mins + ":" + on,
+                    TvRemoteBridge.KIND_ACTIONS,
+                    "Sleep Timer",
+                    sub,
+                    "",
+                    "",
+                    "",
+                    java.util.Arrays.asList(
+                            new TvRemoteBridge.ModalAction("sleep_save", "Save Timer", "primary"),
+                            new TvRemoteBridge.ModalAction("sleep_add5", "+5 Minutes", "secondary"),
+                            new TvRemoteBridge.ModalAction("sleep_toggle", on ? "Turn Off" : "Turn On", "secondary"),
+                            new TvRemoteBridge.ModalAction("dismiss", "Cancel", "secondary")),
+                    false
+            );
+        }
+        // 6. Hold-OK Context Menu on TV
+        if (menuOpen && !smartCardOpen && menuOptionCount > 0) {
+            List<TvRemoteBridge.ModalAction> actions = new ArrayList<>();
+            for (int i = 0; i < menuOptionCount && i < menuOptions.length; i++) {
+                String lbl = menuOptions[i];
+                if (lbl == null || lbl.trim().isEmpty()) continue;
+                actions.add(new TvRemoteBridge.ModalAction("menu_pick:" + i, lbl.trim(), i == 0 ? "primary" : "secondary"));
+            }
+            actions.add(new TvRemoteBridge.ModalAction("dismiss", "Cancel", "secondary"));
+            String ttl = (menuTitle != null && !menuTitle.trim().isEmpty()) ? menuTitle.trim() : "Quick Actions";
+            return new TvRemoteBridge.ActiveModal(
+                    true,
+                    "context_menu:" + ttl + ":" + menuOptionCount,
+                    TvRemoteBridge.KIND_ACTIONS,
+                    ttl,
+                    menuSub != null ? menuSub : "",
+                    "",
+                    "",
+                    "",
+                    actions,
+                    false
+            );
+        }
+        // 7. Game Launch progress modal
+        if (gameLaunchModalOpen) {
+            return new TvRemoteBridge.ActiveModal(
+                    true,
+                    "game_launch:" + gameLaunchTitle,
+                    TvRemoteBridge.KIND_ACTIONS,
+                    gameLaunchTitle != null && !gameLaunchTitle.isEmpty() ? ("Launching " + gameLaunchTitle) : "Launching Game",
+                    gameLaunchSubtitle != null ? gameLaunchSubtitle : "Preparing PC game stream...",
+                    "",
+                    "",
+                    "",
+                    java.util.Collections.singletonList(
+                            new TvRemoteBridge.ModalAction("dismiss", "Cancel Launch", "danger")),
+                    false
+            );
+        }
+        // 8. Sync Waiting modal
+        if (syncModalOpen) {
+            return new TvRemoteBridge.ActiveModal(
+                    true,
+                    "sync_modal:" + syncModalTitle,
+                    TvRemoteBridge.KIND_ACTIONS,
+                    syncModalTitle != null && !syncModalTitle.isEmpty() ? syncModalTitle : "Syncing",
+                    syncModalStep != null ? syncModalStep : "",
+                    "",
+                    "",
+                    "",
+                    java.util.Collections.singletonList(
+                            new TvRemoteBridge.ModalAction("dismiss", "Continue in Background", "secondary")),
+                    false
+            );
+        }
+        return TvRemoteBridge.ActiveModal.INACTIVE;
+    }
+
+    @Override
+    public void onRemoteModalAction(String actionId) {
+        if (actionId == null || actionId.trim().isEmpty()) return;
+        Recs.notifyUserInteraction();
+        wake();
+        String id = actionId.trim();
+        if ("dismiss".equals(id)) {
+            if (traktAuthDialog != null && traktAuthDialog.isShowing()) {
+                try { traktAuthDialog.dismiss(); } catch (RuntimeException ignored) {}
+                traktAuthDialog = null;
+                return;
+            }
+            if (stremioAuthDialog != null && stremioAuthDialog.isShowing()) {
+                StremioAccountClient.cancelQrSignIn();
+                try { stremioAuthDialog.dismiss(); } catch (RuntimeException ignored) {}
+                stremioAuthDialog = null;
+                return;
+            }
+            if (activePendingPairing != null) {
+                executePairingModalAction(3);
+                return;
+            }
+            if (lgModalOpen) {
+                closeLiquidGlassModal(true);
+                return;
+            }
+            if (sleepModalOpen) {
+                closeSleepTimerModal();
+                return;
+            }
+            if (menuOpen) {
+                closeMenu(false);
+                click.move();
+                return;
+            }
+            if (gameLaunchModalOpen) {
+                cancelGameLaunchModalByUser();
+                return;
+            }
+            if (syncModalOpen) {
+                syncModalOpen = false;
+                toastLayer.invalidate();
+                click.move();
+                return;
+            }
+            return;
+        }
+        if ("stremio_manual".equals(id)) {
+            StremioAccountClient.cancelQrSignIn();
+            if (stremioAuthDialog != null) {
+                try { stremioAuthDialog.dismiss(); } catch (RuntimeException ignored) {}
+                stremioAuthDialog = null;
+            }
+            openStremioEmailPasswordDialog();
+            return;
+        }
+        if ("pair_guest".equals(id) && activePendingPairing != null) {
+            executePairingModalAction(0);
+            return;
+        }
+        if ("pair_household".equals(id) && activePendingPairing != null) {
+            executePairingModalAction(1);
+            return;
+        }
+        if ("pair_admin".equals(id) && activePendingPairing != null) {
+            executePairingModalAction(2);
+            return;
+        }
+        if (id.startsWith("lg_choice:") && lgModalOpen && !lgModalIsInput && lgChoiceLabels != null) {
+            try {
+                int idx = Integer.parseInt(id.substring("lg_choice:".length()));
+                if (idx >= 0 && idx < lgChoiceLabels.length) {
+                    lgChoiceFocus = idx;
+                    ChoiceSelectedListener cb = lgChoiceCallback;
+                    closeLiquidGlassModal(false);
+                    click.open();
+                    if (cb != null) cb.onChoiceSelected(idx);
+                }
+            } catch (NumberFormatException ignored) {}
+            return;
+        }
+        if (id.startsWith("menu_pick:") && menuOpen && !smartCardOpen) {
+            try {
+                int idx = Integer.parseInt(id.substring("menu_pick:".length()));
+                if (idx >= 0 && idx < menuOptionCount) {
+                    menuIndex = idx;
+                    pickMenu();
+                }
+            } catch (NumberFormatException ignored) {}
+            return;
+        }
+        if (sleepModalOpen && sleepModalState != null) {
+            if ("sleep_save".equals(id)) {
+                saveSleepTimerModal();
+            } else if ("sleep_add5".equals(id)) {
+                sleepModalState.addFiveMinutes();
+                click.move();
+                toastLayer.invalidate();
+            } else if ("sleep_toggle".equals(id)) {
+                sleepModalState.toggleEnabled();
+                click.move();
+                toastLayer.invalidate();
+            }
+        }
+    }
+
+    @Override
     public void onRemoteText(String text, boolean submitSearch) {
         onRemoteText(text, submitSearch, false);
     }

@@ -1374,6 +1374,14 @@ public final class RemoteAppActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void openExternalUrl(final String url) {
+            if (!trustedOriginActive || url == null) return;
+            final String trimmed = url.trim();
+            if (!trimmed.startsWith("https://") && !trimmed.startsWith("http://")) return;
+            runOnUiThread(() -> openExternalBrowser(Uri.parse(trimmed)));
+        }
+
+        @JavascriptInterface
         public boolean isBiometricAvailable() {
             if (!trustedOriginActive || Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
                 return false;

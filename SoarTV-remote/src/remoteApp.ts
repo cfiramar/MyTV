@@ -11,6 +11,7 @@ import {
   SmartHomeDevice,
   SmartHomeIconKind,
   SmartHomeRoutineId,
+  TvActiveModal,
   TvFocusedInput,
   TvRemoteService,
   TvStatus,
@@ -21,6 +22,7 @@ import {
   getThemeColorMeta,
   resolveFallbackDockTab,
   resolveLiveMirrorDecision,
+  resolveMirroredModalVisibility,
   resolveSmartHomeIconKind,
   resolveTabVisibility,
   resolveTouchpadTapAction,
@@ -33,6 +35,7 @@ interface SoarTvNativeBridgeInterface {
   setSystemBarTheme?(dark: boolean): void;
   openNativeQrScanner?(): void;
   closeNativeQrScanner?(): void;
+  openExternalUrl?(url: string): void;
   isBiometricAvailable(): boolean;
   hasSavedPcUnlockPin(): boolean;
   enrollPcUnlockPin(pin: string): void;
@@ -152,6 +155,10 @@ let lastLocalEditAtMs = 0;
 let liveMirrorTimer: ReturnType<typeof setTimeout> | null = null;
 let liveMirrorInFlight = false;
 let liveMirrorQueuedText: string | null = null;
+let activeTvModal: TvActiveModal | null = null;
+let dismissedTvModalId = '';
+let lastRenderedTvModalSig = '';
+let lastAutoWakeAtMs = 0;
 
 // Diff signatures to avoid wiping DOM innerHTML on unchanged 6-second polls (PERF-15)
 let lastShelfSig = '';
@@ -648,6 +655,7 @@ async function completePairingSuccess(token: string, role: RemoteRole): Promise<
         : 'Paired as Guest (30 Days)'
   );
   await refreshStatus();
+  void wakeTvOnRemoteActivity();
   void loadGamingZone(false);
   if (role === 'ADMIN') {
     void refreshPairedDevices();
@@ -821,6 +829,7 @@ async function bootstrapConnectionAndAuth(): Promise<void> {
       isGuestExpiredState = false;
       applyRoleVisibility(cfg.role);
       setPairingOverlayVisible(false);
+      void wakeTvOnRemoteActivity();
       await refreshStatus();
       void loadGamingZone(false);
       if (cfg.role === 'ADMIN') {
@@ -956,15 +965,147 @@ function handleSheetBackdropClick(ev: MouseEvent, sheetName: string): void {
 
 function updateFastInputPollingState(): void {
   const sheetOpen = Boolean(document.getElementById('sheet-search')?.classList.contains('visible'));
-  const needsFastPoll = Boolean(isPaired && (sheetOpen || activeFocusedInput?.active));
+  const modalOpen = Boolean(activeTvModal?.active);
+  const needsFastPoll = Boolean(isPaired && (sheetOpen || activeFocusedInput?.active || modalOpen));
   if (needsFastPoll && !fastInputPollTimer) {
     fastInputPollTimer = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       void refreshStatus();
-    }, 2200);
+    }, 2000);
   } else if (!needsFastPoll && fastInputPollTimer) {
     clearInterval(fastInputPollTimer);
     fastInputPollTimer = null;
+  }
+}
+
+function wakeTvOnRemoteActivity(): void {
+  if (!isPaired || !remoteService.getBaseUrl()) return;
+  const now = Date.now();
+  if (now - lastAutoWakeAtMs < 4000) return;
+  lastAutoWakeAtMs = now;
+  void remoteService.wakeTv();
+}
+
+function renderActiveTvModal(incoming?: TvActiveModal | null): void {
+  const overlay = document.getElementById('sheet-tv-modal');
+  const pairingOpen = Boolean(document.getElementById('pairingOverlay')?.classList.contains('visible'));
+  const decision = resolveMirroredModalVisibility(incoming, dismissedTvModalId, pairingOpen);
+
+  if (!incoming || !incoming.active) {
+    activeTvModal = null;
+    dismissedTvModalId = '';
+    lastRenderedTvModalSig = '';
+    overlay?.classList.remove('visible');
+    updateFastInputPollingState();
+    return;
+  }
+
+  activeTvModal = incoming;
+  if (!decision.visible) {
+    overlay?.classList.remove('visible');
+    updateFastInputPollingState();
+    return;
+  }
+
+  const sig = JSON.stringify(incoming);
+  if (sig !== lastRenderedTvModalSig) {
+    lastRenderedTvModalSig = sig;
+    const titleEl = document.getElementById('tvModalTitle');
+    const subEl = document.getElementById('tvModalSub');
+    const codeRow = document.getElementById('tvModalCodeRow');
+    const codeText = document.getElementById('tvModalCodeText');
+    const urlBtn = document.getElementById('tvModalOpenUrlBtn');
+    const urlLbl = document.getElementById('tvModalOpenUrlLabel');
+    const actionsEl = document.getElementById('tvModalActionsList');
+
+    if (titleEl) titleEl.textContent = incoming.title || 'Action on TV';
+    if (subEl) {
+      subEl.textContent = incoming.subtitle || '';
+      subEl.style.display = incoming.subtitle ? 'block' : 'none';
+    }
+    if (codeRow && codeText) {
+      const hasCode = Boolean(incoming.code && incoming.code.trim());
+      codeRow.style.display = hasCode ? 'flex' : 'none';
+      if (hasCode) codeText.textContent = incoming.code!.trim();
+    }
+    if (urlBtn && urlLbl) {
+      const hasUrl = Boolean(incoming.url && incoming.url.startsWith('https://'));
+      urlBtn.style.display = hasUrl ? 'inline-flex' : 'none';
+      if (hasUrl) {
+        urlLbl.textContent = incoming.primaryUrlLabel || 'Open in Browser';
+      }
+    }
+    if (actionsEl) {
+      const actions = Array.isArray(incoming.actions) ? incoming.actions : [];
+      actionsEl.innerHTML = actions
+        .map((act) => {
+          const styleCls =
+            act.style === 'primary'
+              ? 'btn pill-focus'
+              : act.style === 'blue'
+                ? 'btn btn-blue'
+                : act.style === 'danger'
+                  ? 'btn btn-danger'
+                  : 'btn';
+          return `<button class="${styleCls}" style="border-radius:999px; padding:11.5px 16px;" onclick="triggerTvModalAction('${escapeAttr(act.id)}')">${escapeHtml(act.label)}</button>`;
+        })
+        .join('');
+    }
+  }
+  overlay?.classList.add('visible');
+  updateFastInputPollingState();
+}
+
+function dismissMirroredTvModalLocally(): void {
+  if (activeTvModal) {
+    dismissedTvModalId = (activeTvModal.id || activeTvModal.title || '').trim();
+  }
+  document.getElementById('sheet-tv-modal')?.classList.remove('visible');
+}
+
+function handleTvModalBackdropClick(ev: MouseEvent): void {
+  if (ev.target === ev.currentTarget) {
+    dismissMirroredTvModalLocally();
+  }
+}
+
+async function copyTvModalCode(): Promise<void> {
+  const code = activeTvModal?.code?.trim() || '';
+  if (!code) return;
+  const ok = await writeToPhoneClipboard(code);
+  showToast(ok ? `Copied code: ${code}` : code);
+}
+
+async function openTvModalExternalLink(): Promise<void> {
+  const url = activeTvModal?.url?.trim() || '';
+  if (!url || !url.startsWith('https://')) return;
+  const code = activeTvModal?.code?.trim() || '';
+  if (code) {
+    await writeToPhoneClipboard(code);
+    showToast(`Copied ${code} · Opening browser...`);
+  } else {
+    showToast('Opening link in browser...');
+  }
+  if (nativeBridge && typeof nativeBridge.openExternalUrl === 'function') {
+    nativeBridge.openExternalUrl(url);
+    return;
+  }
+  try {
+    window.open(url, '_blank', 'noopener');
+  } catch {
+    window.location.href = url;
+  }
+}
+
+async function triggerTvModalAction(actionId: string): Promise<void> {
+  if (!actionId) return;
+  const ok = await remoteService.executeModalAction(actionId);
+  if (ok) {
+    if (actionId === 'dismiss' || actionId.startsWith('pair_') || actionId.startsWith('lg_choice:') || actionId.startsWith('menu_pick:') || actionId === 'sleep_save' || actionId === 'stremio_manual') {
+      document.getElementById('sheet-tv-modal')?.classList.remove('visible');
+    }
+    setTimeout(() => void refreshStatus(), 260);
+    setTimeout(() => void refreshStatus(), 950);
   }
 }
 
@@ -1232,8 +1373,11 @@ async function sendKey(key: RemoteKeyName): Promise<void> {
   }
   const ok = await remoteService.sendKey(key);
   if (!ok && !isPaired) return;
-  if (key === 'users' || key === 'sideshelf' || key === 'theme') {
-    setTimeout(() => void refreshStatus(), 240);
+  if (key === 'users' || key === 'sideshelf' || key === 'theme' || key === 'ok' || key === 'hold_ok' || key === 'trakt' || key === 'back') {
+    setTimeout(() => void refreshStatus(), 280);
+    if (key === 'ok' || key === 'hold_ok' || key === 'trakt') {
+      setTimeout(() => void refreshStatus(), 1100);
+    }
   }
 }
 
@@ -2139,6 +2283,7 @@ function renderStatus(st: TvStatus | null): void {
     topLbl.textContent = `· ${scrName}`;
   }
   renderFocusedInputState(st.focusedInput);
+  renderActiveTvModal(st.activeModal);
   const subEl = document.getElementById('tvSubText');
   if (subEl) {
     subEl.textContent =
@@ -2433,6 +2578,11 @@ function registerNativeCallbacksAndGlobals(): void {
     submitText,
     clearTvInputField,
     copyTvInputToPhone,
+    dismissMirroredTvModalLocally,
+    handleTvModalBackdropClick,
+    copyTvModalCode,
+    openTvModalExternalLink,
+    triggerTvModalAction,
     askGeminiAi,
     pasteFromPhoneClipboard,
     pasteToCastUrl,
@@ -2690,6 +2840,7 @@ function initVisibilityAwarePolling(): void {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       if (isPaired) {
+        wakeTvOnRemoteActivity();
         void refreshStatus();
       } else if (activePairRequestId && !pairPollTimer) {
         startPairingPollLoop();

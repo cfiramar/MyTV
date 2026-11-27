@@ -373,11 +373,49 @@ export function formatFocusedInputCue(input?: TvFocusedInput | null): FocusedInp
   };
 }
 
+export interface TvModalAction {
+  id: string;
+  label: string;
+  style?: 'primary' | 'blue' | 'secondary' | 'danger' | string;
+}
+
+export interface TvActiveModal {
+  active: boolean;
+  id?: string;
+  kind?: 'qr_link' | 'actions' | string;
+  title?: string;
+  subtitle?: string;
+  url?: string;
+  code?: string;
+  primaryUrlLabel?: string;
+  actions?: TvModalAction[];
+}
+
+/**
+ * Decides whether a TV user-action modal should be mirrored as a slide-up sheet on the phone remote,
+ * preventing re-popups after the user locally dismissed the same modal instance or while pairing is open.
+ */
+export function resolveMirroredModalVisibility(
+  modal: TvActiveModal | null | undefined,
+  dismissedModalId: string,
+  pairingOverlayVisible: boolean
+): { visible: boolean; modalId: string } {
+  if (!modal || !modal.active || pairingOverlayVisible) {
+    return { visible: false, modalId: '' };
+  }
+  const modalId = (modal.id || modal.title || '').trim();
+  if (!modalId || modalId === dismissedModalId) {
+    return { visible: false, modalId };
+  }
+  return { visible: true, modalId };
+}
+
 export interface TvStatus {
   tvModel: string;
   tvBrand: string;
   remoteUrl: string;
   geminiConfigured?: boolean;
+  activeModal?: TvActiveModal;
   authRole?: RemoteRole;
   guestExpiresAtMs?: number;
   deviceId?: string;
@@ -1264,6 +1302,22 @@ export class TvRemoteService {
    */
   public async sendKey(key: RemoteKeyName): Promise<boolean> {
     return this.postOk('/api/key', { key });
+  }
+
+  /**
+   * Explicitly wakes the TV display and exits any active screensaver (`POST /api/wake`).
+   */
+  public async wakeTv(): Promise<boolean> {
+    return this.postOk('/api/wake', {});
+  }
+
+  /**
+   * Executes a one-tap action on the currently mirrored TV modal (`POST /api/modal`).
+   */
+  public async executeModalAction(actionId: string): Promise<boolean> {
+    const clean = (actionId || '').trim();
+    if (!clean) return false;
+    return this.postOk('/api/modal', { actionId: clean });
   }
 
   /**

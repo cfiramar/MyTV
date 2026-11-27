@@ -434,7 +434,12 @@ public final class RemoteAuthManager {
             return !"settings".equals(cleanAction) && !"users".equals(cleanAction) && !"trakt".equals(cleanAction);
         }
 
+        if ("/api/modal".equals(path)) {
+            return !cleanAction.startsWith("pair_"); // Only ADMIN (handled above) may approve pairing prompts remotely
+        }
+
         return "/api/status".equals(path)
+                || "/api/wake".equals(path)
                 || "/api/key".equals(path)
                 || "/api/scroll".equals(path)
                 || "/api/text".equals(path)

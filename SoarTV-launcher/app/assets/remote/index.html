@@ -1634,6 +1634,35 @@
       align-items: flex-end;
     }
 
+    #sheet-tv-modal {
+      z-index: 80;
+    }
+
+    .tv-modal-code-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 18px;
+      background: var(--row-bg);
+      border: 1px solid var(--lg-border);
+    }
+
+    .tv-modal-code {
+      font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      color: var(--ink);
+    }
+
+    .tv-modal-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
     /* Toast */
     .toast {
       position: fixed;
@@ -1968,6 +1997,40 @@
       </div>
 
       <a id="tab5ApkDownloadBtn" href="/SoarTV-Remote.apk" download="SoarTV-Remote.apk" style="display:none;"></a>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       SHEET 6: MIRRORED TV USER-ACTION / QR LINK MODAL (Auto-Appears on TV Prompts)
+       ======================================================================== -->
+  <div id="sheet-tv-modal" class="sheet-overlay" role="dialog" aria-modal="true" aria-labelledby="tvModalTitle" onclick="handleTvModalBackdropClick(event)">
+    <div class="sheet-card">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head">
+        <div style="min-width:0;">
+          <div id="tvModalTitle" class="sheet-title">Action on TV</div>
+          <div id="tvModalSub" class="sheet-sub"></div>
+        </div>
+        <button class="orb-sm lg-sm" style="width:32px;height:32px;flex-shrink:0;" onclick="dismissMirroredTvModalLocally()" aria-label="Close">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <!-- Optional Code + 1-Tap Browser Open (Replaces Scanning QR Code on TV) -->
+      <div id="tvModalCodeRow" class="tv-modal-code-row" style="display:none;">
+        <div>
+          <div style="font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; color:var(--ink-50);">TV Code</div>
+          <div id="tvModalCodeText" class="tv-modal-code"></div>
+        </div>
+        <button class="btn btn-chip" onclick="copyTvModalCode()">Copy Code</button>
+      </div>
+
+      <button id="tvModalOpenUrlBtn" class="btn pill-focus" style="display:none; padding:13px 16px; border-radius:999px;" onclick="openTvModalExternalLink()">
+        <svg class="icon icon-md" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        <span id="tvModalOpenUrlLabel">Open in Browser</span>
+      </button>
+
+      <div id="tvModalActionsList" class="tv-modal-actions"></div>
     </div>
   </div>
 
