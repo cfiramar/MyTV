@@ -11,14 +11,18 @@ import {
   SmartHomeDevice,
   SmartHomeIconKind,
   SmartHomeRoutineId,
+  TvFocusedInput,
   TvRemoteService,
   TvStatus,
+  buildTvInputSyncSignature,
+  formatFocusedInputCue,
   formatGameSubtitle,
   getThemeColorMeta,
   resolveFallbackDockTab,
   resolveSmartHomeIconKind,
   resolveTabVisibility,
   resolveTouchpadTapAction,
+  resolveTvInputSyncDecision,
 } from './services/TvRemoteService';
 
 interface MyTvNativeBridgeInterface {
@@ -133,6 +137,10 @@ let pairPollTimer: ReturnType<typeof setInterval> | null = null;
 let showHiddenGames = false;
 let localThemeOverride: boolean | null = null;
 let selectedSmartDeviceId = '';
+let activeFocusedInput: TvFocusedInput | null = null;
+let lastSyncedTvInputSig = '';
+let isSearchInputDirty = false;
+let fastInputPollTimer: ReturnType<typeof setInterval> | null = null;
 
 // Diff signatures to avoid wiping DOM innerHTML on unchanged 6-second polls (PERF-15)
 let lastShelfSig = '';
@@ -877,12 +885,18 @@ function openSheet(sheetName: string): void {
 function closeSheet(sheetName: string): void {
   const el = document.getElementById(`sheet-${sheetName}`);
   if (el) el.classList.remove('visible');
+  if (sheetName === 'search') {
+    isSearchInputDirty = false;
+    updateFastInputPollingState();
+  }
 }
 
 function closeAllSheets(): void {
   document.querySelectorAll('.sheet-overlay').forEach((el) => {
     if (el.id !== 'pairingOverlay') el.classList.remove('visible');
   });
+  isSearchInputDirty = false;
+  updateFastInputPollingState();
 }
 
 function handleSheetBackdropClick(ev: MouseEvent, sheetName: string): void {
@@ -891,11 +905,125 @@ function handleSheetBackdropClick(ev: MouseEvent, sheetName: string): void {
   }
 }
 
+function updateFastInputPollingState(): void {
+  const sheetOpen = Boolean(document.getElementById('sheet-search')?.classList.contains('visible'));
+  const needsFastPoll = Boolean(isPaired && (sheetOpen || activeFocusedInput?.active));
+  if (needsFastPoll && !fastInputPollTimer) {
+    fastInputPollTimer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      void refreshStatus();
+    }, 2200);
+  } else if (!needsFastPoll && fastInputPollTimer) {
+    clearInterval(fastInputPollTimer);
+    fastInputPollTimer = null;
+  }
+}
+
+function updateCopyTvInputButtonVisibility(): void {
+  const copyBtn = document.getElementById('copyTvInputBtn');
+  if (!copyBtn) return;
+  const input = document.getElementById('remoteTextInput') as HTMLInputElement | null;
+  const isPwd = Boolean(activeFocusedInput?.active && activeFocusedInput.isPassword);
+  const hasText = Boolean(!isPwd && ((input && input.value.length > 0) || activeFocusedInput?.text));
+  copyBtn.style.display = hasText ? 'inline-flex' : 'none';
+}
+
+function renderFocusedInputState(incoming?: TvFocusedInput | null): void {
+  const active = Boolean(incoming && incoming.active);
+  activeFocusedInput = active && incoming ? incoming : null;
+
+  const cue = formatFocusedInputCue(activeFocusedInput);
+  const banner = document.getElementById('liveInputBanner');
+  const appEl = document.getElementById('liveInputAppLabel');
+  const previewEl = document.getElementById('liveInputPreview');
+  const bannerCopyBtn = document.getElementById('liveInputCopyBtn');
+  const searchOrb = document.getElementById('openSearchSheetBtn');
+
+  if (searchOrb) {
+    searchOrb.classList.toggle('has-live-input', cue.visible);
+  }
+  if (banner) {
+    banner.classList.toggle('visible', cue.visible);
+  }
+  if (appEl && cue.visible) {
+    appEl.textContent = `${cue.appLabel} · TV Input`;
+  }
+  if (previewEl && cue.visible) {
+    previewEl.textContent = cue.previewText;
+  }
+  if (bannerCopyBtn) {
+    bannerCopyBtn.style.display = cue.canCopy ? 'inline-flex' : 'none';
+  }
+
+  const titleEl = document.getElementById('searchSheetTitle');
+  const subEl = document.getElementById('searchSheetSub');
+  const primaryLabel = document.getElementById('searchPrimaryLabel');
+  const secondaryLabel = document.getElementById('searchSecondaryLabel');
+  const input = document.getElementById('remoteTextInput') as HTMLInputElement | null;
+
+  if (active && activeFocusedInput) {
+    const appName = (activeFocusedInput.appLabel || '').trim() || 'TV';
+    if (titleEl) titleEl.textContent = `Editing in ${appName}`;
+    if (subEl) {
+      subEl.style.display = 'block';
+      subEl.textContent = activeFocusedInput.isPassword
+        ? 'Password field on TV (hidden for privacy)'
+        : 'Live TV text synced · Edit or copy';
+    }
+    if (primaryLabel) primaryLabel.textContent = 'Done';
+    if (secondaryLabel) secondaryLabel.textContent = 'Update TV';
+    if (input) {
+      input.type = activeFocusedInput.isPassword ? 'password' : 'text';
+      input.placeholder = activeFocusedInput.isPassword
+        ? 'Type password for TV...'
+        : activeFocusedInput.hint || `Type in ${appName}...`;
+      const decision = resolveTvInputSyncDecision(
+        lastSyncedTvInputSig,
+        activeFocusedInput,
+        isSearchInputDirty
+      );
+      if (decision.shouldSync) {
+        input.value = decision.nextValue;
+        lastSyncedTvInputSig = decision.nextSig;
+      }
+    }
+  } else {
+    lastSyncedTvInputSig = '';
+    if (titleEl) titleEl.textContent = 'Keyboard & AI Search';
+    if (subEl) subEl.style.display = 'none';
+    if (primaryLabel) primaryLabel.textContent = 'Search';
+    if (secondaryLabel) secondaryLabel.textContent = 'Paste TV';
+    if (input) {
+      input.type = 'text';
+      input.placeholder = 'Type, search, or paste to TV...';
+    }
+  }
+
+  updateCopyTvInputButtonVisibility();
+  updateFastInputPollingState();
+}
+
 function openSearchSheet(): void {
+  const input = document.getElementById('remoteTextInput') as HTMLInputElement | null;
+  if (activeFocusedInput?.active && input && !isSearchInputDirty) {
+    input.value = activeFocusedInput.isPassword ? '' : activeFocusedInput.text || '';
+    lastSyncedTvInputSig = buildTvInputSyncSignature(activeFocusedInput);
+  }
+  updateCopyTvInputButtonVisibility();
   openSheet('search');
+  updateFastInputPollingState();
+  void refreshStatus();
   setTimeout(() => {
-    const input = document.getElementById('remoteTextInput') as HTMLInputElement | null;
-    if (input) input.focus();
+    const el = document.getElementById('remoteTextInput') as HTMLInputElement | null;
+    if (el) {
+      el.focus();
+      try {
+        const len = el.value.length;
+        el.setSelectionRange(len, len);
+      } catch {
+        // Ignore non-selectable input types
+      }
+    }
   }, 120);
 }
 
@@ -957,18 +1085,90 @@ async function sendKey(key: RemoteKeyName): Promise<void> {
   }
 }
 
+async function writeToPhoneClipboard(text: string): Promise<boolean> {
+  if (!text) return false;
+  if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall back to execCommand for non-HTTPS LAN http://<tv-ip>:8484 origins
+    }
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', 'true');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    ta.style.pointerEvents = 'none';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+async function copyTvInputToPhone(ev?: Event): Promise<void> {
+  if (ev) ev.stopPropagation();
+  if (activeFocusedInput?.active && activeFocusedInput.isPassword) {
+    showToast('Password fields cannot be copied');
+    return;
+  }
+  const input = document.getElementById('remoteTextInput') as HTMLInputElement | null;
+  const sheetOpen = Boolean(document.getElementById('sheet-search')?.classList.contains('visible'));
+  const textToCopy =
+    (sheetOpen && input && input.value) ||
+    (activeFocusedInput?.active ? activeFocusedInput.text : '') ||
+    (input ? input.value : '');
+  if (!textToCopy) {
+    showToast('Nothing to copy yet');
+    return;
+  }
+  const ok = await writeToPhoneClipboard(textToCopy);
+  const src = activeFocusedInput?.appLabel || 'TV';
+  showToast(ok ? `Copied from ${src}` : 'Select text in box to copy');
+}
+
 async function submitText(submit: boolean): Promise<void> {
   const input = document.getElementById('remoteTextInput') as HTMLInputElement | null;
-  const text = input ? input.value.trim() : '';
+  const rawValue = input ? input.value : '';
+
+  if (activeFocusedInput?.active) {
+    const ok = await remoteService.updateTvInputField(rawValue, submit);
+    if (ok) {
+      isSearchInputDirty = false;
+      const appName = (activeFocusedInput.appLabel || '').trim() || 'TV';
+      if (!activeFocusedInput.isPassword) {
+        activeFocusedInput = { ...activeFocusedInput, text: rawValue };
+        lastSyncedTvInputSig = buildTvInputSyncSignature(activeFocusedInput);
+        renderFocusedInputState(activeFocusedInput);
+      }
+      showToast(submit ? `Sent to ${appName}` : `Updated ${appName}`);
+      if (submit) {
+        closeSheet('search');
+      }
+      setTimeout(() => void refreshStatus(), 260);
+    }
+    return;
+  }
+
+  const text = rawValue.trim();
   if (!text) {
     if (submit) await switchTvScreen(0, 'search');
     return;
   }
   const ok = await remoteService.sendText(text, submit);
   if (ok) {
+    isSearchInputDirty = false;
     showToast(submit ? `Unified Search on TV: ${text}` : 'Copied to TV clipboard');
     if (submit && input) {
       input.value = '';
+      updateCopyTvInputButtonVisibility();
       setTimeout(() => void refreshStatus(), 300);
     }
   }
@@ -1015,6 +1215,8 @@ async function pasteFromPhoneClipboard(): Promise<void> {
     const input = document.getElementById('remoteTextInput') as HTMLInputElement | null;
     if (clip && input) {
       input.value = clip;
+      isSearchInputDirty = true;
+      updateCopyTvInputButtonVisibility();
       showToast('Pasted from clipboard');
     }
   } catch {
@@ -1777,6 +1979,7 @@ function renderStatus(st: TvStatus | null): void {
   if (topLbl) {
     topLbl.textContent = `· ${scrName}`;
   }
+  renderFocusedInputState(st.focusedInput);
   const subEl = document.getElementById('tvSubText');
   if (subEl) {
     subEl.textContent =
@@ -2035,6 +2238,7 @@ function registerNativeCallbacksAndGlobals(): void {
     switchSubTab,
     sendKey,
     submitText,
+    copyTvInputToPhone,
     askGeminiAi,
     pasteFromPhoneClipboard,
     pasteToCastUrl,
@@ -2244,7 +2448,12 @@ function initTouchpad(): void {
   }
 
   // Enter key submits TV search or pairing code naturally from mobile keyboard
-  document.getElementById('remoteTextInput')?.addEventListener('keydown', (e) => {
+  const remoteInputEl = document.getElementById('remoteTextInput');
+  remoteInputEl?.addEventListener('input', () => {
+    isSearchInputDirty = true;
+    updateCopyTvInputButtonVisibility();
+  });
+  remoteInputEl?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       void submitText(true);

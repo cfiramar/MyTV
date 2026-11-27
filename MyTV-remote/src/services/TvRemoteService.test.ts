@@ -5,12 +5,14 @@ import {
   RemoteForbiddenError,
   RemoteUnauthorizedError,
   formatControllerBadgeLabel,
+  formatFocusedInputCue,
   formatGameSubtitle,
   getThemeColorMeta,
   resolveFallbackDockTab,
   resolveSmartHomeIconKind,
   resolveTabVisibility,
   resolveTouchpadTapAction,
+  resolveTvInputSyncDecision,
 } from './TvRemoteService';
 
 const MOCK_STATUS: TvStatus = {
@@ -947,5 +949,70 @@ describe('TvRemoteService', () => {
     expect(resolveTouchpadTapAction(0.5, 0.88)).toBe('down');
     expect(resolveTouchpadTapAction(0.12, 0.5)).toBe('left');
     expect(resolveTouchpadTapAction(0.88, 0.5)).toBe('right');
+  });
+
+  it('syncs focused TV input text (e.g. Netflix "mean gilrs"), protects active typing, and updates/clears TV fields', async () => {
+    const netflixInput = {
+      active: true,
+      text: 'mean gilrs',
+      hint: 'Search',
+      packageName: 'com.netflix.ninja',
+      appLabel: 'Netflix',
+      isPassword: false,
+      revision: 4,
+    };
+
+    // 1. Pre-fills "mean gilrs" on first sync
+    const first = resolveTvInputSyncDecision('', netflixInput, false);
+    expect(first.shouldSync).toBe(true);
+    expect(first.nextValue).toBe('mean gilrs');
+
+    // 2. Does not needlessly re-sync identical revision/text
+    const same = resolveTvInputSyncDecision(first.nextSig, netflixInput, false);
+    expect(same.shouldSync).toBe(false);
+
+    // 3. Protects unsent phone edits while user is actively fixing typo
+    const updatedTv = { ...netflixInput, text: 'mean gilrs 2', revision: 5 };
+    const protectedEdit = resolveTvInputSyncDecision(first.nextSig, updatedTv, true);
+    expect(protectedEdit.shouldSync).toBe(false);
+    expect(protectedEdit.nextSig).toBe(first.nextSig);
+
+    // 4. Redacts password fields & hides cue when inactive
+    const pwdCue = formatFocusedInputCue({ ...netflixInput, text: 'secret', isPassword: true });
+    expect(pwdCue).toEqual({
+      visible: true,
+      appLabel: 'Netflix',
+      previewText: 'Password field',
+      canCopy: false,
+    });
+    expect(formatFocusedInputCue(netflixInput)).toEqual({
+      visible: true,
+      appLabel: 'Netflix',
+      previewText: 'mean gilrs',
+      canCopy: true,
+    });
+    expect(formatFocusedInputCue({ active: false, text: '' }).visible).toBe(false);
+
+    // 5. Sends replaceInput:true to /api/text for both typo correction and clearing
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true, appliedToField: true }),
+    });
+    const service = new TvRemoteService('http://192.168.1.50:8484', mockFetch);
+
+    expect(await service.updateTvInputField('mean girls', true)).toBe(true);
+    expect(mockFetch).toHaveBeenCalledWith('http://192.168.1.50:8484/api/text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: 'mean girls', submit: true, replaceInput: true }),
+    });
+
+    expect(await service.updateTvInputField('', false)).toBe(true);
+    expect(mockFetch).toHaveBeenCalledWith('http://192.168.1.50:8484/api/text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: '', submit: false, replaceInput: true }),
+    });
   });
 });

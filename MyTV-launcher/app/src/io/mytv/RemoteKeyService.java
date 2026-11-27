@@ -11,6 +11,12 @@ import android.view.accessibility.AccessibilityEvent;
  */
 public class RemoteKeyService extends AccessibilityService {
     private final BluetoothPairingAssist pairingAssist = new BluetoothPairingAssist();
+    private final TvInputFieldSync inputFieldSync = new TvInputFieldSync();
+
+    @Override protected void onServiceConnected() {
+        super.onServiceConnected();
+        inputFieldSync.attach(this);
+    }
 
     @Override protected boolean onKeyEvent(KeyEvent event) {
         if (pairingAssist.onKeyEvent(this, event)) {
@@ -21,9 +27,16 @@ public class RemoteKeyService extends AccessibilityService {
 
     @Override public void onAccessibilityEvent(AccessibilityEvent event) {
         pairingAssist.onAccessibilityEvent(this, event);
+        inputFieldSync.onAccessibilityEvent(this, event);
     }
 
     @Override public void onInterrupt() {
         pairingAssist.onInterrupt();
+        inputFieldSync.onInterrupt();
+    }
+
+    @Override public void onDestroy() {
+        inputFieldSync.detach(this);
+        super.onDestroy();
     }
 }

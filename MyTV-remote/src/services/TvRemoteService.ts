@@ -237,6 +237,94 @@ export function formatGameSubtitle(
   return base;
 }
 
+export interface TvFocusedInput {
+  active: boolean;
+  text: string;
+  hint?: string;
+  packageName?: string;
+  appLabel?: string;
+  isPassword?: boolean;
+  revision?: number;
+  updatedAtMs?: number;
+}
+
+export interface TvInputSyncDecision {
+  shouldSync: boolean;
+  nextValue: string;
+  nextSig: string;
+}
+
+export interface FocusedInputCue {
+  visible: boolean;
+  appLabel: string;
+  previewText: string;
+  canCopy: boolean;
+}
+
+/**
+ * Builds a deterministic signature for a live TV focused input snapshot so the Companion Remote
+ * only pushes TV-originated updates into the phone keyboard when the TV text actually changes.
+ */
+export function buildTvInputSyncSignature(input?: TvFocusedInput | null): string {
+  if (!input || !input.active) return '';
+  const pkg = (input.packageName || '').trim();
+  const rev = typeof input.revision === 'number' ? input.revision : 0;
+  const pwd = input.isPassword ? '1' : '0';
+  const txt = input.isPassword ? '' : input.text || '';
+  return `${pkg}|${rev}|${pwd}|${txt}`;
+}
+
+/**
+ * Decides whether an incoming `/api/status` `focusedInput` snapshot should populate the phone's
+ * keyboard box, strictly avoiding clobbering unsent edits while the user is actively typing.
+ */
+export function resolveTvInputSyncDecision(
+  prevSyncSig: string,
+  incoming: TvFocusedInput | null | undefined,
+  isUserEditingDirty: boolean
+): TvInputSyncDecision {
+  if (!incoming || !incoming.active) {
+    return { shouldSync: false, nextValue: '', nextSig: '' };
+  }
+  const nextSig = buildTvInputSyncSignature(incoming);
+  if (nextSig === prevSyncSig) {
+    return { shouldSync: false, nextValue: '', nextSig };
+  }
+  if (isUserEditingDirty) {
+    return { shouldSync: false, nextValue: '', nextSig: prevSyncSig };
+  }
+  return {
+    shouldSync: true,
+    nextValue: incoming.isPassword ? '' : incoming.text || '',
+    nextSig,
+  };
+}
+
+/**
+ * Formats the whisper-quiet floating Liquid Glass input cue shown on the Remote tab only while
+ * a TV text field is actually focused (e.g. `Netflix · "mean gilrs"`).
+ */
+export function formatFocusedInputCue(input?: TvFocusedInput | null): FocusedInputCue {
+  if (!input || !input.active) {
+    return { visible: false, appLabel: '', previewText: '', canCopy: false };
+  }
+  const appLabel = (input.appLabel || '').trim() || 'TV';
+  if (input.isPassword) {
+    return { visible: true, appLabel, previewText: 'Password field', canCopy: false };
+  }
+  const rawText = input.text || '';
+  if (rawText.trim().length > 0) {
+    return { visible: true, appLabel, previewText: rawText, canCopy: true };
+  }
+  const hint = (input.hint || '').trim();
+  return {
+    visible: true,
+    appLabel,
+    previewText: hint || 'Type on TV...',
+    canCopy: false,
+  };
+}
+
 export interface TvStatus {
   tvModel: string;
   tvBrand: string;
@@ -250,6 +338,7 @@ export interface TvStatus {
   sideShelfOpen?: boolean;
   darkMode?: boolean;
   searchQuery?: string;
+  focusedInput?: TvFocusedInput;
   traktConnected?: boolean;
   traktUser?: string;
   controllerSummary?: string;
@@ -1148,6 +1237,19 @@ export class TvRemoteService {
       return false;
     }
     return this.postOk('/api/text', { text: trimmed, submit });
+  }
+
+  /**
+   * Replaces the contents of the currently focused editable field on the TV (including third-party
+   * apps such as Netflix, YouTube, or Stremio via MyTV's Accessibility service), supporting full
+   * typo corrections and empty-string clearing.
+   */
+  public async updateTvInputField(text: string, submit: boolean = false): Promise<boolean> {
+    return this.postOk('/api/text', {
+      text: text ?? '',
+      submit,
+      replaceInput: true,
+    });
   }
 
   /**

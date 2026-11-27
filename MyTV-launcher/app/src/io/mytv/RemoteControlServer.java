@@ -54,6 +54,9 @@ public final class RemoteControlServer {
         void onRemoteKey(int keyCode);
         void onRemoteScroll(int dx, int dy);
         void onRemoteText(String text, boolean submitSearch);
+        default void onRemoteText(String text, boolean submitSearch, boolean replaceInput) {
+            onRemoteText(text, submitSearch);
+        }
         void onRemoteVoiceCommand(String transcript);
         void onRemoteCastUrl(String url, String title, String sender);
         void onRemoteAction(String action);
@@ -63,6 +66,7 @@ public final class RemoteControlServer {
         default boolean isSideShelfOpen() { return false; }
         default boolean isDarkMode() { return true; }
         default String getSearchQuery() { return ""; }
+        default TvInputFieldSync.InputSnapshot getFocusedInput() { return null; }
     }
 
     static final String NATIVE_REMOTE_ORIGIN = "http://remote.mytv.local";
@@ -550,15 +554,28 @@ public final class RemoteControlServer {
             case "/api/text": {
                 final String text = req.optString("text", "");
                 final boolean submit = req.optBoolean("submit", false);
+                final boolean replaceInput = req.optBoolean("replaceInput", false);
+                final Host h = host;
+                final TvInputFieldSync.InputSnapshot hostInput = h != null ? h.getFocusedInput() : null;
+                final boolean useHostInput = h != null && hostInput != null && hostInput.active;
+                final TvInputFieldSync.InputSnapshot resolvedInput = resolveFocusedInput();
+                final boolean routeToAccessibility = !useHostInput
+                        && (h == null || (resolvedInput != null && resolvedInput.active));
                 mainHandler.post(() -> {
                     ClipboardManager cm = (ClipboardManager) appContext.getSystemService(Context.CLIPBOARD_SERVICE);
-                    if (cm != null) {
+                    if (cm != null && !text.isEmpty()) {
                         cm.setPrimaryClip(ClipData.newPlainText("MyTV Remote", text));
                     }
-                    Host h = host;
-                    if (h != null) h.onRemoteText(text, submit);
+                    if (routeToAccessibility) {
+                        TvInputFieldSync.dispatchSetTextBroadcast(appContext, text, submit);
+                    } else if (h != null) {
+                        h.onRemoteText(text, submit, replaceInput);
+                    }
                 });
-                sendJson(out, "200 OK", "{\"ok\":true}", corsOrigin);
+                JSONObject resp = new JSONObject();
+                resp.put("ok", true);
+                resp.put("appliedToField", useHostInput || routeToAccessibility);
+                sendJson(out, "200 OK", resp.toString(), corsOrigin);
                 break;
             }
             case "/api/voice": {
@@ -873,6 +890,20 @@ public final class RemoteControlServer {
         }
     }
 
+    private TvInputFieldSync.InputSnapshot resolveFocusedInput() {
+        Host h = host;
+        TvInputFieldSync.InputSnapshot hostSnap = h != null ? h.getFocusedInput() : null;
+        TvInputFieldSync.InputSnapshot extSnap = TvInputFieldSync.readSnapshot(appContext);
+        String selfPkg = appContext != null ? appContext.getPackageName() : "io.mytv";
+        return TvInputFieldSync.resolveActiveSnapshot(
+                h != null,
+                hostSnap,
+                extSnap,
+                selfPkg,
+                System.currentTimeMillis()
+        );
+    }
+
     private JSONObject buildStatusJson(RemoteAuthManager.PairedDevice caller) throws JSONException {
         JSONObject out = new JSONObject();
         TvDeviceProfile tv = TvDeviceProfile.current();
@@ -892,6 +923,18 @@ public final class RemoteControlServer {
         out.put("sideShelfOpen", h != null && h.isSideShelfOpen());
         out.put("darkMode", h == null || h.isDarkMode());
         out.put("searchQuery", h != null ? h.getSearchQuery() : "");
+
+        TvInputFieldSync.InputSnapshot focused = resolveFocusedInput();
+        JSONObject focusedJson = new JSONObject();
+        focusedJson.put("active", focused.active);
+        focusedJson.put("text", focused.text);
+        focusedJson.put("hint", focused.hint);
+        focusedJson.put("packageName", focused.packageName);
+        focusedJson.put("appLabel", focused.appLabel);
+        focusedJson.put("isPassword", focused.isPassword);
+        focusedJson.put("revision", focused.revision);
+        focusedJson.put("updatedAtMs", focused.updatedAtMs);
+        out.put("focusedInput", focusedJson);
 
         out.put("traktConnected", Trakt.hasOAuth(appContext));
         out.put("traktUser", Trakt.user(appContext));

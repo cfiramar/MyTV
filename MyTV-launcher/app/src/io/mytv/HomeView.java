@@ -2031,6 +2031,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         }
     }
 
+    private final Object hostFocusedInputLock = new Object();
+    private long hostFocusedInputRev = 1L;
+    private String lastHostFocusedInputSig = "";
+
     @Override public int getActiveScreen() { return activeScreen; }
     @Override public int getSubTab() { return subTab; }
     @Override public boolean isSideShelfOpen() { return sideShelfOpen; }
@@ -2038,10 +2042,69 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     @Override public String getSearchQuery() { return searchQuery != null ? searchQuery : ""; }
 
     @Override
-    public void onRemoteText(String text, boolean submitSearch) {
-        if (text == null || text.isEmpty()) return;
+    public TvInputFieldSync.InputSnapshot getFocusedInput() {
         if (lgModalOpen && lgModalIsInput) {
-            lgInputState.setText(text);
+            LiquidGlassInputState inputState = lgInputState;
+            boolean secret = inputState != null && inputState.isSecretMode();
+            String raw = inputState != null ? inputState.getText() : "";
+            String title = lgModalTitle != null ? lgModalTitle : "";
+            String safeText = TvInputFieldSync.extractSafeText(raw, title, false, secret);
+            long rev;
+            synchronized (hostFocusedInputLock) {
+                String sig = "modal|" + secret + "|" + title + "|" + safeText;
+                if (!sig.equals(lastHostFocusedInputSig)) {
+                    lastHostFocusedInputSig = sig;
+                    hostFocusedInputRev++;
+                }
+                rev = hostFocusedInputRev;
+            }
+            return new TvInputFieldSync.InputSnapshot(
+                    true,
+                    safeText,
+                    title,
+                    "io.mytv",
+                    "MyTV",
+                    secret,
+                    rev,
+                    System.currentTimeMillis()
+            );
+        }
+        if (activeScreen == SCREEN_SEARCH) {
+            String q = searchQuery != null ? searchQuery : "";
+            long rev;
+            synchronized (hostFocusedInputLock) {
+                String sig = "search|" + q;
+                if (!sig.equals(lastHostFocusedInputSig)) {
+                    lastHostFocusedInputSig = sig;
+                    hostFocusedInputRev++;
+                }
+                rev = hostFocusedInputRev;
+            }
+            return new TvInputFieldSync.InputSnapshot(
+                    true,
+                    q,
+                    "Search shows, movies, apps",
+                    "io.mytv",
+                    "MyTV Search",
+                    false,
+                    rev,
+                    System.currentTimeMillis()
+            );
+        }
+        return null;
+    }
+
+    @Override
+    public void onRemoteText(String text, boolean submitSearch) {
+        onRemoteText(text, submitSearch, false);
+    }
+
+    @Override
+    public void onRemoteText(String text, boolean submitSearch, boolean replaceInput) {
+        String safe = text != null ? text : "";
+        if (lgModalOpen && lgModalIsInput) {
+            if (!replaceInput && safe.isEmpty()) return;
+            lgInputState.setText(safe);
             syncHiddenEditFromInputState();
             toastLayer.invalidate();
             wake();
@@ -2050,12 +2113,26 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             }
             return;
         }
+        if (activeScreen == SCREEN_SEARCH && replaceInput) {
+            if (submitSearch) {
+                zone = Z_CARDS;
+                performUnifiedSearch(safe);
+            } else {
+                searchQuery = safe.trim();
+                rebuildScreenRows();
+                heroDirty = true;
+                heroLayer.invalidate();
+                wake();
+            }
+            return;
+        }
+        if (safe.isEmpty()) return;
         if (submitSearch) {
             selectScreen(SCREEN_SEARCH);
             zone = Z_CARDS;
-            performUnifiedSearch(text);
+            performUnifiedSearch(safe);
         } else {
-            showToast(Ui.tr("Copied to TV: ") + text);
+            showToast(Ui.tr("Copied to TV: ") + safe);
         }
     }
 

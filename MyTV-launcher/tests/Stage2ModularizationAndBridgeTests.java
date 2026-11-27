@@ -70,6 +70,7 @@ public final class Stage2ModularizationAndBridgeTests {
         testControllerPinkVsBlueTagIsolation();
         testBluetoothPairingAssistZeroIpcKeyFastPathAndBleSafeDiscoveryCap();
         testBackgroundPauseDebouncedSaveAndStreamingMemoryTrim();
+        testTvInputFieldSyncSnapshotPersistenceSecurityAndPrecedence();
         System.out.println("ALL " + passed + " STAGE 2 MODULARIZATION & BRIDGE ASSERTIONS PASSED.");
     }
 
@@ -584,6 +585,94 @@ public final class Stage2ModularizationAndBridgeTests {
         GamingZone.trimMemoryForStreaming();
         assertEquals(0, GamingZone.getCachedHeroBackdropCount(),
                 "GamingZone.trimMemoryForStreaming clears hero backdrop RAM cache before Moonlight MediaCodec starts");
+    }
+
+    private static void testTvInputFieldSyncSnapshotPersistenceSecurityAndPrecedence() throws Exception {
+        // 1. Safe text extraction: normal typo, hint suppression, and strict password redaction
+        assertEquals("mean gilrs",
+                TvInputFieldSync.extractSafeText("mean gilrs", "Search", false, false),
+                "extractSafeText preserves exact typed TV input text");
+        assertEquals("",
+                TvInputFieldSync.extractSafeText("Search movies & shows", "Search movies & shows", true, false),
+                "extractSafeText suppresses placeholder hint text when showingHint=true");
+        assertEquals("",
+                TvInputFieldSync.extractSafeText("SuperSecret99!", "Password", false, true),
+                "extractSafeText NEVER leaks password/PIN field characters");
+
+        // 2. Friendly app label resolution for popular Android TV streaming apps
+        assertEquals("Netflix", TvInputFieldSync.friendlyAppName("com.netflix.ninja", ""),
+                "Maps com.netflix.ninja to Netflix");
+        assertEquals("YouTube", TvInputFieldSync.friendlyAppName("com.google.android.youtube.tv", ""),
+                "Maps YouTube TV package to YouTube");
+        assertEquals("Stremio", TvInputFieldSync.friendlyAppName("com.stremio.one", ""),
+                "Maps Stremio package to Stremio");
+        assertEquals("Prime Video", TvInputFieldSync.friendlyAppName("com.amazon.amazonvideo.livingroom", ""),
+                "Maps Prime Video package cleanly");
+        assertEquals("Custom Media", TvInputFieldSync.friendlyAppName("com.example.custom", "Custom Media"),
+                "Prefers PackageManager label when non-empty");
+
+        // 3. JSON & atomic disk round-trip (including quotes/escaped chars)
+        long now = 1_760_000_000_000L;
+        TvInputFieldSync.InputSnapshot netflixSnap = new TvInputFieldSync.InputSnapshot(
+                true, "mean gilrs \"2004\"", "Search Netflix", "com.netflix.ninja", "Netflix", false, 7L, now);
+        File tmpDir = Files.createTempDirectory("mytv-input-sync-test").toFile();
+        try {
+            TvInputFieldSync.writeSnapshot(tmpDir, netflixSnap);
+            TvInputFieldSync.InputSnapshot loaded = TvInputFieldSync.readSnapshot(tmpDir);
+            assertTrue(loaded.active, "Persisted Netflix snapshot loads as active");
+            assertEquals("mean gilrs \"2004\"", loaded.text, "Round-trips quotes and spaces accurately");
+            assertEquals("Search Netflix", loaded.hint, "Round-trips hint accurately");
+            assertEquals("com.netflix.ninja", loaded.packageName, "Round-trips packageName");
+            assertEquals("Netflix", loaded.appLabel, "Round-trips appLabel");
+            assertEquals(7L, loaded.revision, "Round-trips monotonic revision");
+            assertTrue(!loaded.isPassword, "Round-trips isPassword=false");
+
+            // Password redaction defense-in-depth during deserialization
+            String forgedPasswordJson = "{\"active\":true,\"text\":\"1234\",\"hint\":\"PIN\","
+                    + "\"packageName\":\"com.netflix.ninja\",\"appLabel\":\"Netflix\","
+                    + "\"isPassword\":true,\"revision\":8,\"updatedAtMs\":" + now + "}";
+            TvInputFieldSync.InputSnapshot redacted = TvInputFieldSync.InputSnapshot.fromJsonString(forgedPasswordJson);
+            assertTrue(redacted.active && redacted.isPassword, "Password snapshot stays active+isPassword");
+            assertEquals("", redacted.text, "fromJsonString redacts text whenever isPassword=true");
+        } finally {
+            deleteRecursively(tmpDir);
+        }
+
+        // 4. Resolution precedence across Netflix (background host) vs MyTV foreground vs AlertDialog vs TTL expiry
+        TvInputFieldSync.InputSnapshot hostModal = new TvInputFieldSync.InputSnapshot(
+                true, "severance", "Search MyTV", "io.mytv", "MyTV", false, 3L, now);
+        TvInputFieldSync.InputSnapshot mytvDialog = new TvInputFieldSync.InputSnapshot(
+                true, "dune", "Search", "io.mytv", "MyTV", false, 4L, now);
+
+        TvInputFieldSync.InputSnapshot extWhileNetflixFg = TvInputFieldSync.resolveActiveSnapshot(
+                false, null, netflixSnap, "io.mytv", now + 2_000L);
+        assertTrue(extWhileNetflixFg.active && "Netflix".equals(extWhileNetflixFg.appLabel),
+                "Exposes Netflix focused input when MyTV host is backgrounded");
+
+        TvInputFieldSync.InputSnapshot staleNetflixOnHome = TvInputFieldSync.resolveActiveSnapshot(
+                true, null, netflixSnap, "io.mytv", now + 2_000L);
+        assertTrue(!staleNetflixOnHome.active,
+                "Hides stale third-party Netflix snapshot once MyTV Home is back in foreground");
+
+        TvInputFieldSync.InputSnapshot mytvAlertDialog = TvInputFieldSync.resolveActiveSnapshot(
+                true, null, mytvDialog, "io.mytv", now + 2_000L);
+        assertTrue(mytvAlertDialog.active && "dune".equals(mytvAlertDialog.text),
+                "Exposes MyTV AlertDialog EditText when packageName matches selfPackage");
+
+        TvInputFieldSync.InputSnapshot hostPreferred = TvInputFieldSync.resolveActiveSnapshot(
+                true, hostModal, netflixSnap, "io.mytv", now + 2_000L);
+        assertTrue(hostPreferred.active && "severance".equals(hostPreferred.text),
+                "Prefers live MyTV Host Liquid Glass input state when attached and active");
+
+        TvInputFieldSync.InputSnapshot expired = TvInputFieldSync.resolveActiveSnapshot(
+                false, null, netflixSnap, "io.mytv", now + TvInputFieldSync.SNAPSHOT_TTL_MS + 10_000L);
+        assertTrue(!expired.active, "Expires stale snapshots beyond SNAPSHOT_TTL_MS");
+
+        // 5. Submit action button detection
+        assertTrue(TvInputFieldSync.isSubmitButtonLabel("Search"), "Recognizes Search submit label");
+        assertTrue(TvInputFieldSync.isSubmitButtonLabel("Go"), "Recognizes Go submit label");
+        assertTrue(TvInputFieldSync.isSubmitButtonLabel("חיפוש"), "Recognizes Hebrew search submit label");
+        assertTrue(!TvInputFieldSync.isSubmitButtonLabel("Cancel"), "Rejects Cancel as submit label");
     }
 
     private static void collectAllNodes(SettingsTree.Node node, List<SettingsTree.Node> out) {

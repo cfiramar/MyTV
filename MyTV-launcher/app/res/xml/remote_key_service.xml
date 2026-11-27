@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Reads remote app keys and assists Bluetooth pairing dialog focus on Android 14. -->
+<!-- Reads remote app keys, assists Bluetooth pairing dialog focus, and syncs active TV text inputs to the Companion Remote. -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewFocused|typeViewTextChanged|typeViewTextSelectionChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagRequestFilterKeyEvents|flagRetrieveInteractiveWindows"
     android:canRetrieveWindowContent="true"

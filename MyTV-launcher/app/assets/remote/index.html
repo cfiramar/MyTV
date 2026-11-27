@@ -369,6 +369,7 @@
     }
 
     .orb-sm {
+      position: relative;
       width: 40px;
       height: 40px;
       border-radius: 50%;
@@ -379,6 +380,102 @@
       justify-content: center;
       cursor: pointer;
       transition: transform 0.13s ease, background 0.15s ease;
+    }
+
+    .orb-sm.has-live-input::after {
+      content: "";
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--mytv-blue);
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92);
+    }
+
+    /* Live Focused TV Input Cue (Hidden completely unless a TV input field is focused) */
+    .live-input-banner {
+      width: 100%;
+      flex-shrink: 0;
+      display: none;
+      align-items: center;
+      gap: 9px;
+      padding: 6px 8px 6px 12px;
+      border-radius: 18px;
+      cursor: pointer;
+      transition: transform 0.13s ease, background 0.15s ease;
+    }
+
+    .live-input-banner.visible {
+      display: flex;
+    }
+
+    .live-input-banner:active {
+      transform: scale(0.985);
+      background: var(--lg-surface-active);
+    }
+
+    .live-input-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--mytv-blue);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.24);
+      flex-shrink: 0;
+    }
+
+    .live-input-meta {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .live-input-app {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--ink-50);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .live-input-preview {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .live-input-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .live-input-icon-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      border: 1px solid var(--lg-border);
+      background: var(--row-bg);
+      color: var(--ink);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .live-input-icon-btn:active {
+      transform: scale(0.92);
     }
 
     .orb-sm:active {
@@ -440,7 +537,7 @@
     .nav-stage {
       width: 100%;
       flex: 1;
-      min-height: 240px;
+      min-height: 204px;
       position: relative;
       display: flex;
       align-items: center;
@@ -1575,31 +1672,37 @@
   </div>
 
   <!-- ========================================================================
-       SHEET 2: KEYBOARD, CLIPBOARD & GEMINI AI (1 Tap from Top Bar)
+       SHEET 2: KEYBOARD, LIVE TV INPUT EDITOR, CLIPBOARD & GEMINI AI
        ======================================================================== -->
   <div id="sheet-search" class="sheet-overlay" onclick="handleSheetBackdropClick(event, 'search')">
     <div class="sheet-card">
       <div class="sheet-handle"></div>
       <div class="sheet-head">
-        <div class="sheet-title">Keyboard &amp; AI Search</div>
-        <button class="orb-sm lg-sm" style="width:32px;height:32px;" onclick="closeSheet('search')" aria-label="Close">
+        <div style="min-width:0;">
+          <div id="searchSheetTitle" class="sheet-title">Keyboard &amp; AI Search</div>
+          <div id="searchSheetSub" class="sheet-sub" style="display:none;">Live TV input synced</div>
+        </div>
+        <button class="orb-sm lg-sm" style="width:32px;height:32px;flex-shrink:0;" onclick="closeSheet('search')" aria-label="Close">
           <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
       <div class="input-row">
-        <input id="remoteTextInput" class="text-input" type="text" placeholder="Type, search, or paste to TV..." />
-        <button class="btn" style="padding:10px;" onclick="pasteFromPhoneClipboard()" title="Paste from clipboard" aria-label="Paste">
+        <input id="remoteTextInput" class="text-input" type="text" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Type, search, or paste to TV..." />
+        <button id="copyTvInputBtn" class="btn" style="padding:10px; display:none;" onclick="copyTvInputToPhone(event)" title="Copy TV text to phone" aria-label="Copy TV text">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </button>
+        <button class="btn" style="padding:10px;" onclick="pasteFromPhoneClipboard()" title="Paste from phone clipboard" aria-label="Paste">
           <svg class="icon icon-sm" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
         </button>
       </div>
       <div class="grid-3">
-        <button class="btn pill-focus" onclick="submitText(true)">
+        <button id="searchPrimaryBtn" class="btn pill-focus" onclick="submitText(true)">
           <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <span>Search</span>
+          <span id="searchPrimaryLabel">Search</span>
         </button>
-        <button class="btn" onclick="submitText(false)">
-          <svg class="icon icon-sm" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          <span>Paste TV</span>
+        <button id="searchSecondaryBtn" class="btn" onclick="submitText(false)">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          <span id="searchSecondaryLabel">Paste TV</span>
         </button>
         <button class="btn btn-blue" onclick="askGeminiAi()">
           <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
@@ -1903,6 +2006,21 @@
            TAB 1: SERENE LIQUID GLASS REMOTE (Zero Text Bloat, Blind Thumb UX)
            ==================================================================== -->
       <main id="tab-remote" class="tab-pane active">
+        <!-- Contextual Live TV Input Cue (Only visible while a text field is focused on TV) -->
+        <div id="liveInputBanner" class="live-input-banner lg-sm" role="button" tabindex="0" onclick="openSearchSheet()" aria-label="Edit active TV text input">
+          <span class="live-input-dot"></span>
+          <div class="live-input-meta">
+            <span id="liveInputAppLabel" class="live-input-app">TV Input</span>
+            <span id="liveInputPreview" class="live-input-preview">Type on TV...</span>
+          </div>
+          <div class="live-input-actions">
+            <button id="liveInputCopyBtn" class="live-input-icon-btn" onclick="copyTvInputToPhone(event)" title="Copy TV text" aria-label="Copy TV text">
+              <svg class="icon icon-sm" style="width:14px;height:14px;" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+            <span class="btn pill-focus btn-chip" style="padding:5px 10px; font-size:11.5px; pointer-events:none;">Edit</span>
+          </div>
+        </div>
+
         <!-- Hero Sculpted Liquid Glass Clickpad <-> Circular D-Pad Ring -->
         <section id="navStage" class="nav-stage" data-pad-mode="pad">
           <div class="pad-mode-switch" role="group" aria-label="Navigation Mode">
