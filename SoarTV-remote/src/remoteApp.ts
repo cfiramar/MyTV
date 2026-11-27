@@ -25,6 +25,7 @@ import {
   formatGameSubtitle,
   formatPairingSheetCopy,
   getThemeColorMeta,
+  isIosStandaloneWebApp,
   pickBestDeviceNickname,
   resolveFallbackDockTab,
   resolveLiveMirrorDecision,
@@ -2827,6 +2828,18 @@ function initNativeAndBannerState(): void {
   const bannerSub = document.getElementById('installBannerSub');
   const apkLink = document.getElementById('apkDownloadLink');
   const iosBtn = document.getElementById('iosInstallGuideBtn');
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
+  const isStandalonePwa =
+    (typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(display-mode: standalone)').matches) ||
+    Boolean(
+      typeof navigator !== 'undefined' &&
+        (navigator as Navigator & { standalone?: boolean }).standalone
+    );
+  if (typeof document !== 'undefined') {
+    document.documentElement.classList.toggle('ios-standalone', isIosStandaloneWebApp(ua, isStandalonePwa));
+  }
   const platform = getInstallPlatform();
 
   if (platform === 'installed_app') {

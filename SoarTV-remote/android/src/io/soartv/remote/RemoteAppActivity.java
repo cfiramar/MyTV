@@ -149,6 +149,8 @@ public final class RemoteAppActivity extends Activity {
     private int qrConsecutiveHits = 0;
     private final byte[] qrLumaBuf = new byte[160 * 120];
     private boolean currentDarkTheme = true;
+    private int cachedSafeTopDp = 0;
+    private int cachedSafeBottomDp = 0;
 
     private static final int DARK_STATUS_BAR_COLOR = Color.parseColor("#0E1024");
     private static final int DARK_NAV_BAR_COLOR = Color.parseColor("#0A1522");
@@ -1353,6 +1355,8 @@ public final class RemoteAppActivity extends Activity {
             pageLoaded = trustedOriginActive;
             if (!trustedOriginActive) return;
 
+            deliverNativeSafeAreaInsetsToJs();
+
             String discovered = lastDiscoveredTvUrl;
             if (discovered != null && !discovered.isEmpty()) {
                 deliverDiscoveredTvToJs(discovered);
@@ -1495,6 +1499,17 @@ public final class RemoteAppActivity extends Activity {
         applySystemBarColors(dark);
     }
 
+    private void deliverNativeSafeAreaInsetsToJs() {
+        runOnUiThread(() -> {
+            if (webView == null || !trustedOriginActive || !pageLoaded) return;
+            String js = "(function(){var s=document.documentElement.style;"
+                    + "s.setProperty('--native-safe-top','" + cachedSafeTopDp + "px');"
+                    + "s.setProperty('--native-safe-bottom','" + cachedSafeBottomDp + "px');"
+                    + "})();";
+            webView.evaluateJavascript(js, null);
+        });
+    }
+
     @SuppressWarnings("deprecation")
     private void applySystemBarColors(boolean dark) {
         Window window = getWindow();
@@ -1502,15 +1517,34 @@ public final class RemoteAppActivity extends Activity {
         // Ensure DecorView is installed before touching WindowInsetsController (prevents Android 11-16 NPE)
         View decor = window.getDecorView();
         window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-        int statusBg = dark ? DARK_STATUS_BAR_COLOR : LIGHT_STATUS_BAR_COLOR;
-        int navBg = dark ? DARK_NAV_BAR_COLOR : LIGHT_NAV_BAR_COLOR;
-        window.setStatusBarColor(statusBg);
-        window.setNavigationBarColor(navBg);
+        window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS
+                | WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
+
+        // True seamless edge-to-edge: let the WebView's Twilight Aurora / Pearl Glass flow behind
+        // both the top status bar (including camera cutout) and bottom navigation/gesture bar.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            WindowManager.LayoutParams lp = window.getAttributes();
+            if (lp != null) {
+                lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+                window.setAttributes(lp);
+            }
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.setStatusBarContrastEnforced(false);
+            window.setNavigationBarContrastEnforced(false);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(false);
+        }
+        window.setStatusBarColor(Color.TRANSPARENT);
+        window.setNavigationBarColor(Color.TRANSPARENT);
+
+        int fallbackBg = dark ? DARK_STATUS_BAR_COLOR : LIGHT_STATUS_BAR_COLOR;
         if (webView != null) {
-            webView.setBackgroundColor(statusBg);
+            webView.setBackgroundColor(fallbackBg);
         }
         if (rootContainer != null) {
-            rootContainer.setBackgroundColor(statusBg);
+            rootContainer.setBackgroundColor(fallbackBg);
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             try {
@@ -1535,13 +1569,10 @@ public final class RemoteAppActivity extends Activity {
             } catch (RuntimeException ignored) {
             }
         } else if (decor != null) {
-            int flags = decor.getSystemUiVisibility();
-            if (dark) {
-                flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
-                }
-            } else {
+            int flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
+            if (!dark) {
                 flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
@@ -1552,30 +1583,45 @@ public final class RemoteAppActivity extends Activity {
     }
 
     /**
-     * Raises the WebView cleanly above the software keyboard on Android 11–16 even when OEM edge-to-edge
-     * mode ignores {@code adjustResize}, computing exact overlap so {@code adjustResize} never double-pads.
+     * Bridges true edge-to-edge status/nav bar safe-area insets into CSS ({@code --native-safe-top},
+     * {@code --native-safe-bottom}) while raising the WebView cleanly above the software keyboard on
+     * Android 11–16 without any solid-color bar seam or double padding.
      */
     private void installImeInsetsResizeListener() {
-        if (rootContainer == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return;
-        rootContainer.setOnApplyWindowInsetsListener((v, insets) -> {
-            int imeBottom = insets.getInsets(WindowInsets.Type.ime()).bottom;
-            int overlap = 0;
-            if (imeBottom > 0 && nativeQrOverlay == null) {
-                View root = v.getRootView();
-                int rootH = root != null ? root.getHeight() : 0;
-                int[] loc = new int[2];
-                v.getLocationInWindow(loc);
-                int viewBottom = loc[1] + v.getHeight();
-                int keyboardTop = rootH - imeBottom;
-                if (rootH > 0 && viewBottom > keyboardTop) {
-                    overlap = viewBottom - keyboardTop;
+        if (rootContainer == null) return;
+        final float density = Math.max(1f, getResources().getDisplayMetrics().density);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            rootContainer.setOnApplyWindowInsetsListener((v, insets) -> {
+                android.graphics.Insets sys = insets.getInsets(
+                        WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                int imeBottom = insets.getInsets(WindowInsets.Type.ime()).bottom;
+                int topDp = Math.max(0, Math.round(sys.top / density));
+                int bottomDp = imeBottom > 0 ? 0 : Math.max(0, Math.round(sys.bottom / density));
+                if (topDp != cachedSafeTopDp || bottomDp != cachedSafeBottomDp) {
+                    cachedSafeTopDp = topDp;
+                    cachedSafeBottomDp = bottomDp;
+                    deliverNativeSafeAreaInsetsToJs();
                 }
-            }
-            if (v.getPaddingBottom() != overlap) {
-                v.setPadding(0, 0, 0, overlap);
-            }
-            return insets;
-        });
+
+                int kbPad = (imeBottom > 0 && nativeQrOverlay == null) ? imeBottom : 0;
+                if (v.getPaddingTop() != 0 || v.getPaddingBottom() != kbPad) {
+                    v.setPadding(0, 0, 0, kbPad);
+                }
+                return WindowInsets.CONSUMED;
+            });
+            rootContainer.requestApplyInsets();
+        } else {
+            rootContainer.setOnApplyWindowInsetsListener((v, insets) -> {
+                @SuppressWarnings("deprecation")
+                int topPx = insets.getSystemWindowInsetTop();
+                @SuppressWarnings("deprecation")
+                int botPx = insets.getSystemWindowInsetBottom();
+                cachedSafeTopDp = Math.max(0, Math.round(topPx / density));
+                cachedSafeBottomDp = Math.max(0, Math.round(botPx / density));
+                deliverNativeSafeAreaInsetsToJs();
+                return insets;
+            });
+        }
     }
 
     private static boolean isPrintableAscii(String s) {

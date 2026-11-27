@@ -537,6 +537,15 @@ export function detectInstallPlatform(
 }
 
 /**
+ * Returns true when running inside an iOS / iPadOS Home Screen standalone web app so the UI adds
+ * extra top safe-area clearance below iOS's translucent status-bar progressive blur zone.
+ */
+export function isIosStandaloneWebApp(userAgent: string, isStandalonePwa: boolean): boolean {
+  if (!isStandalonePwa) return false;
+  return /iPhone|iPad|iPod/i.test(userAgent || '');
+}
+
+/**
  * Formats a clear, copy/share-ready invitation message containing the role, formatted 6-digit code,
  * direct LAN pairing link, and both Android (APK) + iPhone (Safari Home Screen) install guidance.
  */

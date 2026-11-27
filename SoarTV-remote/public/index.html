@@ -27,6 +27,7 @@
       --ink-36: rgba(255, 255, 255, 0.36);
 
       /* Deep Obsidian-Twilight Aurora (gives Liquid Glass optical depth & refraction) */
+      --canvas-solid: #090e1d;
       --canvas-bg:
         radial-gradient(ellipse 76% 50% at 8% 18%, rgba(102, 42, 168, 0.58) 0%, rgba(58, 24, 102, 0.28) 48%, transparent 78%),
         radial-gradient(ellipse 74% 48% at 92% 10%, rgba(10, 96, 164, 0.56) 0%, rgba(10, 56, 104, 0.28) 48%, transparent 78%),
@@ -103,6 +104,7 @@
       --ink-36: rgba(17, 24, 39, 0.34);
 
       /* Luminous Pearl Silk Aurora */
+      --canvas-solid: #f6f8fe;
       --canvas-bg:
         radial-gradient(ellipse 76% 50% at 8% 18%, rgba(196, 181, 253, 0.42) 0%, rgba(233, 213, 255, 0.16) 46%, transparent 76%),
         radial-gradient(ellipse 74% 48% at 92% 10%, rgba(125, 211, 252, 0.40) 0%, rgba(186, 230, 253, 0.15) 48%, transparent 78%),
@@ -178,16 +180,19 @@
     html, body {
       width: 100%;
       height: 100%;
-      height: 100dvh;
+      min-height: 100%;
       margin: 0;
       padding: 0;
       overflow: hidden;
       overscroll-behavior: none;
       -webkit-text-size-adjust: 100%;
+      background-color: var(--canvas-solid);
+      background: var(--canvas-bg);
     }
 
     body {
       font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI Variable", "Segoe UI", Roboto, sans-serif;
+      background-color: var(--canvas-solid);
       background: var(--canvas-bg);
       color: var(--ink);
       -webkit-font-smoothing: antialiased;
@@ -197,20 +202,26 @@
       transition: color 0.22s ease;
     }
 
-    /* Full 100dvh Mobile App Shell */
+    /* Full 100% Edge-to-Edge Mobile App Shell (Zero color seams on Android & zero status-bar blur overlap on iOS) */
     .app-shell {
       width: 100%;
       max-width: 440px;
       height: 100%;
-      height: 100dvh;
       display: flex;
       flex-direction: column;
       min-height: 0;
-      padding-top: max(env(safe-area-inset-top, 10px), 10px);
+      padding-top: calc(max(var(--native-safe-top, 0px), env(safe-area-inset-top, 0px)) + 10px);
       padding-left: max(env(safe-area-inset-left, 0px), 16px);
       padding-right: max(env(safe-area-inset-right, 0px), 16px);
-      padding-bottom: max(env(safe-area-inset-bottom, 10px), 10px);
+      padding-bottom: max(calc(var(--native-safe-bottom, 0px) + 8px), env(safe-area-inset-bottom, 10px), 10px);
       overflow: hidden;
+    }
+
+    /* iOS Home Screen standalone web apps apply a progressive translucent blur fade below safe-area-inset-top;
+       extra top clearance keeps the top pill & action buttons tack-sharp outside that fade zone. */
+    html.ios-standalone .app-shell {
+      padding-top: calc(env(safe-area-inset-top, 47px) + 24px);
+      padding-bottom: max(env(safe-area-inset-bottom, 20px), 20px);
     }
 
     /* Crisp 1.9px Monochrome Vector Icons (Zero Emojis) */
@@ -318,6 +329,8 @@
       gap: 10px;
       height: 44px;
       margin-bottom: clamp(8px, 1.4dvh, 14px);
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
     }
 
     .tv-pill-trigger {
@@ -1248,7 +1261,7 @@
       display: none;
       align-items: flex-end;
       justify-content: center;
-      padding: 12px 10px calc(max(env(safe-area-inset-bottom, 12px), 12px) + var(--kb-offset, 0px));
+      padding: 12px 10px calc(max(var(--native-safe-bottom, 0px), env(safe-area-inset-bottom, 12px), 12px) + var(--kb-offset, 0px));
       transition: padding-bottom 0.14s ease-out;
     }
 
@@ -1729,7 +1742,7 @@
     /* Toast */
     .toast {
       position: fixed;
-      top: max(env(safe-area-inset-top, 12px), 12px);
+      top: calc(max(var(--native-safe-top, 0px), env(safe-area-inset-top, 0px)) + 12px);
       left: 50%;
       transform: translateX(-50%) translateY(-90px);
       padding: 8px 16px;

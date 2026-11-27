@@ -322,6 +322,15 @@
         return 'desktop_browser';
     }
     /**
+     * Returns true when running inside an iOS / iPadOS Home Screen standalone web app so the UI adds
+     * extra top safe-area clearance below iOS's translucent status-bar progressive blur zone.
+     */
+    function isIosStandaloneWebApp(userAgent, isStandalonePwa) {
+        if (!isStandalonePwa)
+            return false;
+        return /iPhone|iPad|iPod/i.test(userAgent || '');
+    }
+    /**
      * Formats a clear, copy/share-ready invitation message containing the role, formatted 6-digit code,
      * direct LAN pairing link, and both Android (APK) + iPhone (Safari Home Screen) install guidance.
      */
@@ -3969,6 +3978,15 @@
         const bannerSub = document.getElementById('installBannerSub');
         const apkLink = document.getElementById('apkDownloadLink');
         const iosBtn = document.getElementById('iosInstallGuideBtn');
+        const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
+        const isStandalonePwa = (typeof window !== 'undefined' &&
+            typeof window.matchMedia === 'function' &&
+            window.matchMedia('(display-mode: standalone)').matches) ||
+            Boolean(typeof navigator !== 'undefined' &&
+                navigator.standalone);
+        if (typeof document !== 'undefined') {
+            document.documentElement.classList.toggle('ios-standalone', isIosStandaloneWebApp(ua, isStandalonePwa));
+        }
         const platform = getInstallPlatform();
         if (platform === 'installed_app') {
             if (b)

@@ -14,6 +14,7 @@ import {
   buildInviteShareText,
   detectInstallPlatform,
   extractInitialQrPairUrl,
+  isIosStandaloneWebApp,
   resolveFallbackDockTab,
   resolveLiveMirrorDecision,
   resolveLivePollIntervalMs,
@@ -1223,5 +1224,10 @@ describe('TvRemoteService', () => {
     expect(shareText).toContain('Wi-Fi');
     expect(shareText).toContain('iPhone');
     expect(shareText).toContain('Android');
+
+    // 4. iOS standalone Home Screen detection for top-bar blur clearance
+    expect(isIosStandaloneWebApp('Mozilla/5.0 (iPhone; CPU iPhone OS 18_3 like Mac OS X)', true)).toBe(true);
+    expect(isIosStandaloneWebApp('Mozilla/5.0 (iPhone; CPU iPhone OS 18_3 like Mac OS X)', false)).toBe(false);
+    expect(isIosStandaloneWebApp('Mozilla/5.0 (Linux; Android 16; Pixel 9 Pro)', true)).toBe(false);
   });
 });
