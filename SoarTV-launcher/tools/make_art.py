@@ -24,18 +24,18 @@ RGBFloat = Tuple[float, float, float]
 
 @dataclass(frozen=True)
 class TwilightAuroraPalette:
-    """Exact connected Twilight Aurora color tokens matching HomeView.sampleUnifiedAuroraColor."""
+    """Vibrant connected Twilight Aurora tokens (Option 2: Rich Twilight)."""
 
-    top_left: RGBFloat = (64.0, 30.0, 104.0)
-    top_right: RGBFloat = (10.0, 86.0, 146.0)
-    bottom_left: RGBFloat = (34.0, 24.0, 62.0)
-    bottom_right: RGBFloat = (18.0, 86.0, 90.0)
-    violet: RGBFloat = (109.0, 40.0, 217.0)
-    cyan: RGBFloat = (2.0, 132.0, 199.0)
-    teal: RGBFloat = (13.0, 148.0, 136.0)
-    magenta: RGBFloat = (157.0, 23.0, 77.0)
-    plum: RGBFloat = (74.0, 35.0, 112.0)
-    dark_scale: float = 0.80
+    top_left: RGBFloat = (78.0, 30.0, 134.0)
+    top_right: RGBFloat = (6.0, 106.0, 182.0)
+    bottom_left: RGBFloat = (42.0, 24.0, 86.0)
+    bottom_right: RGBFloat = (12.0, 108.0, 112.0)
+    violet: RGBFloat = (132.0, 42.0, 248.0)
+    cyan: RGBFloat = (0.0, 158.0, 232.0)
+    teal: RGBFloat = (12.0, 178.0, 162.0)
+    magenta: RGBFloat = (194.0, 28.0, 108.0)
+    plum: RGBFloat = (96.0, 36.0, 152.0)
+    dark_scale: float = 0.92
 
 
 class SoarTvArtGenerator:
