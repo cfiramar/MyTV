@@ -1,8 +1,10 @@
-# Local configuration, credentials, and signing keys stay ONLY on your machine (never committed)
+# Local configuration, credentials, TV backups, and signing keys stay ONLY on your machine (never committed)
 config.properties
 **/config.properties
 .setup_handoff.json
 **/.setup_handoff.json
+tv-backups/
+**/tv-backups/
 keys.txt
 **/keys.txt
 .env

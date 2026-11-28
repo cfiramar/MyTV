@@ -43,9 +43,16 @@ Follow this structured runbook when helping a human user install, configure, or 
 2. Set `enable_gaming=true` or `enable_gaming=false` and `enable_smarthome=true` or `enable_smarthome=false` explicitly to match the user's answer in Step 1.
 3. Fill in `city`, `latitude`, `longitude`, `tmdb_region`, and `temperature` for the user's city.
 
-### 3c. Inspect TV Brand, Build, Install & Sync Encrypted Secrets (Android TV / Google TV / Fire TV)
-1. Connect over ADB (`adb connect <TV_IP>:5555` — on Chromecast Android 14, pair via *Wireless debugging* `adb pair <ip:port> <code>` then `adb tcpip 5555`). Tell the user to accept *Allow debugging* on the TV screen.
-2. Run read-only brand checks (see [`tv-brand-adaptation.md`](tv-brand-adaptation.md)) and immediately run `adb disconnect`.
+### 3c. Back Up Initial Native TV State (`MANDATORY`), Inspect Brand, Build, Install & Sync Secrets (Android TV / Google TV / Fire TV)
+1. **Save an Immutable Local Backup of the TV's Initial Native State (`MANDATORY — BEFORE ANY INSTALL OR CHANGE`)**:
+   - Before installing `SoarTV.apk`, changing any `appops`/permissions, disabling any package, or switching Launcher Mode, connect once over ADB (on Chromecast / Android 14 streamers, pair via *Wireless debugging* `adb pair <ip:port> <code>` then `adb tcpip 5555`; tell the user to accept *Allow debugging* on the TV screen) and run:
+     ```bash
+     python3 SoarTV-launcher/tools/tv_state_backup.py <TV_IP> --backup
+     ```
+   - This runs **read-only** queries and writes an immutable local snapshot to git-ignored `tv-backups/<tv-model>-initial-native-state.json` (plus `<tv-model>-restore-notes.txt`), recording the TV's exact pre-SoarTV HOME launcher/role, enabled vs. natively disabled packages, screensaver settings, accessibility services, notification listeners, TV inputs, and Wi-Fi owner packages (never passwords), and immediately runs `adb disconnect`.
+   - **Never overwrite an existing initial backup** (do not pass `--force` if a pre-SoarTV backup for this TV already exists, and never treat a TV already running `io.soartv` as HOME as a clean initial snapshot).
+   - Verify the backup JSON file exists on disk and tell the user its saved local path before proceeding.
+2. Run any additional read-only brand checks (see [`tv-brand-adaptation.md`](tv-brand-adaptation.md)) and verify `adb devices` is empty (`adb disconnect`).
 3. Build (or download the signed GitHub Release APK for automatic OTA updates):
    - **Automatic OTA Self-Updates (Recommended when no custom Java/Smart-Home edits are needed)**: If the user has no custom Smart-Home brands or Java edits to compile in and a signed `SoarTV.apk` is published on GitHub Releases, you may install that release `SoarTV.apk` directly and push all private keys & tab flags with `send_key.py --sync-config` so the TV automatically receives future OTA releases (`Settings -> System -> Updates`).
    - **Local Build (Required if adding custom Smart-Home brands or local Java adjustments)**:
@@ -66,6 +73,7 @@ Follow this structured runbook when helping a human user install, configure, or 
 
 ### 3d. LG webOS & Samsung Tizen TVs
 - *Platform scope*: LG webOS and Samsung Tizen run the lightweight ES5 web launcher (`SoarTV-launcher/web/`: App Shelf, TMDB Movies/Shows/Explore picks, HDMI & Live TV switching, Open-Meteo weather, sunrise/sunset themes, and screensaver). Companion Remote (`port 8484`), Smart-Home Hub, PC Game Streaming, Gemini AI Search, and Trakt/Stremio sync are native Android TV (`SoarTV.apk`) features only.
+- *Native-state safety*: On LG webOS and Samsung Tizen, SoarTV installs as a standard third-party app without modifying or disabling system launchers or OS settings (uninstalling the app reverts completely; on LG webOS, `webos/apps.py` also saves a local `webos-apps.local.json` inventory).
 - **LG webOS** (webOS 3.0–24+; Python 3 + OpenSSH only, no LG CLI needed):
   ```bash
   cd SoarTV-launcher && python3 webos/build.py
@@ -108,3 +116,20 @@ Because optional tabs are modularly controlled by [`FeatureTabs.java`](../../Soa
    ```
    *(Or rebuild and install with `cd SoarTV-launcher && ./build.sh && adb install -r SoarTV.apk && adb disconnect` if build-time properties like `gaming_pc_hdmi` were also updated.)*
 3. Both the TV Top-Bar, TV Settings categories, and the Phone Companion Remote automatically surface the newly enabled tab immediately.
+
+---
+
+## 6. Emergency Recovery — Restoring the TV's Initial Native State
+
+If anything breaks or behaves unexpectedly after installing or switching to SoarTV on an Android TV / Google TV / Fire TV, restore the TV directly from the local pre-install snapshot saved in Step 3c (`tv-backups/<tv-model>-initial-native-state.json`):
+
+1. **Preview the exact restore plan (read-only)**:
+   ```bash
+   python3 SoarTV-launcher/tools/tv_state_backup.py <TV_IP> --restore tv-backups/<tv-model>-initial-native-state.json --dry-run
+   ```
+2. **Restore the TV to its recorded initial native state** (re-enables only packages that were enabled originally, strictly re-enables `launcherx` / original HOME **before** `com.google.android.tungsten.setupwraith`, restores screensaver, accessibility, and notification listeners, launches the native HOME screen, and disconnects ADB):
+   ```bash
+   python3 SoarTV-launcher/tools/tv_state_backup.py <TV_IP> --restore tv-backups/<tv-model>-initial-native-state.json
+   ```
+   *(Append `--uninstall-soartv` if the user also wants to remove `io.soartv` automatically after the original home screen is restored.)*
+3. **Verify ADB is disconnected**: Run `adb devices` and confirm no session remains held.

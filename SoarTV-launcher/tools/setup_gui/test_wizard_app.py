@@ -81,6 +81,7 @@ class SoarTvSetupStudioTests(unittest.TestCase):
         self.assertIn("192.168.1.42", p1)
         self.assertIn("hide the Smart Home tab", p1)
         self.assertIn("hide the Gaming tab", p1)
+        self.assertIn("tv_state_backup.py", p1)
 
         p2 = AgentPromptBuilder.build_prompt(
             tv_platform="android_tv",

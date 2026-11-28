@@ -339,7 +339,8 @@ class AgentPromptBuilder:
             f"Read `AGENTS.md` and `docs/agents/install-playbook.md` and help me install and configure SoarTV on my {plat}{ip_part}.{city_part}\n"
             f"{sh_line}\n"
             f"{gm_line}\n"
-            "Check any keys I already saved in `SoarTV-launcher/config.properties` / `.env` (never print secret values in chat), "
+            "First save an immutable local backup of my TV's initial native state (`python3 SoarTV-launcher/tools/tv_state_backup.py <TV_IP> --backup`) before making any changes, "
+            "check any keys I already saved in `SoarTV-launcher/config.properties` / `.env` (never print secret values in chat), "
             "guide me step-by-step for anything missing, verify my TV brand compatibility safely, build, and install SoarTV."
         )
 

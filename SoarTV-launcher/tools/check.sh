@@ -19,6 +19,7 @@ if [ "$what" = all ] || [ "$what" = android ]; then
   bash ./build.sh --generic
   bash tools/test-remote.sh
   "$PY_CMD" -m unittest discover -s tools/setup_gui -p "test_*.py"
+  "$PY_CMD" -m unittest discover -s tools -p "test_tv_state_backup.py"
 fi
 
 if [ "$what" = i18n ]; then

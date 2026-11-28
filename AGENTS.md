@@ -32,17 +32,24 @@ For step-by-step terminal commands, also read:
 
 Always ask the user before running any state-changing command on their TV. Installing `SoarTV.apk` (`adb install -r SoarTV.apk`) changes nothing on the TV until the user switches Launcher Mode inside **SoarTV -> Settings**.
 
-1. **Google TV `setupwraith` Ordering (Prevents Boot Loops)**:
+1. **Mandatory Pre-Install Local Native TV State Backup (`CRITICAL — DO THIS FIRST`)**:
+   - Before installing `SoarTV.apk`, modifying any `appops`/permissions, disabling any package, or switching Launcher Mode on an Android TV / Google TV / Fire TV, **ALWAYS** capture an immutable local backup of the TV's initial native state:
+     ```bash
+     python3 SoarTV-launcher/tools/tv_state_backup.py <TV_IP> --backup
+     ```
+   - This saves git-ignored `tv-backups/<tv-model>-initial-native-state.json` (plus `<tv-model>-restore-notes.txt`) with the TV's original HOME launcher/role, enabled vs. natively disabled packages, screensaver, accessibility services, notification listeners, TV inputs, and Wi-Fi owners (never passwords), and immediately runs `adb disconnect`.
+   - Never overwrite an existing pre-SoarTV backup (`--force`), confirm the saved path to the user before proceeding, and use `python3 SoarTV-launcher/tools/tv_state_backup.py <TV_IP> --restore tv-backups/<file>.json` if anything ever breaks.
+2. **Google TV `setupwraith` Ordering (Prevents Boot Loops)**:
    - On Google TV (`com.google.android.apps.tv.launcherx`), `com.google.android.tungsten.setupwraith` has a `RecoveryActivity` that hijacks `HOME` if `launcherx` is disabled while `setupwraith` remains enabled.
    - Switching **to SoarTV**: disable `setupwraith` **before** disabling `launcherx` (classic Android 9 TVs without `launcherx` leave `setupwraith` untouched).
    - Switching **to Original**: re-enable `launcherx` **before** re-enabling `setupwraith`.
    - Never disable stock launchers on brick-prone firmware listed in `HomeMode.BRICKS` (`R3_GTV`, Huawei / HarmonyOS).
-2. **Never Disable System Settings, Wi-Fi Owners, or TV Inputs**:
+3. **Never Disable System Settings, Wi-Fi Owners, or TV Inputs**:
    - Never uninstall or clear data on system packages (only reversible `pm disable-user --user 0` via `HomeMode`), and never disable `com.android.tv.settings`, TV input services (`dumpsys tv_input`), `wifiOwners`, accessibility services, or IMEs.
    - Keep brand-critical packages in `HomeMode.PROTECTED` (Xiaomi `com.xiaomi.mitv.tvplayer`, Sony `com.sony.dtv.*` & Bravia Sync, Philips Ambilight/TPV remote services, Skyworth/JVC, Hisense, Chromecast `SabrinaRemote`, Walmart `onn`).
    - On **Amazon Fire OS** (`HomeMode.AMAZON`), Fire OS reserves the Home button (`priority=950`); SoarTV runs via `FireHomeActivity` without disabling Amazon's launcher.
    - On **LG webOS & Samsung Tizen**, keep `SoarTV-launcher/web/*.js` and `webos/service/*.js` strictly ES5-compatible (no `let`/`const`, arrow functions, `Promise`, `fetch`, CSS Grid, CSS variables, or `backdrop-filter`).
-3. **Crash Watchdog & Disconnecting ADB Before Switching Modes**:
+4. **Crash Watchdog & Disconnecting ADB Before Switching Modes**:
    - Keep process isolation intact (`:home`, `:stream`, `:keys`, `:sleep`, and main `Watchdog`/`ModeJob` in [`AndroidManifest.xml`](SoarTV-launcher/app/AndroidManifest.xml)) so `Watchdog` can automatically restore the stock launcher over `127.0.0.1:5555` if `:home` ever crashes repeatedly.
    - **Always run `adb disconnect`** on the computer once installation finishes and before the user switches Launcher Mode on the TV — on Android 8–10, an active computer ADB session can intercept the TV's own `127.0.0.1:5555` loopback connection.
 

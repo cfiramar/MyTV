@@ -4,9 +4,15 @@ While SoarTV supports Xiaomi, TCL, Sony BRAVIA, Philips, Hisense, Skyworth/JVC, 
 
 ---
 
-## 1. Read-Only TV Inspection Commands
+## 1. Mandatory Initial Native State Backup & Read-Only TV Inspection
 
-Before modifying code for a new or unlisted Android TV / Google TV model, connect briefly over ADB, run these read-only commands, and **disconnect immediately** (`adb disconnect`):
+Before installing SoarTV or modifying any code for a new or unlisted Android TV / Google TV model, **always save an immutable local backup of the TV's initial native state first** (this captures device props, HOME role/activities, enabled & disabled packages, screensaver, accessibility, notification listeners, TV inputs, and Wi-Fi owners into git-ignored `tv-backups/<tv-model>-initial-native-state.json`, and immediately disconnects ADB):
+
+```bash
+python3 SoarTV-launcher/tools/tv_state_backup.py <TV_IP> --backup
+```
+
+If you need quick individual read-only inspection queries afterward, connect briefly over ADB and **disconnect immediately** (`adb disconnect`):
 
 ```bash
 adb connect <TV_IP>:5555

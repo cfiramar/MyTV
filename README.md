@@ -59,14 +59,14 @@ Modern smart TVs bury your favorite apps under rows of sponsored banners, auto-p
 
 You don't need to manually download files, edit configuration files, or know how to build Android apps. Just paste **one single prompt** into your AI coding agent (**Claude Code**, **Google Antigravity**, **Cursor**, **Codex**, or **Windsurf**):
 
-> Clone this SoarTV GitHub repository (`<paste this page's GitHub URL>`), read `AGENTS.md` and `docs/agents/install-playbook.md`, open the visual SoarTV Setup Studio (`python setup_wizard.py --wait-for-save`) so I can choose my options and free API keys comfortably, wait for me to click Save, and then install SoarTV on my TV.
+> Clone this SoarTV GitHub repository (`<paste this page's GitHub URL>`), read `AGENTS.md` and `docs/agents/install-playbook.md`, open the visual SoarTV Setup Studio (`python setup_wizard.py --wait-for-save`) so I can choose my options and free API keys comfortably, wait for me to click Save, save a local backup of my TV's initial native state (`tv_state_backup.py`) before making any changes, and then install SoarTV on my TV.
 
 ### What Happens Next (Zero Guesswork)
 
 1. **Your AI Agent Downloads SoarTV & Opens Setup Studio**: Your agent clones the repository and automatically opens **SoarTV Setup Studio** in your browser (styled just like the SoarTV TV app).
 2. **Pick Your Preferences & Free Keys Visually**: Inside Setup Studio, choose your TV OS, city, optional **Smart-Home** and **PC Gaming** tabs (with a native folder picker for standalone game folders and custom Smart-Home brand support), and paste your free **TMDB** key (plus any optional keys — every key has a **`?`** icon with real screenshots showing exactly where to get it).
 3. **Click `Save` — No Prompt Copying Needed**: When you click **Save & Continue Setup**, Setup Studio saves your keys privately on your computer (never uploaded anywhere), writes a local non-secret summary (`SoarTV-launcher/.setup_handoff.json`), closes automatically, and wakes your AI agent right back up.
-4. **Safe TV Install & Full Reversibility**: You turn on *Developer Debugging* on your TV once (see [Troubleshooting & Q&A](#troubleshooting--qa) below) and press **Allow** on your TV screen. Installing SoarTV changes nothing on your TV until *you* open SoarTV Settings and switch Launcher Mode from **Original** to **SoarTV** — and switching back to **Original** restores your factory home screen anytime.
+4. **Local Native TV Backup, Safe Install & Full Reversibility**: You turn on *Developer Debugging* on your TV once (see [Troubleshooting & Q&A](#troubleshooting--qa) below) and press **Allow** on your TV screen. Before touching anything on your TV, your AI agent saves a local backup of your TV's initial native state (`tv-backups/<tv-model>-initial-native-state.json`) so you can restore it anytime if anything ever breaks. Installing SoarTV changes nothing on your TV until *you* open SoarTV Settings and switch Launcher Mode from **Original** to **SoarTV** — and switching back to **Original** restores your factory home screen anytime.
 
 *(Prefer to open Setup Studio manually after cloning? Run `python setup_wizard.py`.)*
 
@@ -157,7 +157,7 @@ Every service supported by SoarTV offers a **free personal tier**. Click any gro
   2. Create your free **TMDB** key (and any optional keys you choose).
   3. Press **Allow** on your TV remote when the *"Allow USB/Wireless debugging?"* prompt appears on screen.
   4. *(Optional PC Gaming only)* Install Sunshine on your Windows PC and approve one Administrator setup step.
-- **What your AI agent does automatically**: Checks or installs build tools, configures `config.properties` / `.env`, inspects your TV brand for safety, compiles and installs `SoarTV.apk` (with the Phone Remote bundled inside), pushes your keys into hardware encryption, and disconnects cleanly.
+- **What your AI agent does automatically**: Checks or installs build tools, configures `config.properties` / `.env`, saves an immutable local backup of your TV's initial native state (`tv-backups/`), inspects your TV brand for safety, compiles and installs `SoarTV.apk` (with the Phone Remote bundled inside), pushes your keys into hardware encryption, and disconnects cleanly.
 
 </details>
 
@@ -225,7 +225,7 @@ Some TCL Google TV models block background jobs until **Auto-Start** is enabled 
 
 <br/>
 
-SoarTV never deletes or modifies system apps. Open **SoarTV -> Settings -> System -> Launcher Mode** and choose **Original TV Home** — your factory launcher returns right away. Always switch back to **Original** before uninstalling SoarTV.
+SoarTV never deletes or modifies system apps. Open **SoarTV -> Settings -> System -> Launcher Mode** and choose **Original TV Home** — your factory launcher returns right away. Always switch back to **Original** before uninstalling SoarTV. If anything ever prevents you from opening SoarTV Settings on the TV, your AI agent can restore your exact pre-install native TV state from the local backup saved during setup (`python3 SoarTV-launcher/tools/tv_state_backup.py <TV_IP> --restore tv-backups/<tv-model>-initial-native-state.json`).
 
 </details>
 
@@ -264,6 +264,7 @@ SoarTV/
 │   │   ├── setup_gui/              # Liquid Glass Desktop Setup Studio server, UI & unit tests
 │   │   ├── check.sh                # Full build, unit test, i18n & web compatibility runner
 │   │   ├── send_key.py             # Hardware-encrypted AndroidKeyStore secret sync over ADB
+│   │   ├── tv_state_backup.py      # Mandatory pre-install native TV state backup & safe emergency restore
 │   │   └── translate.py            # 26-language localization validator
 │   ├── config.example.properties   # Clean template for local build settings & optional tab flags
 │   └── build.sh                    # Fast zero-Gradle APK builder (SoarTV.apk + bundled SoarTV-Remote.apk)
